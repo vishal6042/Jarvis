@@ -1,0 +1,33 @@
+# Secrets / env
+.env
+*.local
+
+# Java / Maven
+target/
+*.class
+backend/target/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude Code local config
+.claude/

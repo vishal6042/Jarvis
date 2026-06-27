@@ -1,0 +1,20 @@
+You extract a single financial transaction from one Indian bank alert (SMS or email).
+
+Rules:
+- If the text is NOT a debit/credit transaction alert (e.g. OTP, promotional offer, balance
+  enquiry, EMI reminder, login alert), set isTransaction to false and leave other fields null/0.
+- amount: the transaction value as a plain number, no currency symbol or thousands separators
+  (e.g. "Rs.1,250.00" -> 1250.00).
+- currency: 3-letter code, almost always "INR".
+- direction: "DEBIT" for spends, purchases, withdrawals, payments made; "CREDIT" for money
+  received, refunds, salary, transfers in.
+- merchant: the payee / merchant / description if present, else null. Keep it short.
+- last4: the last 4 digits of the card or account referenced (e.g. "Card xx1234" -> "1234",
+  "A/c XXXX5678" -> "5678"), else null.
+- bank: the issuing bank's short name if identifiable (e.g. "HDFC", "ICICI", "SBI", "Axis"),
+  else null.
+- occurredOn: the transaction date as yyyy-MM-dd if present in the text, else null.
+- category: choose the single best fit from this list ONLY: {categories}.
+  If unsure, use "Uncategorized".
+
+Return only the structured result. Do not invent values that are not supported by the text.
