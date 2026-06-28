@@ -1,0 +1,52 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${JARVIS_DB_URL:jdbc:postgresql://localhost:5432/jarvis}
+    username: ${DB_USER:jarvis}
+    password: ${DB_PASSWORD:jarvis}
+  jpa:
+    hibernate:
+      ddl-auto: validate          # schema owned by Flyway
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: ${DB_SCHEMA:auth}
+  flyway:
+    enabled: true
+    # Each service owns a private schema inside the shared jarvis DB (created if absent).
+    schemas: ${DB_SCHEMA:auth}
+    default-schema: ${DB_SCHEMA:auth}
+
+jarvis:
+  security:
+    # Single-user MVP, seeded into app_user (BCrypt) on first start.
+    username: ${JARVIS_USER:jarvis}
+    password: ${JARVIS_PASSWORD:jarvis}
+    # JWT (HS256). Secret must be >= 32 bytes and identical across all services.
+    jwt-secret: ${JARVIS_JWT_SECRET:dev-only-change-me-please-32-bytes-minimum!!}
+    jwt-ttl-minutes: ${JARVIS_JWT_TTL_MINUTES:1440}
+    # Open endpoints for this service (actuator health/info are always open).
+    public-paths: /api/auth/**
+  cors:
+    allowed-origins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.jarvis: DEBUG

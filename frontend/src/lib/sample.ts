@@ -9,16 +9,36 @@ export const PERIOD_LABEL: Record<Period, string> = {
   year: "Year",
 };
 
-const POINTS: Record<Period, number> = { day: 24, week: 7, month: 30, year: 12 };
+const POINTS: Record<Period, number> = {
+  day: 24,
+  week: 7,
+  month: 30,
+  year: 12,
+};
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 export function pointLabels(period: Period): string[] {
   const n = POINTS[period];
-  if (period === "day") return Array.from({ length: n }, (_, i) => `${pad2(i)}:00`); // 00:00 … 23:00
-  if (period === "week") return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; // fixed weekdays
+  if (period === "day")
+    return Array.from({ length: n }, (_, i) => `${pad2(i)}:00`); // 00:00 … 23:00
+  if (period === "week")
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]; // fixed weekdays
   if (period === "year")
-    return ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
   return Array.from({ length: n }, (_, i) => `${i + 1}`); // month → day-of-month
 }
 
@@ -37,10 +57,16 @@ export function accountBalance(seed: number): number {
 }
 
 /** A numeric series for one entity (account/card) across the period. */
-export function valueSeries(period: Period, seed: number, base: number): number[] {
+export function valueSeries(
+  period: Period,
+  seed: number,
+  base: number,
+): number[] {
   const n = POINTS[period];
   const rnd = seeded(seed + n * 7);
-  return Array.from({ length: n }, () => Math.round(base * (0.35 + rnd() * 1.4)));
+  return Array.from({ length: n }, () =>
+    Math.round(base * (0.35 + rnd() * 1.4)),
+  );
 }
 
 export function hashId(s: string): number {
@@ -63,7 +89,13 @@ export const categoryBreakdown = [
 const MERCHANTS: Record<string, string[]> = {
   Food: ["Swiggy", "Zomato", "BigBasket", "Dominos", "Local Cafe", "Blinkit"],
   Shopping: ["Amazon", "Flipkart", "Myntra", "Croma", "IKEA"],
-  "Bills & Utilities": ["Airtel", "BESCOM", "ACT Fibernet", "Gas", "Water Board"],
+  "Bills & Utilities": [
+    "Airtel",
+    "BESCOM",
+    "ACT Fibernet",
+    "Gas",
+    "Water Board",
+  ],
   Transport: ["Uber", "Ola", "IndianOil", "Metro", "Rapido"],
   Entertainment: ["BookMyShow", "Netflix", "Spotify", "PVR", "Steam"],
   Health: ["Apollo Pharmacy", "PharmEasy", "Cult.fit", "1mg"],
@@ -77,12 +109,25 @@ export interface Expenditure {
 }
 
 /** Sample dated expenditures for a category within the selected period. */
-export function categoryTxns(category: string, period: Period, seed = 0): Expenditure[] {
+export function categoryTxns(
+  category: string,
+  period: Period,
+  seed = 0,
+): Expenditure[] {
   const merchants = MERCHANTS[category] ?? ["Misc"];
   const rnd = seeded(hashId(category) + seed + POINTS[period]);
-  const count = period === "day" ? 3 : period === "week" ? 8 : period === "month" ? 16 : 24;
-  const spanDays = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 365;
-  const baseAmt = category === "Food" ? 480 : category === "Shopping" ? 1600 : 700;
+  const count =
+    period === "day" ? 3 : period === "week" ? 8 : period === "month" ? 16 : 24;
+  const spanDays =
+    period === "day"
+      ? 1
+      : period === "week"
+        ? 7
+        : period === "month"
+          ? 30
+          : 365;
+  const baseAmt =
+    category === "Food" ? 480 : category === "Shopping" ? 1600 : 700;
   const out: Expenditure[] = Array.from({ length: count }, () => {
     const back = Math.floor(rnd() * spanDays);
     const dt = new Date();
@@ -97,9 +142,20 @@ export function categoryTxns(category: string, period: Period, seed = 0): Expend
 }
 
 // ---- Investments (FD/RD/PF/PPF/Post Office + Mutual Funds) ----
-export type InvestmentKind = "FD" | "RD" | "PPF" | "PF" | "NSC" | "KVP" | "SSY" | "MF";
+export type InvestmentKind =
+  | "FD"
+  | "RD"
+  | "PPF"
+  | "PF"
+  | "NSC"
+  | "KVP"
+  | "SSY"
+  | "MF";
 
-export const KIND_META: Record<InvestmentKind, { label: string; color: string }> = {
+export const KIND_META: Record<
+  InvestmentKind,
+  { label: string; color: string }
+> = {
   FD: { label: "Fixed Deposit", color: "#10b981" },
   RD: { label: "Recurring Deposit", color: "#14b8a6" },
   PPF: { label: "Public Provident Fund", color: "#8b5cf6" },
@@ -126,14 +182,92 @@ export interface Investment {
 
 export function seedInvestments(): Investment[] {
   return [
-    { id: "i1", kind: "FD", name: "HDFC Bank", principal: 200000, current: 214000, rate: 7.1, openingDate: "2024-03-15", commencementDate: "2024-03-15", maturityDate: "2027-03-15" },
-    { id: "i2", kind: "RD", name: "ICICI Bank", principal: 60000, current: 63200, rate: 6.8, sip: 5000, openingDate: "2025-01-01", commencementDate: "2025-01-01", maturityDate: "2026-12-01" },
-    { id: "i3", kind: "PPF", name: "SBI", principal: 450000, current: 512000, rate: 7.1, openingDate: "2016-04-01", commencementDate: "2016-04-01", maturityDate: "2031-04-01" },
-    { id: "i4", kind: "PF", name: "EPFO", principal: 380000, current: 421000, rate: 8.25, openingDate: "2018-07-01", commencementDate: "2018-07-01" },
-    { id: "i5", kind: "NSC", name: "Post Office", principal: 100000, current: 108000, rate: 7.7, openingDate: "2024-06-10", commencementDate: "2024-06-10", maturityDate: "2029-06-10" },
-    { id: "i6", kind: "SSY", name: "Post Office", principal: 150000, current: 168000, rate: 8.2, openingDate: "2023-01-20", commencementDate: "2023-01-20", maturityDate: "2038-01-20" },
-    { id: "i7", kind: "MF", name: "Parag Parikh Flexi Cap", principal: 120000, current: 158400, sip: 10000, openingDate: "2022-05-01", commencementDate: "2022-05-01" },
-    { id: "i8", kind: "MF", name: "UTI Nifty 50 Index", principal: 90000, current: 104200, sip: 5000, openingDate: "2023-02-01", commencementDate: "2023-02-01" },
+    {
+      id: "i1",
+      kind: "FD",
+      name: "HDFC Bank",
+      principal: 200000,
+      current: 214000,
+      rate: 7.1,
+      openingDate: "2024-03-15",
+      commencementDate: "2024-03-15",
+      maturityDate: "2027-03-15",
+    },
+    {
+      id: "i2",
+      kind: "RD",
+      name: "ICICI Bank",
+      principal: 60000,
+      current: 63200,
+      rate: 6.8,
+      sip: 5000,
+      openingDate: "2025-01-01",
+      commencementDate: "2025-01-01",
+      maturityDate: "2026-12-01",
+    },
+    {
+      id: "i3",
+      kind: "PPF",
+      name: "SBI",
+      principal: 450000,
+      current: 512000,
+      rate: 7.1,
+      openingDate: "2016-04-01",
+      commencementDate: "2016-04-01",
+      maturityDate: "2031-04-01",
+    },
+    {
+      id: "i4",
+      kind: "PF",
+      name: "EPFO",
+      principal: 380000,
+      current: 421000,
+      rate: 8.25,
+      openingDate: "2018-07-01",
+      commencementDate: "2018-07-01",
+    },
+    {
+      id: "i5",
+      kind: "NSC",
+      name: "Post Office",
+      principal: 100000,
+      current: 108000,
+      rate: 7.7,
+      openingDate: "2024-06-10",
+      commencementDate: "2024-06-10",
+      maturityDate: "2029-06-10",
+    },
+    {
+      id: "i6",
+      kind: "SSY",
+      name: "Post Office",
+      principal: 150000,
+      current: 168000,
+      rate: 8.2,
+      openingDate: "2023-01-20",
+      commencementDate: "2023-01-20",
+      maturityDate: "2038-01-20",
+    },
+    {
+      id: "i7",
+      kind: "MF",
+      name: "Parag Parikh Flexi Cap",
+      principal: 120000,
+      current: 158400,
+      sip: 10000,
+      openingDate: "2022-05-01",
+      commencementDate: "2022-05-01",
+    },
+    {
+      id: "i8",
+      kind: "MF",
+      name: "UTI Nifty 50 Index",
+      principal: 90000,
+      current: 104200,
+      sip: 5000,
+      openingDate: "2023-02-01",
+      commencementDate: "2023-02-01",
+    },
   ];
 }
 
@@ -156,14 +290,24 @@ export function investmentHistory(inv: Investment): HistoryPoint[] {
     dt.setMonth(dt.getMonth() - i);
     contributed += monthly;
     value = Math.round((value + monthly) * (1 + (0.002 + rnd() * 0.01)));
-    out.push({ date: dt.toISOString().slice(0, 10), contributed: Math.round(contributed), value });
+    out.push({
+      date: dt.toISOString().slice(0, 10),
+      contributed: Math.round(contributed),
+      value,
+    });
   }
   if (out.length) out[out.length - 1].value = inv.current;
   return out;
 }
 
 // ---- Loans ----
-export type LoanKind = "HOME" | "CAR" | "PERSONAL" | "EDUCATION" | "GOLD" | "BUSINESS";
+export type LoanKind =
+  | "HOME"
+  | "CAR"
+  | "PERSONAL"
+  | "EDUCATION"
+  | "GOLD"
+  | "BUSINESS";
 
 export const LOAN_META: Record<LoanKind, { label: string; color: string }> = {
   HOME: { label: "Home Loan", color: "#0ea5e9" },
@@ -190,8 +334,30 @@ export interface Loan {
 
 export function seedLoans(): Loan[] {
   return [
-    { id: "l1", kind: "HOME", lender: "HDFC Ltd", sanctioned: 5000000, outstanding: 3820000, emi: 42000, rate: 8.6, tenureMonths: 240, startDate: "2021-06-01", endDate: "2041-06-01" },
-    { id: "l2", kind: "CAR", lender: "ICICI Bank", sanctioned: 900000, outstanding: 412000, emi: 16500, rate: 9.2, tenureMonths: 60, startDate: "2023-03-01", endDate: "2028-03-01" },
+    {
+      id: "l1",
+      kind: "HOME",
+      lender: "HDFC Ltd",
+      sanctioned: 5000000,
+      outstanding: 3820000,
+      emi: 42000,
+      rate: 8.6,
+      tenureMonths: 240,
+      startDate: "2021-06-01",
+      endDate: "2041-06-01",
+    },
+    {
+      id: "l2",
+      kind: "CAR",
+      lender: "ICICI Bank",
+      sanctioned: 900000,
+      outstanding: 412000,
+      emi: 16500,
+      rate: 9.2,
+      tenureMonths: 60,
+      startDate: "2023-03-01",
+      endDate: "2028-03-01",
+    },
   ];
 }
 
@@ -211,9 +377,18 @@ export function loanHistory(loan: Loan): { date: string; balance: number }[] {
 }
 
 // ---- Calendar reminders ----
-export type ReminderType = "RENT" | "BILL" | "EMI" | "INVESTMENT" | "SIP" | "OTHER";
+export type ReminderType =
+  | "RENT"
+  | "BILL"
+  | "EMI"
+  | "INVESTMENT"
+  | "SIP"
+  | "OTHER";
 
-export const REMINDER_META: Record<ReminderType, { label: string; color: string }> = {
+export const REMINDER_META: Record<
+  ReminderType,
+  { label: string; color: string }
+> = {
   RENT: { label: "Rent", color: "#0ea5e9" },
   BILL: { label: "Bill", color: "#f59e0b" },
   EMI: { label: "EMI", color: "#ef4444" },
@@ -237,7 +412,8 @@ export interface ReminderOccurrence extends Reminder {
   occursOn: string; // yyyy-MM-dd
 }
 
-const isoDate = (dt: Date) => `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+const isoDate = (dt: Date) =>
+  `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
 
 /** Relative due text for a yyyy-MM-dd date: "Due today", "Due tomorrow", "Due in N days". */
 export function dueLabel(dateStr: string): string {
@@ -258,11 +434,46 @@ export function seedReminders(): Reminder[] {
     return isoDate(dt);
   };
   return [
-    { id: "r1", title: "House rent", date: d(2), type: "RENT", amount: 35000, repeat: "monthly" },
-    { id: "r2", title: "Home loan EMI", date: d(5), type: "EMI", amount: 42000, repeat: "monthly" },
-    { id: "r3", title: "Electricity bill", date: d(7), type: "BILL", amount: 2400, repeat: "none" },
-    { id: "r4", title: "Flexi Cap SIP", date: d(9), type: "SIP", amount: 10000, repeat: "monthly" },
-    { id: "r5", title: "Credit card bill", date: d(12), type: "BILL", amount: 18600, repeat: "monthly" },
+    {
+      id: "r1",
+      title: "House rent",
+      date: d(2),
+      type: "RENT",
+      amount: 35000,
+      repeat: "monthly",
+    },
+    {
+      id: "r2",
+      title: "Home loan EMI",
+      date: d(5),
+      type: "EMI",
+      amount: 42000,
+      repeat: "monthly",
+    },
+    {
+      id: "r3",
+      title: "Electricity bill",
+      date: d(7),
+      type: "BILL",
+      amount: 2400,
+      repeat: "none",
+    },
+    {
+      id: "r4",
+      title: "Flexi Cap SIP",
+      date: d(9),
+      type: "SIP",
+      amount: 10000,
+      repeat: "monthly",
+    },
+    {
+      id: "r5",
+      title: "Credit card bill",
+      date: d(12),
+      type: "BILL",
+      amount: 18600,
+      repeat: "monthly",
+    },
   ];
 }
 
@@ -270,7 +481,11 @@ export function seedReminders(): Reminder[] {
  * Next `count` future occurrences across all reminders, expanding monthly repeats
  * within `horizonDays`. Used by the dashboard clock widget and the Calendar "Upcoming" list.
  */
-export function upcomingReminders(items: Reminder[], count = 4, horizonDays = 120): ReminderOccurrence[] {
+export function upcomingReminders(
+  items: Reminder[],
+  count = 4,
+  horizonDays = 120,
+): ReminderOccurrence[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const until = new Date(today);
@@ -281,7 +496,8 @@ export function upcomingReminders(items: Reminder[], count = 4, horizonDays = 12
     if (r.repeat === "monthly") {
       const day = base.getDate();
       let dt = new Date(today.getFullYear(), today.getMonth(), day);
-      if (dt < today) dt = new Date(today.getFullYear(), today.getMonth() + 1, day);
+      if (dt < today)
+        dt = new Date(today.getFullYear(), today.getMonth() + 1, day);
       while (dt <= until) {
         if (dt >= base) out.push({ ...r, occursOn: isoDate(dt) });
         dt = new Date(dt.getFullYear(), dt.getMonth() + 1, day);
@@ -296,7 +512,11 @@ export function upcomingReminders(items: Reminder[], count = 4, horizonDays = 12
 }
 
 /** Reminder occurrences falling within a given month, keyed by date — for the Calendar grid. */
-export function occurrencesInMonth(items: Reminder[], year: number, month: number): Record<string, Reminder[]> {
+export function occurrencesInMonth(
+  items: Reminder[],
+  year: number,
+  month: number,
+): Record<string, Reminder[]> {
   const map: Record<string, Reminder[]> = {};
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthStart = new Date(year, month, 1);
@@ -304,7 +524,8 @@ export function occurrencesInMonth(items: Reminder[], year: number, month: numbe
     const base = new Date(`${r.date}T00:00:00`);
     if (r.repeat === "monthly") {
       // only from the month the reminder began onward
-      if (monthStart < new Date(base.getFullYear(), base.getMonth(), 1)) continue;
+      if (monthStart < new Date(base.getFullYear(), base.getMonth(), 1))
+        continue;
       const day = Math.min(base.getDate(), daysInMonth);
       const ds = `${year}-${pad2(month + 1)}-${pad2(day)}`;
       (map[ds] ??= []).push(r);

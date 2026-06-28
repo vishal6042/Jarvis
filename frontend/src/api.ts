@@ -2,8 +2,13 @@ import axios from "axios";
 import type {
   Account,
   AccountRequest,
+  CategorySpend,
+  ChatReply,
+  CreateTransactionRequest,
   LoginResponse,
+  PeriodSummary,
   Profile,
+  Transaction,
   UpdateProfileRequest,
 } from "./types";
 
@@ -46,10 +51,28 @@ export function isAuthed(): boolean {
 }
 
 // ---- Auth ----
+export interface RegisterPayload {
+  username: string;
+  password: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  baseCurrency?: string;
+  city?: string;
+}
+
 export async function login(username: string, password: string): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>("/api/auth/login", { username, password });
   setToken(data.token);
   return data;
+}
+/** First-run signup. Creates the account + profile; the user signs in afterwards (no token here). */
+export async function register(payload: RegisterPayload): Promise<void> {
+  await api.post("/api/auth/register", payload);
+}
+/** Whether an account already exists (drives signup-first on a fresh install). */
+export async function authExists(): Promise<boolean> {
+  return (await api.get<{ exists: boolean }>("/api/auth/exists")).data.exists;
 }
 export function logout(): void {
   clearToken();
@@ -75,6 +98,27 @@ export async function updateAccount(id: number, req: AccountRequest): Promise<Ac
 }
 export async function deleteAccount(id: number): Promise<void> {
   await api.delete(`/api/accounts/${id}`);
+}
+
+// ---- Transactions (expense-service) ----
+export async function listTransactions(page = 0, size = 50): Promise<Transaction[]> {
+  return (await api.get<Transaction[]>("/api/transactions", { params: { page, size } })).data;
+}
+export async function createTransaction(req: CreateTransactionRequest): Promise<Transaction> {
+  return (await api.post<Transaction>("/api/transactions", req)).data;
+}
+
+// ---- Analytics (expense-service) ----
+export async function analyticsSummary(from?: string, to?: string): Promise<PeriodSummary> {
+  return (await api.get<PeriodSummary>("/api/analytics/summary", { params: { from, to } })).data;
+}
+export async function analyticsByCategory(from?: string, to?: string): Promise<CategorySpend[]> {
+  return (await api.get<CategorySpend[]>("/api/analytics/by-category", { params: { from, to } })).data;
+}
+
+// ---- AI orchestrator ----
+export async function aiChat(message: string): Promise<string> {
+  return (await api.post<ChatReply>("/api/ai/chat", { message })).data.answer;
 }
 
 export default api;

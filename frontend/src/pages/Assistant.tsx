@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
+import { aiChat } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -30,18 +31,29 @@ export default function Assistant() {
     },
   ]);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function ask(text: string) {
+  async function ask(text: string) {
     const q = text.trim();
-    if (!q) return;
-    const reply = answerQuery(q, ctx);
-    setMessages((m) => [...m, { role: "user", text: q }, { role: "assistant", text: reply }]);
+    if (!q || busy) return;
+    setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
+    setBusy(true);
+    try {
+      // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
+      const answer = await aiChat(q);
+      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+    } catch {
+      // Backend unavailable → quick local heuristic over the on-device data.
+      setMessages((m) => [...m, { role: "assistant", text: answerQuery(q, ctx) }]);
+    } finally {
+      setBusy(false);
+    }
   }
 
   function onSubmit(e: FormEvent) {
@@ -58,7 +70,7 @@ export default function Assistant() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Assistant</h1>
           <p className="text-sm text-muted-foreground">
-            Quick answers from your data. (Local for now — connects to the AI agent later.)
+            Powered by your local AI agent — falls back to a quick on-device answer if it's offline.
           </p>
         </div>
       </div>
@@ -82,6 +94,20 @@ export default function Assistant() {
             </div>
           </div>
         ))}
+        {busy && (
+          <div className="flex justify-start gap-2">
+            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Bot className="size-4" />
+            </div>
+            <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-muted-foreground">
+              <span className="inline-flex gap-1">
+                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground" />
+              </span>
+            </div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
 
@@ -91,7 +117,8 @@ export default function Assistant() {
             <button
               key={s}
               onClick={() => ask(s)}
-              className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+              disabled={busy}
+              className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
             >
               {s}
             </button>
@@ -105,8 +132,9 @@ export default function Assistant() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your finances…"
           autoFocus
+          disabled={busy}
         />
-        <Button type="submit" size="icon" disabled={!input.trim()}>
+        <Button type="submit" size="icon" disabled={!input.trim() || busy}>
           <Send className="size-4" />
         </Button>
       </form>

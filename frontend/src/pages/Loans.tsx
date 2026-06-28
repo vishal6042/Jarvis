@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Banknote, CalendarClock, Landmark, Layers, Plus, Trash2 } from "lucide-react";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
-import { readLoans, useFamily, useLoans } from "@/lib/store";
+import { useFamily, useLoans } from "@/lib/store";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -207,10 +207,9 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 export default function Loans() {
-  const { activeMember, members } = useFamily();
+  const { activeMember } = useFamily();
   const isAll = activeMember.id === "all";
-  const { items: ownLoans, add, remove } = useLoans(isAll ? "self" : activeMember.id);
-  const all = isAll ? members.flatMap((m) => readLoans(m.id)) : ownLoans;
+  const { items: all, add, remove } = useLoans(isAll ? "all" : activeMember.id);
 
   const [kindFilter, setKindFilter] = useState<string>("all");
   const items = kindFilter === "all" ? all : all.filter((l) => l.kind === kindFilter);

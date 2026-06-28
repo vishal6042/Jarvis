@@ -1,0 +1,54 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ingestion-service
+  main:
+    web-application-type: servlet
+  datasource:
+    url: ${JARVIS_DB_URL:jdbc:postgresql://localhost:5432/jarvis}
+    username: ${DB_USER:jarvis}
+    password: ${DB_PASSWORD:jarvis}
+  jpa:
+    hibernate:
+      ddl-auto: validate          # schema owned by Flyway
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: ${DB_SCHEMA:ingestion}
+  flyway:
+    enabled: true
+    # Each service owns a private schema inside the shared jarvis DB (created if absent).
+    schemas: ${DB_SCHEMA:ingestion}
+    default-schema: ${DB_SCHEMA:ingestion}
+
+jarvis:
+  security:
+    jwt-secret: ${JARVIS_JWT_SECRET:dev-only-change-me-please-32-bytes-minimum!!}
+    jwt-ttl-minutes: ${JARVIS_JWT_TTL_MINUTES:1440}
+  internal:
+    key: ${JARVIS_INTERNAL_KEY:dev-internal-key-change-me}
+  ai:
+    base-url: ${AI_BASE_URL:lb://ai-orchestrator-service}
+  expense:
+    base-url: ${EXPENSE_BASE_URL:lb://expense-service}
+  cors:
+    allowed-origins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.jarvis: DEBUG

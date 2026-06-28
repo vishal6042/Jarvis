@@ -43,3 +43,48 @@ export interface LoginResponse {
   expiresInMinutes: number;
   username: string;
 }
+
+// ---- Transactions / analytics (expense-service) ----
+export type Direction = "DEBIT" | "CREDIT";
+export type TxnSource = "SMS" | "EMAIL" | "STATEMENT" | "MANUAL";
+
+export interface Transaction {
+  id: number;
+  accountId: number | null;
+  accountName: string | null;
+  amount: number;
+  currency: string;
+  direction: Direction;
+  merchant: string | null;
+  category: string | null;
+  occurredAt: string;
+  source: TxnSource;
+  note: string | null;
+}
+
+export interface CreateTransactionRequest {
+  accountId?: number;
+  amount: number;
+  currency?: string;
+  direction: Direction;
+  merchant?: string;
+  category?: string;
+  occurredAt?: string;
+  note?: string;
+}
+
+export interface PeriodSummary {
+  from: string;
+  to: string;
+  earning: number;
+  spend: number;
+}
+
+export interface CategorySpend {
+  category: string;
+  total: number;
+}
+
+export interface ChatReply {
+  answer: string;
+}

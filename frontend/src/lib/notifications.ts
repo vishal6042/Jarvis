@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { listAccounts } from "@/api";
 import type { Account } from "@/types";
 import { categoryBreakdown, dueLabel, REMINDER_META, upcomingReminders } from "@/lib/sample";
-import { readThresholds, useReminders } from "@/lib/store";
+import { useReminders, useThresholds } from "@/lib/store";
 import { formatINR } from "@/lib/format";
 
 export type NotifType = "payment" | "threshold" | "expiry";
@@ -34,6 +34,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
  */
 export function useNotifications() {
   const { items: reminders } = useReminders();
+  const { items: thresholds } = useThresholds();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [seen, setSeen] = useState<string[]>(() => loadSeen());
 
@@ -63,7 +64,6 @@ export function useNotifications() {
   }
 
   // 2. Category spend over threshold
-  const thresholds = readThresholds();
   for (const c of categoryBreakdown) {
     const limit = thresholds[c.name];
     if (limit && c.value > limit) {

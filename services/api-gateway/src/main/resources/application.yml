@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Route by path to each service, resolved through Eureka (lb://service-name).
+          routes:
+            - id: auth-service
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/**,/api/profile/**
+            - id: expense-service
+              uri: lb://expense-service
+              predicates:
+                - Path=/api/accounts/**,/api/transactions/**,/api/analytics/**
+            - id: ingestion-service
+              uri: lb://ingestion-service
+              predicates:
+                - Path=/api/ingest/**
+            - id: ai-orchestrator-service
+              uri: lb://ai-orchestrator-service
+              predicates:
+                - Path=/api/ai/**
+            - id: finance-service
+              uri: lb://finance-service
+              predicates:
+                - Path=/api/members/**,/api/investments/**,/api/loans/**,/api/reminders/**,/api/thresholds/**
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
+                allowedMethods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
+                allowedHeaders: [Authorization, Content-Type]
+
+jarvis:
+  security:
+    jwt-secret: ${JARVIS_JWT_SECRET:dev-only-change-me-please-32-bytes-minimum!!}
+    # Paths that bypass the edge JWT check (services still validate where applicable).
+    public-paths: /api/auth/**,/actuator/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.jarvis: DEBUG

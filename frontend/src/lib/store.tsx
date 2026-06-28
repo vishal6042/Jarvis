@@ -1,246 +1,406 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   type ReactNode,
 } from "react";
+import { isAuthed } from "@/api";
+import {
+  createInvestment,
+  createLoan,
+  createMember,
+  createReminder,
+  deleteInvestmentApi,
+  deleteLoanApi,
+  deleteMemberApi,
+  deleteReminderApi,
+  getInvestments,
+  getLoans,
+  getMembers,
+  getReminders,
+  getThresholds,
+  saveThresholdsApi,
+  updateInvestmentApi,
+  updateLoanApi,
+  updateMemberApi,
+  updateReminderApi,
+  type ApiInvestment,
+  type ApiLoan,
+  type ApiReminder,
+} from "@/lib/api/finance";
 import {
   hashId,
-  seedInvestments,
-  seedLoans,
-  seedReminders,
   type Investment,
   type InvestmentKind,
   type Loan,
+  type LoanKind,
   type Reminder,
+  type ReminderType,
 } from "./sample";
-
-// ---------- localStorage helpers ----------
-function load<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-function save<T>(key: string, value: T) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
 
 // ---------- Family members + active member ----------
 export interface FamilyMember {
-  id: string;
+  id: string; // String(backend member id)
   name: string;
   relation: string;
   email?: string;
 }
 
-const SELF: FamilyMember = { id: "self", name: "You", relation: "Self" };
 export const ALL_MEMBER: FamilyMember = { id: "all", name: "All members", relation: "All" };
 
-interface FamilyCtx {
+// ---------- mappers (backend ⇄ FE shapes; FE ids are stringified backend ids) ----------
+const toInv = (a: ApiInvestment): Investment => ({
+  id: String(a.id),
+  kind: a.kind as InvestmentKind,
+  name: a.name,
+  principal: a.principal,
+  current: a.current,
+  rate: a.rate ?? undefined,
+  sip: a.sip ?? undefined,
+  openingDate: a.openingDate ?? undefined,
+  commencementDate: a.commencementDate ?? undefined,
+  maturityDate: a.maturityDate ?? undefined,
+  notes: a.notes ?? undefined,
+});
+const toLoan = (a: ApiLoan): Loan => ({
+  id: String(a.id),
+  kind: a.kind as LoanKind,
+  lender: a.lender,
+  sanctioned: a.sanctioned,
+  outstanding: a.outstanding,
+  emi: a.emi,
+  rate: a.rate ?? 0,
+  tenureMonths: a.tenureMonths ?? 0,
+  startDate: a.startDate ?? undefined,
+  endDate: a.endDate ?? undefined,
+  notes: a.notes ?? undefined,
+});
+const toRem = (a: ApiReminder): Reminder => ({
+  id: String(a.id),
+  title: a.title,
+  date: a.date,
+  type: a.type as ReminderType,
+  amount: a.amount ?? undefined,
+  notes: a.notes ?? undefined,
+  repeat: (a.repeat as "none" | "monthly") ?? "none",
+});
+
+interface FinanceCtx {
+  loaded: boolean;
+  reload: () => void;
+  // family
   members: FamilyMember[];
   activeId: string;
   activeMember: FamilyMember;
   setActiveId: (id: string) => void;
-  addMember: (m: Omit<FamilyMember, "id">) => void;
-  updateMember: (id: string, m: Partial<FamilyMember>) => void;
-  removeMember: (id: string) => void;
-  /** numeric seed for sample data, derived from the active member */
   seed: number;
+  addMember: (m: Omit<FamilyMember, "id">) => Promise<void>;
+  updateMember: (id: string, patch: Partial<FamilyMember>) => Promise<void>;
+  removeMember: (id: string) => Promise<void>;
+  // raw data
+  rawInvestments: ApiInvestment[];
+  rawLoans: ApiLoan[];
+  rawReminders: ApiReminder[];
+  thresholds: Record<string, number>;
+  // mutations
+  addInvestment: (memberId: string, inv: Omit<Investment, "id">) => Promise<void>;
+  updateInvestment: (id: string, patch: Partial<Investment>) => Promise<void>;
+  removeInvestment: (id: string) => Promise<void>;
+  addLoan: (memberId: string, loan: Omit<Loan, "id">) => Promise<void>;
+  updateLoan: (id: string, patch: Partial<Loan>) => Promise<void>;
+  removeLoan: (id: string) => Promise<void>;
+  addReminder: (r: Omit<Reminder, "id">) => Promise<void>;
+  updateReminder: (id: string, patch: Partial<Reminder>) => Promise<void>;
+  removeReminder: (id: string) => Promise<void>;
+  setThresholdsState: (map: Record<string, number>) => void;
+  saveThresholds: (map: Record<string, number>) => Promise<void>;
 }
 
-const FamilyContext = createContext<FamilyCtx | null>(null);
+const Ctx = createContext<FinanceCtx | null>(null);
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
-  const [members, setMembers] = useState<FamilyMember[]>(() =>
-    load("jarvis_family", [SELF])
-  );
-  const [activeId, setActiveIdState] = useState<string>(() =>
-    load("jarvis_active_member", "all")
-  );
+  const [loaded, setLoaded] = useState(false);
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [activeId, setActiveId] = useState<string>("all");
+  const [rawInvestments, setRawInvestments] = useState<ApiInvestment[]>([]);
+  const [rawLoans, setRawLoans] = useState<ApiLoan[]>([]);
+  const [rawReminders, setRawReminders] = useState<ApiReminder[]>([]);
+  const [thresholds, setThresholds] = useState<Record<string, number>>({});
 
-  useEffect(() => save("jarvis_family", members), [members]);
-  useEffect(() => save("jarvis_active_member", activeId), [activeId]);
+  const reload = useCallback(() => {
+    if (!isAuthed()) return;
+    Promise.allSettled([
+      getMembers(),
+      getInvestments(),
+      getLoans(),
+      getReminders(),
+      getThresholds(),
+    ]).then(([m, i, l, r, t]) => {
+      if (m.status === "fulfilled")
+        setMembers(m.value.map((x) => ({ id: String(x.id), name: x.name, relation: x.relation, email: x.email ?? undefined })));
+      if (i.status === "fulfilled") setRawInvestments(i.value);
+      if (l.status === "fulfilled") setRawLoans(l.value);
+      if (r.status === "fulfilled") setRawReminders(r.value);
+      if (t.status === "fulfilled") setThresholds(t.value);
+      setLoaded(true);
+    });
+  }, []);
 
-  const setActiveId = (id: string) => setActiveIdState(id);
-
-  const addMember = (m: Omit<FamilyMember, "id">) =>
-    setMembers((prev) => [...prev, { ...m, id: `m${Date.now()}` }]);
-
-  const updateMember = (id: string, patch: Partial<FamilyMember>) =>
-    setMembers((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-
-  const removeMember = (id: string) => {
-    if (id === "self") return; // can't remove yourself
-    setMembers((prev) => prev.filter((x) => x.id !== id));
-    setActiveIdState((cur) => (cur === id ? "self" : cur));
-  };
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   const activeMember =
-    activeId === "all" ? ALL_MEMBER : members.find((m) => m.id === activeId) ?? SELF;
+    activeId === "all"
+      ? ALL_MEMBER
+      : members.find((m) => m.id === activeId) ?? members[0] ?? ALL_MEMBER;
+
+  // ----- members -----
+  const addMember = async (m: Omit<FamilyMember, "id">) => {
+    const saved = await createMember({ name: m.name, relation: m.relation, email: m.email ?? null });
+    setMembers((prev) => [...prev, { id: String(saved.id), name: saved.name, relation: saved.relation, email: saved.email ?? undefined }]);
+  };
+  const updateMember = async (id: string, patch: Partial<FamilyMember>) => {
+    const cur = members.find((x) => x.id === id);
+    if (!cur) return;
+    const saved = await updateMemberApi(Number(id), {
+      name: patch.name ?? cur.name,
+      relation: patch.relation ?? cur.relation,
+      email: (patch.email ?? cur.email) ?? null,
+    });
+    setMembers((prev) => prev.map((x) => (x.id === id ? { id: String(saved.id), name: saved.name, relation: saved.relation, email: saved.email ?? undefined } : x)));
+  };
+  const removeMember = async (id: string) => {
+    const cur = members.find((x) => x.id === id);
+    if (!cur || cur.relation === "Self") return; // never delete the primary member
+    await deleteMemberApi(Number(id));
+    setMembers((prev) => prev.filter((x) => x.id !== id));
+    setRawInvestments((prev) => prev.filter((x) => String(x.memberId) !== id));
+    setRawLoans((prev) => prev.filter((x) => String(x.memberId) !== id));
+    setActiveId((cur2) => (cur2 === id ? "all" : cur2));
+  };
+
+  // ----- investments -----
+  const addInvestment = async (memberId: string, inv: Omit<Investment, "id">) => {
+    const saved = await createInvestment({
+      memberId: Number(memberId),
+      kind: inv.kind,
+      name: inv.name,
+      principal: inv.principal,
+      current: inv.current,
+      rate: inv.rate ?? null,
+      sip: inv.sip ?? null,
+      openingDate: inv.openingDate ?? null,
+      commencementDate: inv.commencementDate ?? null,
+      maturityDate: inv.maturityDate ?? null,
+      notes: inv.notes ?? null,
+    });
+    setRawInvestments((prev) => [saved, ...prev]);
+  };
+  const updateInvestment = async (id: string, patch: Partial<Investment>) => {
+    const raw = rawInvestments.find((x) => String(x.id) === id);
+    if (!raw) return;
+    const saved = await updateInvestmentApi(raw.id, {
+      memberId: raw.memberId,
+      kind: patch.kind ?? raw.kind,
+      name: patch.name ?? raw.name,
+      principal: patch.principal ?? raw.principal,
+      current: patch.current ?? raw.current,
+      rate: patch.rate ?? raw.rate ?? null,
+      sip: patch.sip ?? raw.sip ?? null,
+      openingDate: patch.openingDate ?? raw.openingDate ?? null,
+      commencementDate: patch.commencementDate ?? raw.commencementDate ?? null,
+      maturityDate: patch.maturityDate ?? raw.maturityDate ?? null,
+      notes: patch.notes ?? raw.notes ?? null,
+    });
+    setRawInvestments((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
+  };
+  const removeInvestment = async (id: string) => {
+    await deleteInvestmentApi(Number(id));
+    setRawInvestments((prev) => prev.filter((x) => String(x.id) !== id));
+  };
+
+  // ----- loans -----
+  const addLoan = async (memberId: string, loan: Omit<Loan, "id">) => {
+    const saved = await createLoan({
+      memberId: Number(memberId),
+      kind: loan.kind,
+      lender: loan.lender,
+      sanctioned: loan.sanctioned,
+      outstanding: loan.outstanding,
+      emi: loan.emi,
+      rate: loan.rate ?? null,
+      tenureMonths: loan.tenureMonths ?? null,
+      startDate: loan.startDate ?? null,
+      endDate: loan.endDate ?? null,
+      notes: loan.notes ?? null,
+    });
+    setRawLoans((prev) => [saved, ...prev]);
+  };
+  const updateLoan = async (id: string, patch: Partial<Loan>) => {
+    const raw = rawLoans.find((x) => String(x.id) === id);
+    if (!raw) return;
+    const saved = await updateLoanApi(raw.id, {
+      memberId: raw.memberId,
+      kind: patch.kind ?? raw.kind,
+      lender: patch.lender ?? raw.lender,
+      sanctioned: patch.sanctioned ?? raw.sanctioned,
+      outstanding: patch.outstanding ?? raw.outstanding,
+      emi: patch.emi ?? raw.emi,
+      rate: patch.rate ?? raw.rate ?? null,
+      tenureMonths: patch.tenureMonths ?? raw.tenureMonths ?? null,
+      startDate: patch.startDate ?? raw.startDate ?? null,
+      endDate: patch.endDate ?? raw.endDate ?? null,
+      notes: patch.notes ?? raw.notes ?? null,
+    });
+    setRawLoans((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
+  };
+  const removeLoan = async (id: string) => {
+    await deleteLoanApi(Number(id));
+    setRawLoans((prev) => prev.filter((x) => String(x.id) !== id));
+  };
+
+  // ----- reminders -----
+  const addReminder = async (r: Omit<Reminder, "id">) => {
+    const saved = await createReminder({
+      title: r.title,
+      date: r.date,
+      type: r.type,
+      amount: r.amount ?? null,
+      notes: r.notes ?? null,
+      repeat: r.repeat ?? "none",
+    });
+    setRawReminders((prev) => [...prev, saved]);
+  };
+  const updateReminder = async (id: string, patch: Partial<Reminder>) => {
+    const raw = rawReminders.find((x) => String(x.id) === id);
+    if (!raw) return;
+    const saved = await updateReminderApi(raw.id, {
+      title: patch.title ?? raw.title,
+      date: patch.date ?? raw.date,
+      type: patch.type ?? raw.type,
+      amount: patch.amount ?? raw.amount ?? null,
+      notes: patch.notes ?? raw.notes ?? null,
+      repeat: patch.repeat ?? raw.repeat ?? "none",
+    });
+    setRawReminders((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
+  };
+  const removeReminder = async (id: string) => {
+    await deleteReminderApi(Number(id));
+    setRawReminders((prev) => prev.filter((x) => String(x.id) !== id));
+  };
+
+  // ----- thresholds -----
+  const setThresholdsState = (map: Record<string, number>) => setThresholds(map);
+  const saveThresholds = async (map: Record<string, number>) => {
+    const saved = await saveThresholdsApi(map);
+    setThresholds(saved);
+  };
 
   return (
-    <FamilyContext.Provider
+    <Ctx.Provider
       value={{
+        loaded,
+        reload,
         members,
         activeId,
         activeMember,
         setActiveId,
+        seed: hashId(activeId),
         addMember,
         updateMember,
         removeMember,
-        seed: hashId(activeId),
+        rawInvestments,
+        rawLoans,
+        rawReminders,
+        thresholds,
+        addInvestment,
+        updateInvestment,
+        removeInvestment,
+        addLoan,
+        updateLoan,
+        removeLoan,
+        addReminder,
+        updateReminder,
+        removeReminder,
+        setThresholdsState,
+        saveThresholds,
       }}
     >
       {children}
-    </FamilyContext.Provider>
+    </Ctx.Provider>
   );
 }
 
-export function useFamily(): FamilyCtx {
-  const ctx = useContext(FamilyContext);
-  if (!ctx) throw new Error("useFamily must be used within FamilyProvider");
+function useFinance(): FinanceCtx {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useFinance must be used within FamilyProvider");
   return ctx;
 }
 
-// ---------- Per-member investments ----------
-function seedFor(memberId: string): Investment[] {
-  if (memberId === "self") return seedInvestments();
-  // Other members start with a small generated set so monitoring shows something.
-  const h = hashId(memberId);
-  const kinds: InvestmentKind[] = ["FD", "PPF", "MF"];
-  return kinds.map((kind, i) => {
-    const principal = 50000 + ((h + i * 37) % 9) * 25000;
-    return {
-      id: `${memberId}-${kind}-${i}`,
-      kind,
-      name: kind === "MF" ? "Nifty 50 Index" : kind === "PPF" ? "SBI" : "HDFC Bank",
-      principal,
-      current: Math.round(principal * (1.05 + ((h + i) % 20) / 100)),
-      rate: kind === "MF" ? undefined : 7.1,
-      sip: kind === "MF" ? 5000 : undefined,
-      openingDate: "2023-04-01",
-      commencementDate: "2023-04-01",
-      maturityDate: kind === "MF" ? undefined : "2028-04-01",
-    };
-  });
+// ---------- Public hooks (same surface the pages already use) ----------
+export function useFamily() {
+  const c = useFinance();
+  return {
+    members: c.members,
+    activeId: c.activeId,
+    activeMember: c.activeMember,
+    setActiveId: c.setActiveId,
+    addMember: c.addMember,
+    updateMember: c.updateMember,
+    removeMember: c.removeMember,
+    seed: c.seed,
+    reload: c.reload,
+  };
 }
 
-/** Read a member's investments without subscribing (used to merge the "All" view). */
-export function readInvestments(memberId: string): Investment[] {
-  return load(`jarvis_investments_${memberId}`, seedFor(memberId));
-}
-
+/** memberId is a backend member id (as a string) or "all". */
 export function useInvestments(memberId: string) {
-  const key = `jarvis_investments_${memberId}`;
-  const [items, setItems] = useState<Investment[]>(() => load(key, seedFor(memberId)));
-
-  // reload when the member changes
-  useEffect(() => {
-    setItems(load(key, seedFor(memberId)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberId]);
-
-  useEffect(() => save(key, items), [key, items]);
-
-  const add = (inv: Omit<Investment, "id">) =>
-    setItems((prev) => [{ ...inv, id: `inv${Date.now()}` }, ...prev]);
-  const update = (id: string, patch: Partial<Investment>) =>
-    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const remove = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
-
-  return { items, add, update, remove };
-}
-
-// ---------- Per-member loans ----------
-function seedLoansFor(memberId: string): Loan[] {
-  if (memberId === "self") return seedLoans();
-  const h = hashId(memberId);
-  // Other members get a single representative loan.
-  const outstanding = 200000 + (h % 12) * 50000;
-  return [
-    {
-      id: `${memberId}-PERSONAL`,
-      kind: "PERSONAL",
-      lender: "Bajaj Finserv",
-      sanctioned: Math.round(outstanding * 1.4),
-      outstanding,
-      emi: Math.round(outstanding / 24),
-      rate: 11.5,
-      tenureMonths: 36,
-      startDate: "2024-01-01",
-      endDate: "2027-01-01",
-    },
-  ];
-}
-
-export function readLoans(memberId: string): Loan[] {
-  return load(`jarvis_loans_${memberId}`, seedLoansFor(memberId));
+  const c = useFinance();
+  const items: Investment[] = (memberId === "all"
+    ? c.rawInvestments
+    : c.rawInvestments.filter((x) => String(x.memberId) === memberId)
+  ).map(toInv);
+  return {
+    items,
+    add: (inv: Omit<Investment, "id">) => c.addInvestment(memberId, inv),
+    update: (id: string, patch: Partial<Investment>) => c.updateInvestment(id, patch),
+    remove: (id: string) => c.removeInvestment(id),
+  };
 }
 
 export function useLoans(memberId: string) {
-  const key = `jarvis_loans_${memberId}`;
-  const [items, setItems] = useState<Loan[]>(() => load(key, seedLoansFor(memberId)));
-
-  useEffect(() => {
-    setItems(load(key, seedLoansFor(memberId)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberId]);
-
-  useEffect(() => save(key, items), [key, items]);
-
-  const add = (loan: Omit<Loan, "id">) =>
-    setItems((prev) => [{ ...loan, id: `loan${Date.now()}` }, ...prev]);
-  const update = (id: string, patch: Partial<Loan>) =>
-    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const remove = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
-
-  return { items, add, update, remove };
+  const c = useFinance();
+  const items: Loan[] = (memberId === "all"
+    ? c.rawLoans
+    : c.rawLoans.filter((x) => String(x.memberId) === memberId)
+  ).map(toLoan);
+  return {
+    items,
+    add: (loan: Omit<Loan, "id">) => c.addLoan(memberId, loan),
+    update: (id: string, patch: Partial<Loan>) => c.updateLoan(id, patch),
+    remove: (id: string) => c.removeLoan(id),
+  };
 }
 
-// ---------- Category spend thresholds (settings) ----------
-const THRESHOLDS_KEY = "jarvis_thresholds";
-// Food default sits below its sample monthly spend so an "over budget" alert shows by default.
-const DEFAULT_THRESHOLDS: Record<string, number> = {
-  Food: 12000,
-  Shopping: 15000,
-  "Bills & Utilities": 10000,
-  Transport: 6000,
-  Entertainment: 5000,
-  Health: 5000,
-  Miscellaneous: 6000,
-};
-
-export function readThresholds(): Record<string, number> {
-  return { ...DEFAULT_THRESHOLDS, ...load(THRESHOLDS_KEY, {}) };
+export function useReminders() {
+  const c = useFinance();
+  return {
+    items: c.rawReminders.map(toRem),
+    add: c.addReminder,
+    update: c.updateReminder,
+    remove: c.removeReminder,
+  };
 }
 
 export function useThresholds() {
-  const [items, setItems] = useState<Record<string, number>>(() => readThresholds());
-  const setThreshold = (category: string, value: number) =>
-    setItems((prev) => ({ ...prev, [category]: value }));
-  // Persist explicitly (Settings has a Save button; later this POSTs to the backend).
-  const saveAll = (next: Record<string, number>) => {
-    setItems(next);
-    save(THRESHOLDS_KEY, next);
+  const c = useFinance();
+  return {
+    items: c.thresholds,
+    setThreshold: (category: string, value: number) =>
+      c.setThresholdsState({ ...c.thresholds, [category]: value }),
+    saveAll: c.saveThresholds,
   };
-  return { items, setThreshold, saveAll };
-}
-
-// ---------- Calendar reminders (household-wide) ----------
-export function useReminders() {
-  const key = "jarvis_reminders";
-  const [items, setItems] = useState<Reminder[]>(() => load(key, seedReminders()));
-  useEffect(() => save(key, items), [items]);
-
-  const add = (r: Omit<Reminder, "id">) =>
-    setItems((prev) => [...prev, { ...r, id: `rem${Date.now()}` }]);
-  const update = (id: string, patch: Partial<Reminder>) =>
-    setItems((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const remove = (id: string) => setItems((prev) => prev.filter((x) => x.id !== id));
-
-  return { items, add, update, remove };
 }

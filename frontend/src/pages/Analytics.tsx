@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, RadialBar, RadialBarChart, XAxis, YAxis } from "recharts";
+import { analyticsByCategory } from "@/api";
+import type { CategorySpend } from "@/types";
 import { ChevronRight, Layers, Trophy, Wallet, X } from "lucide-react";
 import {
   categoryBreakdown,
@@ -59,10 +61,26 @@ export default function Analytics() {
   const [selected, setSelected] = useState<string | null>(null);
 
   const factor = PERIOD_FACTOR[period];
-  const data = useMemo(
-    () => categoryBreakdown.map((c) => ({ name: c.name, value: Math.round(c.value * factor) })),
-    [factor]
-  );
+
+  // Real spend-by-category from expense-service for the selected window; falls back to sample.
+  const [remote, setRemote] = useState<CategorySpend[] | null>(null);
+  useEffect(() => {
+    const days = period === "day" ? 1 : period === "week" ? 7 : period === "month" ? 30 : 365;
+    const to = new Date();
+    const from = new Date(to.getTime() - days * 86400000);
+    let alive = true;
+    analyticsByCategory(from.toISOString(), to.toISOString())
+      .then((rows) => alive && setRemote(rows && rows.length ? rows : null))
+      .catch(() => alive && setRemote(null));
+    return () => {
+      alive = false;
+    };
+  }, [period]);
+
+  const data = useMemo(() => {
+    if (remote) return remote.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) }));
+    return categoryBreakdown.map((c) => ({ name: c.name, value: Math.round(c.value * factor) }));
+  }, [remote, factor]);
   const total = data.reduce((s, c) => s + c.value, 0);
 
   const drill = useMemo(

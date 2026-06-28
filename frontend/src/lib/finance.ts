@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Account } from "@/types";
-import { listAccounts } from "@/api";
+import type { Account, PeriodSummary } from "@/types";
+import { analyticsSummary, listAccounts } from "@/api";
 import { accountBalance, hashId, valueSeries, type Investment, type Loan } from "./sample";
-import { readInvestments, readLoans, useFamily, useInvestments, useLoans } from "./store";
+import { useFamily, useInvestments, useLoans } from "./store";
 
 export interface FinanceSummary {
   accounts: Account[];
@@ -25,15 +25,15 @@ export function useFinanceSummary(): FinanceSummary {
   const { seed, activeId, activeMember, members } = useFamily();
   const isAll = activeId === "all";
 
-  const { items: ownInv } = useInvestments(isAll ? "self" : activeMember.id);
-  const investmentsList = isAll ? members.flatMap((m) => readInvestments(m.id)) : ownInv;
-
-  const { items: ownLoans } = useLoans(isAll ? "self" : activeMember.id);
-  const loans = isAll ? members.flatMap((m) => readLoans(m.id)) : ownLoans;
+  const { items: investmentsList } = useInvestments(isAll ? "all" : activeMember.id);
+  const { items: loans } = useLoans(isAll ? "all" : activeMember.id);
 
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [remote, setRemote] = useState<PeriodSummary | null>(null);
   useEffect(() => {
-    listAccounts().then(setAccounts);
+    listAccounts().then(setAccounts).catch(() => setAccounts([]));
+    // This month's real earning/spend from expense-service (used when transactions exist).
+    analyticsSummary().then(setRemote).catch(() => setRemote(null));
   }, []);
   const savingsAccounts = accounts.filter((a) => a.type === "SAVINGS");
 
@@ -45,6 +45,13 @@ export function useFinanceSummary(): FinanceSummary {
     earning += valueSeries("month", s + 1, 3200).reduce((a, b) => a + b, 0);
     spend += valueSeries("month", s + 2, 1800).reduce((a, b) => a + b, 0);
     savings += savingsAccounts.reduce((sum, a) => sum + accountBalance(s + hashId(String(a.id))), 0);
+  }
+
+  // Prefer real backend figures for the primary user once any transactions are recorded.
+  const hasRemote = remote != null && (Number(remote.earning) > 0 || Number(remote.spend) > 0);
+  if (hasRemote && (isAll || activeMember.relation === "Self")) {
+    earning = Number(remote!.earning);
+    spend = Number(remote!.spend);
   }
 
   const investments = investmentsList.reduce((sum, i) => sum + i.current, 0);

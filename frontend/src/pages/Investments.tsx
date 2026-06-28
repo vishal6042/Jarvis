@@ -7,7 +7,7 @@ import {
   type Investment,
   type InvestmentKind,
 } from "@/lib/sample";
-import { readInvestments, useFamily, useInvestments } from "@/lib/store";
+import { useFamily, useInvestments } from "@/lib/store";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -225,10 +225,9 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 export default function Investments() {
-  const { activeMember, members } = useFamily();
+  const { activeMember } = useFamily();
   const isAll = activeMember.id === "all";
-  const { items: ownItems, add, remove } = useInvestments(isAll ? "self" : activeMember.id);
-  const allItems = isAll ? members.flatMap((m) => readInvestments(m.id)) : ownItems;
+  const { items: allItems, add, remove } = useInvestments(isAll ? "all" : activeMember.id);
   const [kindFilter, setKindFilter] = useState<string>("all");
   const items = kindFilter === "all" ? allItems : allItems.filter((i) => i.kind === kindFilter);
   const [addOpen, setAddOpen] = useState(false);

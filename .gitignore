@@ -5,7 +5,7 @@
 # Java / Maven
 target/
 *.class
-backend/target/
+services/**/target/
 
 # Node / frontend
 node_modules/

@@ -1,0 +1,61 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ai-orchestrator-service
+  main:
+    # Both web (via common-security) and webflux (WebClient) are on the classpath — be a servlet app.
+    web-application-type: servlet
+  profiles:
+    active: ${JARVIS_PROFILE:local}
+
+jarvis:
+  ai:
+    parser-model: ${JARVIS_PARSER_MODEL:qwen3.5:9b}
+    agent-model: ${JARVIS_AGENT_MODEL:qwen3.5:27b}
+    # Allowed categories for the parser (kept in config so this service stays stateless).
+    categories: Food, Shopping, Bills & Utilities, Transport, Entertainment, Health, Transfers, Income, Uncategorized
+  security:
+    jwt-secret: ${JARVIS_JWT_SECRET:dev-only-change-me-please-32-bytes-minimum!!}
+    jwt-ttl-minutes: ${JARVIS_JWT_TTL_MINUTES:1440}
+    public-paths: /internal/**
+  internal:
+    key: ${JARVIS_INTERNAL_KEY:dev-internal-key-change-me}
+  expense:
+    base-url: ${EXPENSE_BASE_URL:lb://expense-service}
+  cors:
+    allowed-origins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    com.jarvis: DEBUG
+
+---
+# ===== local profile: Ollama (default, ₹0) =====
+spring:
+  config:
+    activate:
+      on-profile: local
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      init:
+        pull-model-strategy: never   # we manage `ollama pull` ourselves
+      chat:
+        options:
+          model: ${JARVIS_AGENT_MODEL:qwen3.5:27b}
+          temperature: 0.1

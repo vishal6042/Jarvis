@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
 import { categoryBreakdown } from "@/lib/sample";
 import { useThresholds } from "@/lib/store";
@@ -14,6 +14,11 @@ export default function Settings() {
   const { items, saveAll } = useThresholds();
   const [draft, setDraft] = useState<Record<string, number>>(items);
   const [saved, setSaved] = useState(false);
+
+  // Thresholds load from the backend after mount — sync the draft when they arrive.
+  useEffect(() => {
+    setDraft(items);
+  }, [items]);
 
   const dirty = categoryBreakdown.some((c) => (draft[c.name] ?? 0) !== (items[c.name] ?? 0));
 
