@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
 import Accounts from "@/pages/Accounts";
+import Import from "@/pages/Import";
 import Investments from "@/pages/Investments";
 import Loans from "@/pages/Loans";
 import Calendar from "@/pages/Calendar";
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
       <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
       <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
+      <Route path="/import" element={<Protected><Import /></Protected>} />
       <Route path="/investments" element={<Protected><Investments /></Protected>} />
       <Route path="/loans" element={<Protected><Loans /></Protected>} />
       <Route path="/calendar" element={<Protected><Calendar /></Protected>} />

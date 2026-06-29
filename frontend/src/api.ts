@@ -8,6 +8,7 @@ import type {
   LoginResponse,
   PeriodSummary,
   Profile,
+  StatementImportResult,
   Transaction,
   UpdateProfileRequest,
 } from "./types";
@@ -119,6 +120,17 @@ export async function analyticsByCategory(from?: string, to?: string): Promise<C
 // ---- AI orchestrator ----
 export async function aiChat(message: string): Promise<string> {
   return (await api.post<ChatReply>("/api/ai/chat", { message })).data.answer;
+}
+
+// ---- Statement import (ingestion-service) ----
+export async function importStatement(file: File): Promise<StatementImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await api.post<StatementImportResult>("/api/ingest/statement", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+    timeout: 300000, // statement parsing can take a while on a local model
+  });
+  return data;
 }
 
 export default api;

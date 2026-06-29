@@ -98,8 +98,10 @@ public class TransactionService {
         t.setSource(req.source() == null ? MessageSource.SMS : req.source());
         t.setSourceRef(req.sourceRef());
 
-        // Match the account by last-4; only auto-link when it is unambiguous.
-        if (req.last4() != null && !req.last4().isBlank()) {
+        // Prefer an explicit account (statement import); else match by last-4 when unambiguous.
+        if (req.accountId() != null) {
+            accounts.findById(req.accountId()).ifPresent(t::setAccount);
+        } else if (req.last4() != null && !req.last4().isBlank()) {
             List<Account> matches = accounts.findByLast4(req.last4());
             if (matches.size() == 1) {
                 t.setAccount(matches.get(0));

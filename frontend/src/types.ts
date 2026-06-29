@@ -88,3 +88,14 @@ export interface CategorySpend {
 export interface ChatReply {
   answer: string;
 }
+
+export interface StatementImportResult {
+  fileName: string;
+  accountName: string | null;
+  bank: string | null;
+  last4: string | null;
+  total: number;
+  imported: number;
+  duplicates: number;
+  skipped: number;
+}

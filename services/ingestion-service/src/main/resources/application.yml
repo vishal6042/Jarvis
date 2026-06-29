@@ -6,6 +6,10 @@ spring:
     name: ingestion-service
   main:
     web-application-type: servlet
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
   datasource:
     url: ${JARVIS_DB_URL:jdbc:postgresql://localhost:5432/jarvis}
     username: ${DB_USER:jarvis}

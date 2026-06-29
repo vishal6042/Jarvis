@@ -31,3 +31,6 @@ Thumbs.db
 
 # Claude Code local config
 .claude/
+
+# Local statement files / test data (never commit personal financial data)
+data/

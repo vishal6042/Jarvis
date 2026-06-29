@@ -61,6 +61,7 @@ public class IngestionService {
             }
 
             var createReq = new ExpenseClient.CreateTransactionRequest(
+                null, // SMS path matches the account by last-4, not an explicit id
                 blankToNull(parsed.last4()),
                 amount,
                 parsed.currency() == null || parsed.currency().isBlank() ? "INR" : parsed.currency(),

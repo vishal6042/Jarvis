@@ -1,12 +1,14 @@
 package com.jarvis.ingestion.client;
 
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
-/** Calls ai-orchestrator's parser over the internal channel. */
+/** Calls ai-orchestrator's parser/statement agents over the internal channel. */
 @Component
 public class AiClient {
 
@@ -31,6 +33,17 @@ public class AiClient {
             .block();
     }
 
+    /** Scan a statement chunk → identified account + its transactions. (LLM call can be slow.) */
+    public StatementResult parseStatement(String text) {
+        return web.post()
+            .uri("/internal/ai/parse-statement")
+            .header("X-Internal-Key", internalKey)
+            .bodyValue(Map.of("text", text))
+            .retrieve()
+            .bodyToMono(StatementResult.class)
+            .block(Duration.ofMinutes(5));
+    }
+
     /** Mirror of the orchestrator's ParsedTransaction (all strings — parsed defensively here). */
     public record ParsedTransaction(
         boolean isTransaction,
@@ -42,4 +55,12 @@ public class AiClient {
         String bank,
         String occurredOn,
         String category) {}
+
+    /** Mirror of the orchestrator's StatementParseResult. */
+    public record StatementResult(
+        String bank,
+        String last4,
+        String accountType,
+        String currency,
+        List<ParsedTransaction> transactions) {}
 }

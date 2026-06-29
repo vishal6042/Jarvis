@@ -12,6 +12,7 @@ import java.time.Instant;
  * The account is matched here by {@code last4}; dedup is enforced on save.
  */
 public record InternalTransactionRequest(
+    Long accountId, // when set (e.g. statement import), link this account directly
     String last4,
     @NotNull @Positive BigDecimal amount,
     String currency,

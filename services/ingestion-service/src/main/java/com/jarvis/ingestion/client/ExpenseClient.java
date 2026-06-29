@@ -40,7 +40,19 @@ public class ExpenseClient {
         return new CreateResult(created, id);
     }
 
+    /** Match (or auto-create) the account a statement belongs to; returns the resolved account. */
+    public ResolvedAccount resolveAccount(String bank, String last4, String type) {
+        return web.post()
+            .uri("/internal/accounts/resolve")
+            .header("X-Internal-Key", internalKey)
+            .bodyValue(new ResolveAccountRequest(bank, last4, type))
+            .retrieve()
+            .bodyToMono(ResolvedAccount.class)
+            .block();
+    }
+
     public record CreateTransactionRequest(
+        Long accountId,
         String last4,
         BigDecimal amount,
         String currency,
@@ -55,4 +67,9 @@ public class ExpenseClient {
 
     /** created=false means it was a duplicate (already existed). */
     public record CreateResult(boolean created, Long transactionId) {}
+
+    public record ResolveAccountRequest(String bank, String last4, String type) {}
+
+    /** Subset of expense AccountDto that we need (Jackson ignores the rest). */
+    public record ResolvedAccount(Long id, String bank, String last4, String displayName) {}
 }
