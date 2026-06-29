@@ -28,6 +28,13 @@ public class AppUser {
     @Column(nullable = false)
     private String roles = "USER";
 
+    /** Self-serve recovery: a security question + the BCrypt hash of its (normalised) answer. */
+    @Column(name = "security_question")
+    private String securityQuestion;
+
+    @Column(name = "security_answer_hash", length = 100)
+    private String securityAnswerHash;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

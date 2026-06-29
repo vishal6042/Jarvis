@@ -55,6 +55,8 @@ export function isAuthed(): boolean {
 export interface RegisterPayload {
   username: string;
   password: string;
+  securityQuestion: string;
+  securityAnswer: string;
   fullName?: string;
   email?: string;
   phone?: string;
@@ -74,6 +76,18 @@ export async function register(payload: RegisterPayload): Promise<void> {
 /** Whether an account already exists (drives signup-first on a fresh install). */
 export async function authExists(): Promise<boolean> {
   return (await api.get<{ exists: boolean }>("/api/auth/exists")).data.exists;
+}
+/** The security question to show on the "forgot password" screen (null if none set). */
+export async function getSecurityQuestion(): Promise<string | null> {
+  return (await api.get<{ question: string | null }>("/api/auth/security-question")).data.question;
+}
+/** Recover access: answer the security question and set a new password. */
+export async function resetPassword(answer: string, newPassword: string): Promise<void> {
+  await api.post("/api/auth/reset-password", { answer, newPassword });
+}
+/** Change the password while signed in (current password required). */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await api.post("/api/auth/change-password", { currentPassword, newPassword });
 }
 export function logout(): void {
   clearToken();

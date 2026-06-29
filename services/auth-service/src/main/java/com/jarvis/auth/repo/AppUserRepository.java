@@ -9,4 +9,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByUsername(String username);
 
     boolean existsByUsername(String username);
+
+    /** The single MVP user (used by the security-question recovery flow). */
+    Optional<AppUser> findFirstByOrderByIdAsc();
 }

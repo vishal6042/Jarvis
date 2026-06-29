@@ -129,3 +129,13 @@
     @apply font-sans;
     }
 }
+
+/* Slow drifting blobs for the login background. */
+@keyframes blob {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(40px, -50px) scale(1.12); }
+  66% { transform: translate(-30px, 30px) scale(0.92); }
+}
+.animate-blob {
+  animation: blob 20s ease-in-out infinite;
+}

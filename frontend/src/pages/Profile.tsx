@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
-import { getProfile, updateProfile } from "@/api";
+import { KeyRound, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { changePassword, getProfile, updateProfile } from "@/api";
 import { useFamily, type FamilyMember } from "@/lib/store";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -114,8 +114,106 @@ export default function Profile() {
         </CardContent>
       </Card>
 
+      <SecuritySection />
+
       <FamilySection />
     </div>
+  );
+}
+
+function SecuritySection() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setDone(false);
+    if (next !== confirm) {
+      setError("New passwords don't match.");
+      return;
+    }
+    if (next.length < 4) {
+      setError("New password must be at least 4 characters.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await changePassword(current, next);
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setDone(true);
+      setTimeout(() => setDone(false), 2500);
+    } catch (err: any) {
+      setError(err?.response?.status === 401 ? "Current password is incorrect." : "Couldn't change the password.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <KeyRound className="size-4" />
+        </div>
+        <div>
+          <CardTitle>Password</CardTitle>
+          <CardDescription>Change the password you use to sign in.</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-4" onSubmit={submit}>
+          <div className="grid gap-2">
+            <Label htmlFor="currentPassword">Current password</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="newPassword">New password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="confirmPassword">Confirm new password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button type="submit" disabled={busy}>
+              {busy ? "Updating…" : "Update password"}
+            </Button>
+            {done && <span className="text-sm text-emerald-500">Password updated ✓</span>}
+            {error && <span className="text-sm text-destructive">{error}</span>}
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
