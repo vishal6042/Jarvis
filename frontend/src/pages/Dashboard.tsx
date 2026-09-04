@@ -276,7 +276,7 @@ function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
 
   return (
     <Card className="relative isolate overflow-hidden border-0 shadow-sm">
-      <CardArt color={color} icon={Sparkles} />
+      <CardArt color={color} icon={Sparkles} wave={false} />
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4" style={{ color }} />

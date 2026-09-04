@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, ChevronRight } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { dueLabel, REMINDER_META, upcomingReminders } from "@/lib/sample";
 import { useReminders } from "@/lib/store";
 import { formatINR } from "@/lib/format";
@@ -127,8 +128,9 @@ export default function ClockWidget() {
       type="button"
       onClick={() => navigate("/calendar")}
       title="Open calendar"
-      className="group w-full rounded-2xl border bg-gradient-to-br from-card to-primary/5 p-5 text-left ring-1 ring-primary/15 transition-shadow hover:ring-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group relative isolate w-full overflow-hidden rounded-2xl border bg-card p-5 text-left ring-1 ring-primary/15 transition-shadow card-sheen hover:ring-primary/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
+      <CardArt color="var(--primary)" subtle />
       <div className="flex flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
         {/* Left: date + reminders */}
         <div className="min-w-0 flex-1">

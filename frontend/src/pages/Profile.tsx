@@ -73,8 +73,9 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
-      <div className="space-y-6">
+      {/* 2×2 on wide screens: Personal | Password, Family | Danger — rows stretch to equal height */}
+      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="contents">
       <Card className="relative isolate overflow-hidden">
         <CardArt color="var(--primary)" subtle />
         <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -131,7 +132,7 @@ export default function Profile() {
         </CardContent>
       </Card>
       </div>{/* left column */}
-      <div className="space-y-6">
+      <div className="contents">
 
       <SecuritySection />
 

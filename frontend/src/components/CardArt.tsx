@@ -14,12 +14,15 @@ export default function CardArt({
   icon: Icon,
   network,
   subtle = false,
+  wave = true,
 }: {
   color: string;
   icon?: ComponentType<{ className?: string; style?: React.CSSProperties }>;
   network?: string | null;
   /** Gradient + glow only (for chart cards and dense tiles) — no wave, no mark. */
   subtle?: boolean;
+  /** Set false on wide cards where the wave would run behind body text (the mark still shows). */
+  wave?: boolean;
 }) {
   const key = (network ?? "").toUpperCase();
   return (
@@ -38,29 +41,31 @@ export default function CardArt({
       {subtle ? null : (
       <>
       {/* wave */}
+      {wave && (
       <svg className="absolute inset-x-0 bottom-0 h-24 w-full" viewBox="0 0 400 100" preserveAspectRatio="none">
         <path
           d="M0 70 C 90 30, 150 110, 250 65 S 360 45, 400 30"
           fill="none"
           stroke={color}
-          strokeOpacity="0.55"
+          strokeOpacity="0.4"
           strokeWidth="2"
         />
         <path
           d="M0 70 C 90 30, 150 110, 250 65 S 360 45, 400 30"
           fill="none"
           stroke={color}
-          strokeOpacity="0.16"
+          strokeOpacity="0.12"
           strokeWidth="12"
         />
         <path
           d="M0 82 C 110 50, 170 120, 270 78 S 370 60, 400 48"
           fill="none"
           stroke={color}
-          strokeOpacity="0.25"
+          strokeOpacity="0.2"
           strokeWidth="1.5"
         />
       </svg>
+      )}
       {/* network wordmark or big icon */}
       {/* kept translucent: the card's right-aligned values render on top of it */}
       <div className="absolute top-[58%] right-4 -translate-y-1/2 select-none" style={{ color }}>
