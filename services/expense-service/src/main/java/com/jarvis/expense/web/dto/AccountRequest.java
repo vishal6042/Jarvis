@@ -21,4 +21,5 @@ public record AccountRequest(
     @Min(2000) @Max(2100) Integer expiryYear,
     // bank fields
     String ifsc,
-    String branch) {}
+    String branch,
+    @PositiveOrZero BigDecimal balance) {}

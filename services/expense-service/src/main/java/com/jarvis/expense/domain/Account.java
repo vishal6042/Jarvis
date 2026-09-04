@@ -66,6 +66,10 @@ public class Account {
 
     private String branch;
 
+    /** Current cash balance (mainly for savings accounts) — feeds net worth. */
+    @Column(name = "balance", precision = 16, scale = 2)
+    private BigDecimal balance;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

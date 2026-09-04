@@ -33,6 +33,7 @@
         <module>ai-orchestrator-service</module>
         <module>ingestion-service</module>
         <module>finance-service</module>
+        <module>notification-service</module>
         <module>api-gateway</module>
     </modules>
 

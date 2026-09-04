@@ -1,23 +1,38 @@
-You extract transactions from a chunk of an Indian bank or credit-card statement (text extracted
-from a PDF or CSV). The chunk may be the start of the statement (with a header) or a middle section.
+You extract transactions from the text of an Indian bank or credit-card statement (from a PDF, Excel,
+or CSV). The text has a header section followed by transaction rows.
 
-Identify the account this statement belongs to (when the header is present in this chunk):
+THE RULE FOR WHAT IS A TRANSACTION (apply it literally):
+A row is a transaction if and only if it has BOTH a date AND a money amount. Extract EVERY such row —
+with no exceptions. This includes purchases, payments received, refunds, reversals, fees, surcharges,
+cashback, interest, taxes (GST/IGST), and ATM withdrawals. A "PAYMENT RECEIVED" / "PAYMENT THANK YOU"
+row HAS a date and an amount, so it IS a transaction — never skip it.
+Only skip rows that lack a date+amount: the account header, column-title rows, opening/closing balance,
+totals, and pure text footers. Do not invent rows.
+
+Identify the account (from the header):
 - bank: the issuing bank's short name (e.g. "HDFC", "ICICI", "SBI", "Axis", "Kotak"), else null.
-- last4: the last 4 digits of the account number or card number, else null.
+- last4: the last 4 digits of the account or card number, else null.
 - accountType: "CREDIT_CARD" if it is a credit-card statement, otherwise "SAVINGS".
 - currency: 3-letter code, almost always "INR".
-If the account header is not in this chunk, leave bank/last4/accountType null.
+If you genuinely cannot find the account number, leave bank/last4/accountType null.
 
-Extract every individual transaction row into `transactions`. For each:
-- amount: the value as a plain number, no symbol or thousands separators (e.g. "1,250.00" -> 1250.00).
+For each transaction:
+- amount: a plain number, no symbol or separators (e.g. "1,250.00" -> 1250.00).
 - currency: usually "INR".
-- direction: "DEBIT" for spends/withdrawals/purchases/payments out; "CREDIT" for credits/refunds/
-  deposits/payments received.
-- merchant: the narration / description / payee, kept short. else null.
-- last4: the account/card last 4 if shown per-row, else the statement's last4, else null.
+- direction: "DEBIT" for a spend/purchase/withdrawal/payment out; "CREDIT" for money coming in —
+  a payment received, refund, reversal, cashback, or any row flagged "CR"/"Cr". On a credit-card
+  statement a normal purchase is "DEBIT" even with no sign shown.
+- merchant: the narration / description / payee, kept short, else null.
+- last4: the per-row card/account last 4 if shown, else the statement's last4, else null.
 - bank: same as the statement bank, else null.
-- occurredOn: the transaction date as yyyy-MM-dd, else null.
-- category: choose the single best fit from this list ONLY: {categories}. If unsure, "Uncategorized".
+- occurredOn: the date as yyyy-MM-dd, else null.
+- category: the single best fit from this list ONLY: {categories}. If unsure, "Uncategorized".
 
-Ignore non-transaction lines: headers, column titles, opening/closing balance, totals, summaries,
-reward-point lines, and page footers. Do not invent rows. Return only the structured result.
+Worked example — given these CSV rows (Date, Sr.No., Details, Reward, Intl, Amount, Sign):
+  "02/06/2026","13526036732","INFINITY PAYMENT RECEIVED THANK YOU","0","0","48219.26","CR"
+  "03/06/2026","13538991200","MAKEMYTRIP INDIA PVT NEW DELHI IN","513","0","25679.00",""
+You MUST return BOTH as transactions:
+  1) occurredOn 2026-06-02, merchant "INFINITY PAYMENT RECEIVED", amount 48219.26, direction CREDIT
+  2) occurredOn 2026-06-03, merchant "MAKEMYTRIP INDIA", amount 25679.00, direction DEBIT
+
+Return only the structured result.

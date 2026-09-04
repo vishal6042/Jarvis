@@ -11,7 +11,7 @@ export default function PeriodTabs({
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as Period)}>
       <TabsList>
-        {PERIODS.map((p) => (
+        {PERIODS.filter((p) => p !== "day").map((p) => (
           <TabsTrigger key={p} value={p}>
             {PERIOD_LABEL[p]}
           </TabsTrigger>

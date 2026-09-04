@@ -51,6 +51,42 @@ public class ExpenseClient {
             .block();
     }
 
+    /** Look up an existing account WITHOUT creating one (preview); null if not found. */
+    public ResolvedAccount findAccount(String bank, String last4) {
+        return web.get()
+            .uri(uri -> uri.path("/internal/accounts/find")
+                .queryParam("bank", bank == null ? "" : bank)
+                .queryParam("last4", last4)
+                .build())
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(ResolvedAccount.class) // 204 → empty → null after block()
+            .block();
+    }
+
+    /** Last-4s of the user's registered credit cards — used to spot card-bill payments in savings. */
+    public java.util.Set<String> listCardLast4s() {
+        java.util.List<AccountBrief> all = web.get()
+            .uri("/internal/accounts")
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToFlux(AccountBrief.class)
+            .collectList()
+            .block();
+        java.util.Set<String> out = new java.util.HashSet<>();
+        if (all != null) {
+            for (AccountBrief a : all) {
+                if ("CREDIT_CARD".equalsIgnoreCase(a.type()) && a.last4() != null && !a.last4().isBlank()) {
+                    out.add(a.last4().trim());
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Slim view of an account for {@link #listCardLast4s()} (Jackson ignores the other fields). */
+    public record AccountBrief(String last4, String type) {}
+
     public record CreateTransactionRequest(
         Long accountId,
         String last4,

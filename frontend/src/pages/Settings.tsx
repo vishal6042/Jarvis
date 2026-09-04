@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, SlidersHorizontal } from "lucide-react";
-import { categoryBreakdown } from "@/lib/sample";
+import { analyticsByCategory } from "@/api";
+import { CATEGORIES } from "@/lib/sample";
 import { useThresholds } from "@/lib/store";
 import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ const CAT_COLORS = ["#10b981", "#8b5cf6", "#3b82f6", "#f59e0b", "#ec4899", "#14b
 export default function Settings() {
   const { items, saveAll } = useThresholds();
   const [draft, setDraft] = useState<Record<string, number>>(items);
+  const [spent, setSpent] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
 
   // Thresholds load from the backend after mount — sync the draft when they arrive.
@@ -20,7 +22,18 @@ export default function Settings() {
     setDraft(items);
   }, [items]);
 
-  const dirty = categoryBreakdown.some((c) => (draft[c.name] ?? 0) !== (items[c.name] ?? 0));
+  // This month's real spend per category, to show alongside each threshold.
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date(to.getFullYear(), to.getMonth(), 1);
+    analyticsByCategory(from.toISOString(), to.toISOString())
+      .then((rows) =>
+        setSpent(Object.fromEntries((rows ?? []).map((r) => [r.category, Number(r.total)])))
+      )
+      .catch(() => setSpent({}));
+  }, []);
+
+  const dirty = CATEGORIES.some((name) => (draft[name] ?? 0) !== (items[name] ?? 0));
 
   function update(category: string, value: number) {
     setSaved(false);
@@ -62,19 +75,20 @@ export default function Settings() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
-            {categoryBreakdown.map((c, i) => {
+            {CATEGORIES.map((name, i) => {
               const color = CAT_COLORS[i % CAT_COLORS.length];
-              const limit = draft[c.name] ?? 0;
-              const over = limit > 0 && c.value > limit;
+              const limit = draft[name] ?? 0;
+              const used = spent[name] ?? 0;
+              const over = limit > 0 && used > limit;
               return (
-                <div key={c.name} className="rounded-xl border p-4">
+                <div key={name} className="rounded-xl border p-4">
                   <div className="flex items-center justify-between">
                     <Label className="flex items-center gap-2 text-sm font-medium">
                       <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
-                      {c.name}
+                      {name}
                     </Label>
                     <span className={`text-xs ${over ? "text-rose-500" : "text-muted-foreground"}`}>
-                      spent {formatINR(c.value)}
+                      spent {formatINR(used)}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
@@ -85,12 +99,12 @@ export default function Settings() {
                       min={0}
                       value={limit || ""}
                       placeholder="No limit"
-                      onChange={(e) => update(c.name, e.target.value === "" ? 0 : Number(e.target.value))}
+                      onChange={(e) => update(name, e.target.value === "" ? 0 : Number(e.target.value))}
                     />
                     <span className="whitespace-nowrap text-xs text-muted-foreground">/ month</span>
                   </div>
                   {over && (
-                    <p className="mt-2 text-xs text-rose-500">Currently over budget by {formatINR(c.value - limit)}.</p>
+                    <p className="mt-2 text-xs text-rose-500">Currently over budget by {formatINR(used - limit)}.</p>
                   )}
                 </div>
               );

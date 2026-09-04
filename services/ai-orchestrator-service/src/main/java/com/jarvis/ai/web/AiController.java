@@ -1,5 +1,7 @@
 package com.jarvis.ai.web;
 
+import com.jarvis.ai.agent.FinanceScore;
+import com.jarvis.ai.agent.FinanceScoreAgent;
 import com.jarvis.ai.agent.ParsedTransaction;
 import com.jarvis.ai.agent.QueryAgent;
 import com.jarvis.ai.agent.StatementParseResult;
@@ -24,16 +26,19 @@ public class AiController {
     private final TransactionParser parser;
     private final StatementParserAgent statementParser;
     private final QueryAgent queryAgent;
+    private final FinanceScoreAgent scoreAgent;
     private final String internalKey;
 
     public AiController(
         TransactionParser parser,
         StatementParserAgent statementParser,
         QueryAgent queryAgent,
+        FinanceScoreAgent scoreAgent,
         @Value("${jarvis.internal.key}") String internalKey) {
         this.parser = parser;
         this.statementParser = statementParser;
         this.queryAgent = queryAgent;
+        this.scoreAgent = scoreAgent;
         this.internalKey = internalKey;
     }
 
@@ -64,9 +69,40 @@ public class AiController {
         return new ChatReply(queryAgent.ask(req.message()));
     }
 
+    /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
+    @PostMapping("/api/ai/finance-score")
+    public FinanceScore financeScore(@RequestBody FinanceMetrics req) {
+        return scoreAgent.score(req.toPromptText());
+    }
+
     public record ParseRequest(@NotBlank String text) {}
 
     public record ChatRequest(@NotBlank String message) {}
 
     public record ChatReply(String answer) {}
+
+    /** Monthly financial metrics the frontend already has; formatted into the scoring prompt. */
+    public record FinanceMetrics(
+        double monthlyIncome,
+        double monthlySpend,
+        int savingsRate,
+        double cashSavings,
+        double investments,
+        double outstandingLoans,
+        double monthlyEmi) {
+
+        String toPromptText() {
+            return "Monthly income: ₹" + money(monthlyIncome) + "\n"
+                + "Monthly spending: ₹" + money(monthlySpend) + "\n"
+                + "Savings rate: " + savingsRate + "%\n"
+                + "Cash in savings: ₹" + money(cashSavings) + "\n"
+                + "Investments: ₹" + money(investments) + "\n"
+                + "Outstanding loans: ₹" + money(outstandingLoans) + "\n"
+                + "Monthly EMI: ₹" + money(monthlyEmi);
+        }
+
+        private static String money(double v) {
+            return String.format("%,.0f", v);
+        }
+    }
 }

@@ -14,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,10 +47,14 @@ public class CommonSecurityAutoConfiguration {
         JwtAuthFilter jwtAuthFilter,
         @Value("${jarvis.security.public-paths:}") List<String> publicPaths)
         throws Exception {
-        String[] open = java.util.stream.Stream
+        // Use explicit Ant matchers (not requestMatchers(String...)) so public paths resolve the same
+        // way in EVERY service — including ai-orchestrator/ingestion which have spring-webflux on the
+        // classpath, where the auto-selected MVC matcher fails to match and silently denies /internal/**.
+        RequestMatcher[] open = java.util.stream.Stream
             .concat(List.of("/actuator/health", "/actuator/info").stream(), publicPaths.stream())
             .filter(p -> !p.isBlank())
-            .toArray(String[]::new);
+            .map(AntPathRequestMatcher::antMatcher)
+            .toArray(RequestMatcher[]::new);
         http
             // CORS is owned solely by the api-gateway (the only browser-facing entry point).
             // Services behind it must NOT add their own CORS headers, or the browser sees two

@@ -5,6 +5,7 @@ import { useFinanceSummary } from "@/lib/finance";
 import { aiChat } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Markdown from "@/components/Markdown";
 
 interface Msg {
   role: "user" | "assistant";
@@ -90,7 +91,7 @@ export default function Assistant() {
                   : "rounded-bl-sm bg-muted"
               }`}
             >
-              {m.text}
+              {m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
             </div>
           </div>
         ))}

@@ -6,6 +6,11 @@ spring:
     name: ingestion-service
   main:
     web-application-type: servlet
+  mvc:
+    async:
+      # Statement streaming (StreamingResponseBody) runs well past the 30s servlet-async default —
+      # the first AI chunk alone can take longer. Give it plenty of headroom (ms).
+      request-timeout: 1800000
   servlet:
     multipart:
       max-file-size: 10MB

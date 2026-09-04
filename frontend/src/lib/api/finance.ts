@@ -45,6 +45,17 @@ export interface ApiReminder {
   repeat?: string | null;
 }
 
+export interface ApiGoal {
+  id: number;
+  name: string;
+  targetAmount: number;
+  savedAmount: number;
+  targetDate?: string | null;
+  color?: string | null;
+  notes?: string | null;
+}
+export type GoalPayload = Omit<ApiGoal, "id">;
+
 // ---- Members ----
 export const getMembers = async () => (await api.get<ApiMember[]>("/api/members")).data;
 export const createMember = async (m: Omit<ApiMember, "id">) =>
@@ -83,6 +94,17 @@ export const updateReminderApi = async (id: number, r: Omit<ApiReminder, "id">) 
   (await api.put<ApiReminder>(`/api/reminders/${id}`, r)).data;
 export const deleteReminderApi = async (id: number) => {
   await api.delete(`/api/reminders/${id}`);
+};
+
+// ---- Goals ----
+export const getGoals = async () => (await api.get<ApiGoal[]>("/api/goals")).data;
+export const createGoal = async (g: GoalPayload) => (await api.post<ApiGoal>("/api/goals", g)).data;
+export const updateGoalApi = async (id: number, g: GoalPayload) =>
+  (await api.put<ApiGoal>(`/api/goals/${id}`, g)).data;
+export const contributeGoalApi = async (id: number, amount: number) =>
+  (await api.post<ApiGoal>(`/api/goals/${id}/contribute`, { amount })).data;
+export const deleteGoalApi = async (id: number) => {
+  await api.delete(`/api/goals/${id}`);
 };
 
 // ---- Thresholds ----

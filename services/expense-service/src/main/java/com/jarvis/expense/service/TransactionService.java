@@ -83,6 +83,54 @@ public class TransactionService {
             () -> new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate transaction")));
     }
 
+    /** Edit an existing transaction (manual correction of an imported or entered row). */
+    @Transactional
+    public TransactionDto update(Long id, CreateTransactionRequest req) {
+        Transaction t = transactions
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        t.setAmount(req.amount());
+        if (req.currency() != null && !req.currency().isBlank()) {
+            t.setCurrency(req.currency());
+        }
+        t.setDirection(req.direction());
+        t.setMerchant(req.merchant());
+        if (req.occurredAt() != null) {
+            t.setOccurredAt(req.occurredAt());
+        }
+        t.setNote(req.note());
+
+        if (req.accountId() != null) {
+            Account account = accounts
+                .findById(req.accountId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown accountId"));
+            t.setAccount(account);
+        } else {
+            t.setAccount(null);
+        }
+        t.setCategory(
+            req.category() != null && !req.category().isBlank()
+                ? findOrCreateCategory(req.category().trim())
+                : null);
+
+        // Recompute the dedup hash so future imports still dedupe against the edited values — but
+        // drop it if that would collide with a different row (the column is uniquely indexed).
+        String last4 = t.getAccount() != null ? t.getAccount().getLast4() : null;
+        String hash = dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant());
+        t.setDedupHash(hash != null && transactions.existsByDedupHashAndIdNot(hash, id) ? null : hash);
+
+        return TransactionDto.from(transactions.save(t));
+    }
+
+    /** Delete a transaction outright (duplicate / mistaken row). */
+    @Transactional
+    public void delete(Long id) {
+        if (!transactions.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found");
+        }
+        transactions.deleteById(id);
+    }
+
     /**
      * Create a transaction from a parsed alert (ingestion-service → expense internal endpoint):
      * matches the account by last-4, assigns the category, and dedups. Returns empty on duplicate.

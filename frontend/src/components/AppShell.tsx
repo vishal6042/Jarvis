@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeftRight,
   Banknote,
   BarChart3,
   Bell,
@@ -13,6 +14,7 @@ import {
   PiggyBank,
   Settings,
   Sparkles,
+  Target,
   Sun,
   Upload,
   Users,
@@ -44,10 +46,12 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { to: "/accounts", label: "Accounts & Cards", icon: CreditCard },
   { to: "/import", label: "Import statements", icon: Upload },
   { to: "/investments", label: "Investments", icon: PiggyBank },
   { to: "/loans", label: "Loans", icon: Banknote },
+  { to: "/goals", label: "Goals", icon: Target },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/assistant", label: "Assistant", icon: Sparkles },
   { to: "/settings", label: "Settings", icon: Settings },

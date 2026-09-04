@@ -16,6 +16,7 @@ export interface Account {
   expiryYear?: number | null;
   ifsc?: string | null;
   branch?: string | null;
+  balance?: number | null;
 }
 
 export type AccountRequest = Omit<Account, "id">;
@@ -85,8 +86,52 @@ export interface CategorySpend {
   total: number;
 }
 
+export interface NetWorthPoint {
+  month: string; // yyyy-MM
+  netWorth: number;
+}
+
+export interface RecurringPayment {
+  merchant: string | null;
+  category: string | null;
+  amount: number;
+  cadence: string; // Weekly | Monthly | Quarterly | Yearly
+  lastPaid: string; // yyyy-MM-dd
+  nextExpected: string; // yyyy-MM-dd
+  occurrences: number;
+  monthlyEstimate: number;
+}
+
 export interface ChatReply {
   answer: string;
+}
+
+export interface ApiNotification {
+  id: string;
+  type: string; // THRESHOLD | UNUSUAL | FINDING | SYNC | PAYMENT | EXPIRY
+  title: string;
+  message: string;
+  href: string;
+  color: string;
+  read: boolean;
+  createdAt: string; // ISO instant
+}
+
+export interface FinanceMetrics {
+  monthlyIncome: number;
+  monthlySpend: number;
+  savingsRate: number;
+  cashSavings: number;
+  investments: number;
+  outstandingLoans: number;
+  monthlyEmi: number;
+}
+
+export interface FinanceScoreResult {
+  score: number;
+  rating: string;
+  headline: string;
+  tips: string[];
 }
 
 export interface StatementImportResult {
@@ -98,4 +143,38 @@ export interface StatementImportResult {
   imported: number;
   duplicates: number;
   skipped: number;
+}
+
+export interface PreviewTransaction {
+  occurredOn: string | null;
+  merchant: string | null;
+  amount: number;
+  direction: Direction;
+  category: string | null;
+  last4: string | null;
+}
+
+export interface StatementPreview {
+  fileName: string;
+  account: {
+    bank: string | null;
+    last4: string | null;
+    accountType: string | null; // SAVINGS | CREDIT_CARD
+    displayName: string | null;
+    isNew: boolean;
+  };
+  fromDate: string | null;
+  toDate: string | null;
+  spending: number;
+  earning: number;
+  total: number;
+  transactions: PreviewTransaction[];
+}
+
+export interface ConfirmStatementRequest {
+  fileName: string;
+  bank: string | null;
+  last4: string | null;
+  accountType: string | null;
+  transactions: PreviewTransaction[];
 }

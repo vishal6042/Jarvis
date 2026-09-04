@@ -2,21 +2,45 @@ import axios from "axios";
 import type {
   Account,
   AccountRequest,
+  ApiNotification,
   CategorySpend,
   ChatReply,
+  ConfirmStatementRequest,
   CreateTransactionRequest,
+  FinanceMetrics,
+  FinanceScoreResult,
   LoginResponse,
+  NetWorthPoint,
+  RecurringPayment,
   PeriodSummary,
+  PreviewTransaction,
   Profile,
   StatementImportResult,
+  StatementPreview,
   Transaction,
   UpdateProfileRequest,
 } from "./types";
 
+/**
+ * Where the backend gateway lives. If VITE_API_BASE is set it wins; otherwise we derive it from the
+ * host the page was opened on — so the desktop (localhost) and a phone on the LAN (192.168.x.x) each
+ * hit the right machine on :8080 without any per-device config.
+ */
+function resolveApiBase(): string {
+  const env = import.meta.env.VITE_API_BASE;
+  if (env) return env;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8080`;
+  }
+  return "http://localhost:8080";
+}
+
+const API_BASE = resolveApiBase();
+
 const TOKEN_KEY = "jarvis_token";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:8080",
+  baseURL: API_BASE,
 });
 
 api.interceptors.request.use((config) => {
@@ -93,6 +117,75 @@ export function logout(): void {
   clearToken();
 }
 
+/**
+ * GDPR-style wipe: delete all financial data (accounts, transactions, investments, loans, reminders,
+ * thresholds, and imported statements). The profile + login are kept.
+ */
+export async function deleteAllData(): Promise<void> {
+  await Promise.all([
+    api.delete("/api/transactions/purge-all"),
+    api.delete("/api/investments/purge-all"),
+    api.delete("/api/ingest/purge-all"),
+    api.delete("/api/notifications/purge-all").catch(() => {}), // service may be offline
+  ]);
+}
+
+// ---- Notifications (notification-service) ----
+export async function listNotifications(): Promise<ApiNotification[]> {
+  return (await api.get<ApiNotification[]>("/api/notifications")).data;
+}
+export async function markAllNotificationsRead(): Promise<void> {
+  await api.post("/api/notifications/read-all");
+}
+export async function markNotificationRead(id: string): Promise<void> {
+  await api.post(`/api/notifications/${id}/read`);
+}
+
+/**
+ * Live notification stream over SSE (raw fetch so we can send the Bearer header, which native
+ * EventSource can't). Parses `event:`/`data:` frames and invokes onNotification per push.
+ */
+export async function subscribeNotifications(
+  onNotification: (n: ApiNotification) => void,
+  signal?: AbortSignal
+): Promise<void> {
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/api/notifications/stream`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`Stream failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  const handleFrame = (frame: string) => {
+    let event = "message";
+    const dataLines: string[] = [];
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (event !== "notification" || dataLines.length === 0) return;
+    try {
+      onNotification(JSON.parse(dataLines.join("\n")) as ApiNotification);
+    } catch {
+      /* ignore malformed frame */
+    }
+  };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buf.indexOf("\n\n")) >= 0) {
+      handleFrame(buf.slice(0, sep));
+      buf = buf.slice(sep + 2);
+    }
+  }
+}
+
 // ---- Profile ----
 export async function getProfile(): Promise<Profile> {
   return (await api.get<Profile>("/api/profile")).data;
@@ -122,6 +215,15 @@ export async function listTransactions(page = 0, size = 50): Promise<Transaction
 export async function createTransaction(req: CreateTransactionRequest): Promise<Transaction> {
   return (await api.post<Transaction>("/api/transactions", req)).data;
 }
+export async function updateTransaction(
+  id: number,
+  req: CreateTransactionRequest
+): Promise<Transaction> {
+  return (await api.put<Transaction>(`/api/transactions/${id}`, req)).data;
+}
+export async function deleteTransaction(id: number): Promise<void> {
+  await api.delete(`/api/transactions/${id}`);
+}
 
 // ---- Analytics (expense-service) ----
 export async function analyticsSummary(from?: string, to?: string): Promise<PeriodSummary> {
@@ -130,21 +232,113 @@ export async function analyticsSummary(from?: string, to?: string): Promise<Peri
 export async function analyticsByCategory(from?: string, to?: string): Promise<CategorySpend[]> {
   return (await api.get<CategorySpend[]>("/api/analytics/by-category", { params: { from, to } })).data;
 }
+export async function analyticsIncomeBySource(from?: string, to?: string): Promise<CategorySpend[]> {
+  return (await api.get<CategorySpend[]>("/api/analytics/income-by-source", { params: { from, to } })).data;
+}
+export async function netWorthTrend(months = 12): Promise<NetWorthPoint[]> {
+  return (await api.get<NetWorthPoint[]>("/api/analytics/net-worth-trend", { params: { months } })).data;
+}
+export async function listRecurring(): Promise<RecurringPayment[]> {
+  return (await api.get<RecurringPayment[]>("/api/recurring")).data;
+}
 
 // ---- AI orchestrator ----
 export async function aiChat(message: string): Promise<string> {
   return (await api.post<ChatReply>("/api/ai/chat", { message })).data.answer;
 }
 
+/** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
+export async function financeScore(metrics: FinanceMetrics): Promise<FinanceScoreResult> {
+  const { data } = await api.post<FinanceScoreResult>("/api/ai/finance-score", metrics, {
+    timeout: 120000, // local model scoring can take a few seconds
+  });
+  return data;
+}
+
 // ---- Statement import (ingestion-service) ----
-export async function importStatement(file: File): Promise<StatementImportResult> {
+/** Phase 1: upload a statement → AI parses it for review. Nothing is saved yet. */
+export async function previewStatement(file: File): Promise<StatementPreview> {
   const form = new FormData();
   form.append("file", file);
-  const { data } = await api.post<StatementImportResult>("/api/ingest/statement", form, {
+  const { data } = await api.post<StatementPreview>("/api/ingest/statement/preview", form, {
     headers: { "Content-Type": "multipart/form-data" },
     timeout: 300000, // statement parsing can take a while on a local model
   });
   return data;
+}
+/** Phase 2: persist the reviewed transactions (deduped); creates the account if new. */
+export async function confirmStatement(
+  payload: ConfirmStatementRequest
+): Promise<StatementImportResult> {
+  return (await api.post<StatementImportResult>("/api/ingest/statement/confirm", payload)).data;
+}
+
+export interface StatementStreamHandlers {
+  onAccount?: (account: StatementPreview["account"], cards?: string[]) => void;
+  onTransactions?: (rows: PreviewTransaction[]) => void;
+  onDone?: (summary: {
+    total: number;
+    spending: number;
+    earning: number;
+    fromDate: string | null;
+    toDate: string | null;
+  }) => void;
+  onWarn?: (message: string) => void;
+}
+
+/**
+ * Streaming scan: the backend sends NDJSON (account, then transaction batches, then done) and we
+ * dispatch each line as it arrives so the UI can append rows live. Uses raw fetch (no timeout).
+ */
+export async function previewStatementStream(
+  file: File,
+  handlers: StatementStreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  const token = getToken();
+  const res = await fetch(`${API_BASE}/api/ingest/statement/preview-stream`, {
+    method: "POST",
+    body: form,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal,
+  });
+  if (res.status === 401) {
+    clearToken();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok || !res.body) throw new Error(`Scan failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  const dispatch = (line: string) => {
+    const t = line.trim();
+    if (!t) return;
+    let evt: any;
+    try {
+      evt = JSON.parse(t);
+    } catch {
+      return;
+    }
+    if (evt.event === "account") handlers.onAccount?.(evt.account, evt.cards);
+    else if (evt.event === "transactions") handlers.onTransactions?.(evt.transactions ?? []);
+    else if (evt.event === "done") handlers.onDone?.(evt);
+    else if (evt.event === "warn") handlers.onWarn?.(evt.message);
+  };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      dispatch(buf.slice(0, nl));
+      buf = buf.slice(nl + 1);
+    }
+  }
+  dispatch(buf); // trailing line, if any
 }
 
 export default api;

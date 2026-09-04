@@ -70,6 +70,7 @@ public class AccountController {
         a.setExpiryYear(req.expiryYear());
         a.setIfsc(req.ifsc());
         a.setBranch(req.branch());
+        a.setBalance(req.balance());
     }
 
     private ResponseStatusException notFound() {

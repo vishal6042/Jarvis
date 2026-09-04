@@ -48,6 +48,7 @@ type FormState = {
   expiryYear: string;
   ifsc: string;
   branch: string;
+  balance: string;
 };
 
 const EMPTY: FormState = {
@@ -65,6 +66,7 @@ const EMPTY: FormState = {
   expiryYear: "",
   ifsc: "",
   branch: "",
+  balance: "",
 };
 
 function toForm(a: Account): FormState {
@@ -83,6 +85,7 @@ function toForm(a: Account): FormState {
     expiryYear: a.expiryYear?.toString() ?? "",
     ifsc: a.ifsc ?? "",
     branch: a.branch ?? "",
+    balance: a.balance?.toString() ?? "",
   };
 }
 
@@ -109,6 +112,7 @@ function toRequest(f: FormState): AccountRequest {
     expiryYear: isCard ? num(f.expiryYear) ?? null : null,
     ifsc: !isCard ? f.ifsc || null : null,
     branch: !isCard ? f.branch || null : null,
+    balance: !isCard ? num(f.balance) ?? null : null,
   };
 }
 
@@ -180,6 +184,7 @@ function AccountCard({
           <>
             <Row label="IFSC" value={account.ifsc} />
             <Row label="Branch" value={account.branch} />
+            <Row label="Current balance" value={account.balance != null ? formatINR(account.balance) : null} />
           </>
         )}
         <div className="mt-auto flex items-center justify-between pt-3">
@@ -439,12 +444,22 @@ export default function Accounts() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
-                <Field label="IFSC">
-                  <Input value={form.ifsc} onChange={(e) => set("ifsc")(e.target.value)} />
-                </Field>
-                <Field label="Branch">
-                  <Input value={form.branch} onChange={(e) => set("branch")(e.target.value)} />
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="IFSC">
+                    <Input value={form.ifsc} onChange={(e) => set("ifsc")(e.target.value)} />
+                  </Field>
+                  <Field label="Branch">
+                    <Input value={form.branch} onChange={(e) => set("branch")(e.target.value)} />
+                  </Field>
+                </div>
+                <Field label="Current balance (₹)">
+                  <Input
+                    value={form.balance}
+                    onChange={(e) => set("balance")(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="Cash in this account, e.g. 50000"
+                  />
                 </Field>
               </div>
             )}

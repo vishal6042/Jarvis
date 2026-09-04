@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Plus, PiggyBank, TrendingUp, Wallet, Trash2 } from "lucide-react";
 import {
-  investmentHistory,
   KIND_META,
   type Investment,
   type InvestmentKind,
@@ -157,7 +156,11 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function DetailsDialog({ inv, onClose }: { inv: Investment | null; onClose: () => void }) {
   if (!inv) return null;
-  const hist = investmentHistory(inv);
+  // Real two-point view: amount invested vs current value (no fabricated monthly history).
+  const hist = [
+    { label: inv.openingDate ? formatDate(inv.openingDate) : "Invested", contributed: inv.principal, value: inv.principal },
+    { label: "Now", contributed: inv.principal, value: inv.current },
+  ];
   const gain = inv.current - inv.principal;
   return (
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
@@ -199,11 +202,11 @@ function DetailsDialog({ inv, onClose }: { inv: Investment | null; onClose: () =
         {inv.notes && <p className="text-sm text-muted-foreground">{inv.notes}</p>}
 
         <div>
-          <p className="mb-2 text-sm font-medium">Value vs invested (12 months)</p>
+          <p className="mb-2 text-sm font-medium">Invested vs current value</p>
           <ChartContainer config={histConfig} className="h-[200px] w-full">
             <AreaChart data={hist} margin={{ left: 4, right: 4, top: 8 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} />
               <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
               <Area dataKey="contributed" type="natural" stroke="var(--color-contributed)" fill="var(--color-contributed)" fillOpacity={0.15} strokeWidth={2} isAnimationActive={false} />
               <Area dataKey="value" type="natural" stroke="var(--color-value)" fill="var(--color-value)" fillOpacity={0.2} strokeWidth={2} isAnimationActive={false} />

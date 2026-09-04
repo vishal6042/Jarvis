@@ -19,7 +19,8 @@ public record AccountDto(
     Integer expiryMonth,
     Integer expiryYear,
     String ifsc,
-    String branch) {
+    String branch,
+    BigDecimal balance) {
 
     public static AccountDto from(Account a) {
         return new AccountDto(
@@ -37,6 +38,7 @@ public record AccountDto(
             a.getExpiryMonth(),
             a.getExpiryYear(),
             a.getIfsc(),
-            a.getBranch());
+            a.getBranch(),
+            a.getBalance());
     }
 }

@@ -25,6 +25,10 @@ jarvis:
   security:
     jwt-secret: ${JARVIS_JWT_SECRET:dev-only-change-me-please-32-bytes-minimum!!}
     jwt-ttl-minutes: ${JARVIS_JWT_TTL_MINUTES:1440}
+    # Service-to-service endpoints bypass user JWT and use the internal key instead.
+    public-paths: /internal/**
+  internal:
+    key: ${JARVIS_INTERNAL_KEY:dev-internal-key-change-me}
   cors:
     allowed-origins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
 

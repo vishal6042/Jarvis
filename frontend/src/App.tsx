@@ -4,10 +4,12 @@ import AppShell from "@/components/AppShell";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
+import Transactions from "@/pages/Transactions";
 import Accounts from "@/pages/Accounts";
 import Import from "@/pages/Import";
 import Investments from "@/pages/Investments";
 import Loans from "@/pages/Loans";
+import Goals from "@/pages/Goals";
 import Calendar from "@/pages/Calendar";
 import Assistant from "@/pages/Assistant";
 import Settings from "@/pages/Settings";
@@ -25,10 +27,12 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
       <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
+      <Route path="/transactions" element={<Protected><Transactions /></Protected>} />
       <Route path="/accounts" element={<Protected><Accounts /></Protected>} />
       <Route path="/import" element={<Protected><Import /></Protected>} />
       <Route path="/investments" element={<Protected><Investments /></Protected>} />
       <Route path="/loans" element={<Protected><Loans /></Protected>} />
+      <Route path="/goals" element={<Protected><Goals /></Protected>} />
       <Route path="/calendar" element={<Protected><Calendar /></Protected>} />
       <Route path="/assistant" element={<Protected><Assistant /></Protected>} />
       <Route path="/settings" element={<Protected><Settings /></Protected>} />

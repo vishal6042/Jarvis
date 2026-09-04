@@ -10,5 +10,6 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: { port: 5173 },
+  // host: true binds to 0.0.0.0 so a phone/tablet on the same Wi-Fi can open http://<PC-IP>:5173
+  server: { host: true, port: 5173 },
 });

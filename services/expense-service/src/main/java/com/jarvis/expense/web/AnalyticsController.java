@@ -2,6 +2,7 @@ package com.jarvis.expense.web;
 
 import com.jarvis.expense.service.AnalyticsService;
 import com.jarvis.expense.web.dto.CategorySpend;
+import com.jarvis.expense.web.dto.NetWorthPoint;
 import com.jarvis.expense.web.dto.PeriodSummary;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -35,6 +36,21 @@ public class AnalyticsController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         Instant[] window = window(from, to);
         return analytics.spendByCategory(window[0], window[1]);
+    }
+
+    /** Income grouped by source (savings CREDITs) over [from, to). Defaults to the last 30 days. */
+    @GetMapping("/income-by-source")
+    public List<CategorySpend> incomeBySource(
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        Instant[] window = window(from, to);
+        return analytics.incomeBySource(window[0], window[1]);
+    }
+
+    /** Net-worth (savings cash) at the end of each of the last {@code months} months (default 12). */
+    @GetMapping("/net-worth-trend")
+    public List<NetWorthPoint> netWorthTrend(@RequestParam(defaultValue = "12") int months) {
+        return analytics.netWorthTrend(months);
     }
 
     private Instant[] window(Instant from, Instant to) {

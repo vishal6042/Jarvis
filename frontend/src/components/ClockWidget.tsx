@@ -4,6 +4,7 @@ import { CalendarDays, ChevronRight } from "lucide-react";
 import { dueLabel, REMINDER_META, upcomingReminders } from "@/lib/sample";
 import { useReminders } from "@/lib/store";
 import { formatINR } from "@/lib/format";
+import { analyticsSummary } from "@/api";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -94,12 +95,21 @@ function Dial({ h, m, s }: { h: number; m: number; s: number }) {
 
 export default function ClockWidget() {
   const [now, setNow] = useState(() => new Date());
+  const [todaySpend, setTodaySpend] = useState<number | null>(null);
   const navigate = useNavigate();
   const { items } = useReminders();
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date(to.getFullYear(), to.getMonth(), to.getDate()); // start of today
+    analyticsSummary(from.toISOString(), to.toISOString())
+      .then((s) => setTodaySpend(Number(s.spend)))
+      .catch(() => setTodaySpend(null));
   }, []);
 
   const h = now.getHours();
@@ -125,6 +135,13 @@ export default function ClockWidget() {
           <div className="flex items-center gap-2 text-foreground">
             <CalendarDays className="size-4 text-primary" />
             <span className="text-base font-semibold tracking-tight">{date}</span>
+          </div>
+
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Spent today</span>
+            <span className="text-lg font-bold tabular-nums" style={{ color: "#f43f5e" }}>
+              {todaySpend == null ? "—" : formatINR(todaySpend)}
+            </span>
           </div>
 
           <div className="mt-4">

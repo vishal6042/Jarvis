@@ -148,7 +148,7 @@ export default function Login() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-background p-4">
       <LoginBackdrop />
-      <Card className="relative z-10 w-full max-w-sm border-white/10 bg-card/70 shadow-2xl backdrop-blur-xl">
+      <Card className="relative z-10 w-full max-w-sm border-white/20 bg-card/75 shadow-2xl backdrop-blur-xl">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
             <Zap className="size-6" />
@@ -340,53 +340,19 @@ export default function Login() {
   );
 }
 
-/** Decorative, self-contained login background — drifting color blobs, a faint grid, and a
- *  finance line motif. Pure CSS/SVG (no external image), theme-aware for light & dark. */
+/** Full-bleed login background: the finance illustration at public/login-bg.jpg, with a soft
+ *  vignette scrim toward the theme background so the glass card stays legible on any screen. */
 function LoginBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-chart-3/10" />
-
-      {/* drifting blurred color blobs */}
-      <div className="animate-blob absolute -left-24 -top-24 size-[28rem] rounded-full bg-primary/30 blur-3xl" />
-      <div className="animate-blob absolute -right-32 top-1/4 size-[26rem] rounded-full bg-chart-3/25 blur-3xl [animation-delay:-7s]" />
-      <div className="animate-blob absolute -bottom-24 left-1/3 size-[30rem] rounded-full bg-chart-1/20 blur-3xl [animation-delay:-13s]" />
-
-      {/* faint grid, faded toward the edges */}
+      {/* the artwork, covering the viewport */}
       <div
-        className="absolute inset-0 opacity-[0.15] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-        }}
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: "url('/login-bg.png')" }}
       />
-
-      {/* subtle rising "market line" along the bottom */}
-      <svg
-        className="absolute inset-x-0 bottom-0 h-64 w-full opacity-40"
-        viewBox="0 0 1200 240"
-        preserveAspectRatio="none"
-        fill="none"
-      >
-        <defs>
-          <linearGradient id="loginFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 180 C150 120 250 200 400 140 S650 60 800 120 S1050 200 1200 90 L1200 240 L0 240 Z"
-          fill="url(#loginFill)"
-        />
-        <path
-          d="M0 180 C150 120 250 200 400 140 S650 60 800 120 S1050 200 1200 90"
-          stroke="var(--primary)"
-          strokeOpacity="0.45"
-          strokeWidth="2"
-          fill="none"
-        />
-      </svg>
+      {/* vignette + tint toward the background colour for card contrast (light & dark) */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_10%,var(--background)_95%)] opacity-70" />
+      <div className="absolute inset-0 bg-background/10 dark:bg-background/45" />
     </div>
   );
 }

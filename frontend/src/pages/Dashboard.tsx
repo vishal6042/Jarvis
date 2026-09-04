@@ -1,12 +1,18 @@
-import { useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { ArrowDownRight, ArrowUpRight, Banknote, PiggyBank, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, Upload, Wallet } from "lucide-react";
+import { financeScore, listTransactions, netWorthTrend } from "@/api";
+import type { FinanceScoreResult, NetWorthPoint, Transaction } from "@/types";
 import { formatINR } from "@/lib/format";
-import { hashId, LOAN_META, pointLabels, valueSeries, type Period } from "@/lib/sample";
+import { type Period } from "@/lib/sample";
+import { cashflowSeries, periodLabel } from "@/lib/txnseries";
 import { useFamily } from "@/lib/store";
 import { useFinanceSummary } from "@/lib/finance";
 import ClockWidget from "@/components/ClockWidget";
 import PeriodTabs from "@/components/PeriodTabs";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -14,33 +20,20 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 function StatCard({
   title,
   value,
-  delta,
-  positive,
-  trendDown,
   icon,
   iconColor = "var(--primary)",
+  footer,
 }: {
   title: string;
   value: string;
-  delta?: string;
-  positive?: boolean;
-  /** Arrow direction, independent of the good/bad color (e.g. loans paid down = good + down). */
-  trendDown?: boolean;
   icon: React.ReactNode;
   iconColor?: string;
+  footer?: React.ReactNode;
 }) {
-  const down = trendDown ?? !positive;
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -54,117 +47,63 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tracking-tight">{value}</div>
-        {delta && (
-          <p
-            className={`mt-1 flex items-center gap-1 text-xs ${
-              positive ? "text-emerald-500" : "text-rose-500"
-            }`}
-          >
-            {down ? <ArrowDownRight className="size-3" /> : <ArrowUpRight className="size-3" />}
-            {delta}
-          </p>
-        )}
+        {footer}
       </CardContent>
     </Card>
   );
 }
 
-type ChartEntity = { id: string | number; label: string };
+const cashflowConfig = {
+  earning: { label: "Earning", color: "var(--chart-1)" },
+  spend: { label: "Spend", color: "var(--chart-2)" },
+} satisfies ChartConfig;
 
-/** Area chart over a set of entities (accounts/cards/loans), with an All/individual switch. */
-function EntityAreaChart({
-  title,
-  description,
-  allLabel,
-  entities,
-  base,
-  seedBase,
-  emptyHint,
-  combineOnAll = false,
-}: {
-  title: string;
-  description: string;
-  allLabel: string;
-  entities: ChartEntity[];
-  base: number;
-  seedBase: number;
-  emptyHint: string;
-  combineOnAll?: boolean;
-}) {
-  const [selected, setSelected] = useState("all");
+/** Real earning vs spend over the selected period, from recorded transactions. */
+function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolean }) {
   const [period, setPeriod] = useState<Period>("month");
-
-  const combined = selected === "all" && combineOnAll;
-  const active = selected === "all" ? entities : entities.filter((e) => String(e.id) === selected);
-  // Entities actually drawn as areas: one combined area, or one per active entity.
-  const drawn: ChartEntity[] = combined ? [{ id: "combined", label: allLabel }] : active;
-  // Evenly-spaced X tick interval per period (recharts skips N between rendered ticks).
+  const [offset, setOffset] = useState(0); // 0 = current period; higher = further back
+  const data = useMemo(() => cashflowSeries(txns, period, offset), [txns, period, offset]);
+  const hasData = data.some((d) => d.earning > 0 || d.spend > 0);
   const tickInterval = period === "day" ? 2 : period === "month" ? 4 : 0;
-
-  const { data, config } = useMemo(() => {
-    const labels = pointLabels(period);
-    const series: Record<string, number[]> = {};
-    const cfg: ChartConfig = {};
-    if (combined) {
-      const sum = labels.map(() => 0);
-      entities.forEach((e, i) => {
-        valueSeries(period, seedBase + hashId(String(e.id)) + i * 17, base).forEach(
-          (v, idx) => (sum[idx] += v)
-        );
-      });
-      series["ecombined"] = sum;
-      cfg["ecombined"] = { label: allLabel, color: "var(--chart-1)" };
-    } else {
-      active.forEach((e, i) => {
-        const key = `e${e.id}`;
-        series[key] = valueSeries(period, seedBase + hashId(String(e.id)) + i * 17, base);
-        cfg[key] = { label: e.label, color: `var(--chart-${(i % 5) + 1})` };
-      });
-    }
-    const rows = labels.map((label, idx) => {
-      const row: Record<string, number | string> = { label };
-      drawn.forEach((e) => (row[`e${e.id}`] = series[`e${e.id}`][idx] ?? 0));
-      return row;
-    });
-    return { data: rows, config: cfg };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, selected, entities, base, seedBase, combined]);
-
-  const items = [
-    { value: "all", label: allLabel },
-    ...entities.map((e) => ({ value: String(e.id), label: e.label })),
-  ];
 
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <CardTitle>Cash flow</CardTitle>
+          <CardDescription>Earning vs spend · {periodLabel(period, offset)}</CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select items={items} value={selected} onValueChange={(v) => setSelected(v ?? "all")}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={allLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((it) => (
-                <SelectItem key={it.value} value={it.value}>
-                  {it.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <PeriodTabs value={period} onChange={setPeriod} />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="size-8" aria-label="Previous period" onClick={() => setOffset((o) => o + 1)}>
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label="Next period"
+            disabled={offset === 0}
+            onClick={() => setOffset((o) => Math.max(0, o - 1))}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+          <PeriodTabs value={period} onChange={(p) => { setPeriod(p); setOffset(0); }} />
         </div>
       </CardHeader>
       <CardContent>
-        {entities.length === 0 ? (
-          <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-            {emptyHint}
+        {loading ? (
+          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+            Loading…
+          </div>
+        ) : !hasData ? (
+          <div className="flex h-[300px] flex-col items-center justify-center gap-1 text-center">
+            <p className="text-sm font-medium">No transactions yet</p>
+            <p className="text-sm text-muted-foreground">
+              Add a transaction or import a statement to see your cash flow.
+            </p>
           </div>
         ) : (
-          <ChartContainer config={config} className="h-[300px] w-full">
+          <ChartContainer config={cashflowConfig} className="h-[300px] w-full">
             <AreaChart data={data} margin={{ left: 16, right: 16, top: 8 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
@@ -175,23 +114,28 @@ function EntityAreaChart({
                 interval={tickInterval}
                 tick={{ fontSize: 11 }}
               />
+              <YAxis hide domain={[0, "auto"]} allowDataOverflow />
               <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              {drawn.map((e) => {
-                const key = `e${e.id}`;
-                return (
-                  <Area
-                    key={key}
-                    dataKey={key}
-                    name={e.label}
-                    type="natural"
-                    stroke={`var(--color-${key})`}
-                    fill={`var(--color-${key})`}
-                    fillOpacity={0.18}
-                    strokeWidth={2}
-                    isAnimationActive={false}
-                  />
-                );
-              })}
+              <Area
+                dataKey="earning"
+                name="Earning"
+                type="monotone"
+                stroke="var(--color-earning)"
+                fill="var(--color-earning)"
+                fillOpacity={0.18}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+              <Area
+                dataKey="spend"
+                name="Spend"
+                type="monotone"
+                stroke="var(--color-spend)"
+                fill="var(--color-spend)"
+                fillOpacity={0.18}
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
             </AreaChart>
           </ChartContainer>
         )}
@@ -200,27 +144,307 @@ function EntityAreaChart({
   );
 }
 
+/** Ring colour by score band — matches the rating thresholds in the scoring prompt. */
+function scoreColor(score: number): string {
+  if (score >= 80) return "#10b981"; // Excellent
+  if (score >= 65) return "#84cc16"; // Good
+  if (score >= 45) return "#f59e0b"; // Fair
+  return "#f43f5e"; // Needs work
+}
+
+/** Circular gauge: a coloured arc filled to score/100 over a faint track, score in the middle. */
+function ScoreGauge({ score }: { score: number }) {
+  const size = 132;
+  const stroke = 11;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, score)) / 100;
+  const color = scoreColor(score);
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--muted)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+          style={{ transition: "stroke-dashoffset 900ms ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-3xl font-bold tabular-nums" style={{ color }}>
+          {score}
+        </span>
+        <span className="text-xs text-muted-foreground">/ 100</span>
+      </div>
+    </div>
+  );
+}
+
+const SCORE_CACHE_KEY = "jarvis_finance_score";
+const SCORE_TTL_MS = 6 * 60 * 60 * 1000; // 6h — a fresh score isn't needed every visit
+
+type ScoreMetrics = {
+  monthlyIncome: number;
+  monthlySpend: number;
+  savingsRate: number;
+  cashSavings: number;
+  investments: number;
+  outstandingLoans: number;
+  monthlyEmi: number;
+};
+
+/** Stable fingerprint of the inputs — a cached score is reused only while the numbers hold. */
+function metricsFingerprint(m: ScoreMetrics): string {
+  return [
+    Math.round(m.monthlyIncome),
+    Math.round(m.monthlySpend),
+    m.savingsRate,
+    Math.round(m.cashSavings),
+    Math.round(m.investments),
+    Math.round(m.outstandingLoans),
+    Math.round(m.monthlyEmi),
+  ].join("|");
+}
+
+/** The headline card: an LLM-scored financial-health gauge with a motivating line + tips. */
+function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
+  const [result, setResult] = useState<FinanceScoreResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const fp = useMemo(() => metricsFingerprint(metrics), [metrics]);
+  const hasData = metrics.monthlyIncome > 0 || metrics.monthlySpend > 0 || metrics.cashSavings > 0;
+
+  useEffect(() => {
+    if (!hasData) return;
+
+    // Reuse a recent score for the same inputs — the local model call is slow.
+    try {
+      const raw = localStorage.getItem(SCORE_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw) as { fp: string; at: number; result: FinanceScoreResult };
+        if (cached.fp === fp && Date.now() - cached.at < SCORE_TTL_MS) {
+          setResult(cached.result);
+          return;
+        }
+      }
+    } catch {
+      /* ignore malformed cache */
+    }
+
+    let alive = true;
+    setError(false);
+    // Debounce so we don't score against half-loaded numbers as the dashboard settles.
+    const timer = setTimeout(() => {
+      setLoading(true);
+      financeScore(metrics)
+        .then((r) => {
+          if (!alive) return;
+          setResult(r);
+          try {
+            localStorage.setItem(SCORE_CACHE_KEY, JSON.stringify({ fp, at: Date.now(), result: r }));
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch(() => alive && setError(true))
+        .finally(() => alive && setLoading(false));
+    }, 700);
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [fp, hasData, metrics]);
+
+  if (!hasData) return null; // nothing to score yet — the import empty-state covers this
+
+  const color = result ? scoreColor(result.score) : "var(--primary)";
+
+  return (
+    <Card
+      className="overflow-hidden border-0 shadow-sm"
+      style={{
+        background: result
+          ? `linear-gradient(135deg, color-mix(in oklab, ${color} 16%, var(--card)), var(--card) 65%)`
+          : undefined,
+      }}
+    >
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4" style={{ color }} />
+          <CardTitle>Finance score</CardTitle>
+        </div>
+        <CardDescription>Your financial health, assessed by Jarvis</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading || (!result && !error) ? (
+          <div className="flex items-center gap-4 py-2">
+            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+            <div>
+              <p className="font-medium">Analyzing your finances…</p>
+              <p className="text-sm text-muted-foreground">Scoring savings, debt, buffer and investing.</p>
+            </div>
+          </div>
+        ) : error ? (
+          <p className="py-2 text-sm text-muted-foreground">
+            Couldn't compute your score right now. Make sure the AI service is running and try again later.
+          </p>
+        ) : result ? (
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-4">
+              <ScoreGauge score={result.score} />
+              <div className="sm:hidden">
+                <div className="text-lg font-semibold" style={{ color }}>
+                  {result.rating}
+                </div>
+              </div>
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="hidden text-lg font-semibold sm:block" style={{ color }}>
+                {result.rating}
+              </div>
+              <p className="text-base font-medium leading-snug">{result.headline}</p>
+              {result.tips.length > 0 && (
+                <ul className="space-y-1.5">
+                  {result.tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Lightbulb className="mt-0.5 size-4 shrink-0" style={{ color }} />
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+const netWorthConfig = {
+  netWorth: { label: "Net worth", color: "#8b5cf6" },
+} satisfies ChartConfig;
+
+/** Net worth (savings cash) at each month-end; optionally folds in the current investment value. */
+function NetWorthTrendCard({ addInvestments }: { addInvestments: number }) {
+  const [points, setPoints] = useState<NetWorthPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    netWorthTrend(12)
+      .then((p) => alive && setPoints(p))
+      .catch(() => alive && setPoints([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const data = useMemo(
+    () =>
+      points.map((p) => ({
+        label: new Date(`${p.month}-01T00:00:00`).toLocaleString(undefined, { month: "short" }),
+        netWorth: Math.round(Number(p.netWorth)) + addInvestments,
+      })),
+    [points, addInvestments]
+  );
+  const hasData = data.some((d) => d.netWorth !== 0);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Net worth trend</CardTitle>
+        <CardDescription>
+          Savings cash at each month-end{addInvestments > 0 ? " · incl. investments" : ""} · last 12 months
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Loading…</div>
+        ) : !hasData ? (
+          <div className="flex h-[260px] flex-col items-center justify-center gap-1 text-center">
+            <p className="text-sm font-medium">No balance history yet</p>
+            <p className="text-sm text-muted-foreground">Import a savings statement to build your net-worth trend.</p>
+          </div>
+        ) : (
+          <ChartContainer config={netWorthConfig} className="h-[260px] w-full">
+            <AreaChart data={data} margin={{ left: 16, right: 16, top: 8 }}>
+              <defs>
+                <linearGradient id="nw-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-netWorth)" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="var(--color-netWorth)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
+              <YAxis hide domain={["auto", "auto"]} />
+              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
+              <Area
+                dataKey="netWorth"
+                name="Net worth"
+                type="monotone"
+                stroke="var(--color-netWorth)"
+                fill="url(#nw-fill)"
+                strokeWidth={2}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Dashboard() {
-  const { seed, activeId, activeMember } = useFamily();
+  const { activeId, activeMember } = useFamily();
   const f = useFinanceSummary();
+  const navigate = useNavigate();
 
-  const savingsEntities = f.savingsAccounts.map((a) => ({
-    id: a.id,
-    label: `${a.displayName} ••${a.last4}`,
-  }));
-  const cardEntities = f.accounts
-    .filter((a) => a.type === "CREDIT_CARD" || a.type === "DEBIT_CARD")
-    .map((a) => ({ id: a.id, label: `${a.displayName} ••${a.last4}` }));
-  const loanEntities = f.loans.map((l) => ({
-    id: l.id,
-    label: `${LOAN_META[l.kind].label} · ${l.lender}`,
-  }));
+  // Net worth is hard cash from savings; optionally fold in the investment portfolio.
+  const [includeInv, setIncludeInv] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("jarvis_networth_include_inv") === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("jarvis_networth_include_inv", includeInv ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [includeInv]);
+  const netWorth = f.savings + (includeInv ? f.investments : 0);
+  const now = new Date();
+  const thisMonth = now.toLocaleString(undefined, { month: "short" });
+  // Income lands on the last day of the month, so the Earning card shows last month's total.
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleString(undefined, {
+    month: "short",
+  });
 
-  // Deterministic month-over-month deltas (sample, varies per member).
-  const nwDelta = (1.8 + (seed % 35) / 10).toFixed(1); // % up
-  const loanDelta = (0.9 + (seed % 22) / 10).toFixed(1); // % paid down
-  const srDelta = 1 + (seed % 4); // percentage points up
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    listTransactions(0, 500)
+      .then((t) => alive && setTxns(t))
+      .catch(() => alive && setTxns([]))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -235,82 +459,64 @@ export default function Dashboard() {
         </p>
       </div>
 
+      <FinanceScoreCard
+        metrics={{
+          monthlyIncome: f.earning, // last completed month's income
+          monthlySpend: f.lastMonthSpend, // pair with income — a full month, not this month's partial
+          savingsRate: f.savingsRate,
+          cashSavings: f.savings,
+          investments: f.investments,
+          outstandingLoans: f.outstanding,
+          monthlyEmi: f.emiTotal,
+        }}
+      />
+
       <ClockWidget />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Net worth"
-          value={formatINR(f.savings)}
-          delta={`${nwDelta}% vs last month`}
-          positive
+          value={formatINR(netWorth)}
           icon={<Wallet className="size-4" />}
           iconColor="#8b5cf6"
+          footer={
+            <label className="mt-2 flex cursor-pointer items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">
+                Include investments{f.investments > 0 ? ` (${formatINR(f.investments)})` : ""}
+              </span>
+              <Switch checked={includeInv} onCheckedChange={setIncludeInv} size="sm" />
+            </label>
+          }
         />
-        <StatCard
-          title="Earning · Month"
-          value={formatINR(f.earning)}
-          delta="vs last period"
-          positive
-          icon={<ArrowUpRight className="size-4" />}
-          iconColor="#10b981"
-        />
-        <StatCard
-          title="Spend · Month"
-          value={formatINR(f.spend)}
-          delta="vs last period"
-          positive={false}
-          icon={<ArrowDownRight className="size-4" />}
-          iconColor="#f43f5e"
-        />
-        <StatCard
-          title="Outstanding loans"
-          value={formatINR(f.outstanding)}
-          delta={`${loanDelta}% vs last month`}
-          positive
-          trendDown
-          icon={<Banknote className="size-4" />}
-          iconColor="#f59e0b"
-        />
-        <StatCard
-          title="Savings rate"
-          value={`${f.savingsRate}%`}
-          delta={`${srDelta} pts vs last month`}
-          positive
-          icon={<PiggyBank className="size-4" />}
-          iconColor="#3b82f6"
-        />
+        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" />
+        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" />
+        <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" />
+        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" />
       </div>
 
-      <EntityAreaChart
-        title="Savings accounts"
-        description="Inflow across your savings accounts."
-        allLabel="All savings"
-        entities={savingsEntities}
-        base={16000}
-        seedBase={seed + 100}
-        emptyHint="Add a savings account to see its trend."
-        combineOnAll
-      />
-
-      <EntityAreaChart
-        title="Credit & debit cards"
-        description="Spend across your cards."
-        allLabel="All cards"
-        entities={cardEntities}
-        base={1800}
-        seedBase={seed + 200}
-        emptyHint="Add a card to see its spend trend."
-      />
-
-      <EntityAreaChart
-        title="Loans"
-        description="Outstanding balance trend across your loans."
-        allLabel="All loans"
-        entities={loanEntities}
-        base={50000}
-        seedBase={seed + 300}
-        emptyHint="No loans yet — add one on the Loans page."
-      />
+      {!loading && txns.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Upload className="size-6" />
+            </div>
+            <div>
+              <p className="font-medium">No transactions yet</p>
+              <p className="text-sm text-muted-foreground">
+                Import a bank or credit-card statement to populate your dashboard.
+              </p>
+            </div>
+            <Button onClick={() => navigate("/import")} className="gap-2">
+              <Upload className="size-4" /> Import statement
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <CashflowChart txns={txns} loading={loading} />
+          <NetWorthTrendCard addInvestments={includeInv ? f.investments : 0} />
+        </>
+      )}
     </div>
   );
 }

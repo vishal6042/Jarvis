@@ -17,7 +17,7 @@ spring:
             - id: expense-service
               uri: lb://expense-service
               predicates:
-                - Path=/api/accounts/**,/api/transactions/**,/api/analytics/**
+                - Path=/api/accounts/**,/api/transactions/**,/api/analytics/**,/api/recurring/**
             - id: ingestion-service
               uri: lb://ingestion-service
               predicates:
@@ -29,13 +29,20 @@ spring:
             - id: finance-service
               uri: lb://finance-service
               predicates:
-                - Path=/api/members/**,/api/investments/**,/api/loans/**,/api/reminders/**,/api/thresholds/**
+                - Path=/api/members/**,/api/investments/**,/api/loans/**,/api/reminders/**,/api/thresholds/**,/api/goals/**
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/notifications/**
           globalcors:
             cors-configurations:
               '[/**]':
-                allowedOrigins: ${JARVIS_CORS_ORIGINS:http://localhost:5173}
+                # Origin PATTERNS so the browser is allowed whether the app is opened on the desktop
+                # (localhost) or on a phone/tablet via the PC's LAN IP. Override with JARVIS_CORS_ORIGINS
+                # (comma-separated) to restrict. Bearer-token API (no cookies), so "*" is safe here.
+                allowedOriginPatterns: ${JARVIS_CORS_ORIGINS:*}
                 allowedMethods: [GET, POST, PUT, DELETE, PATCH, OPTIONS]
-                allowedHeaders: [Authorization, Content-Type]
+                allowedHeaders: "*"
 
 jarvis:
   security:

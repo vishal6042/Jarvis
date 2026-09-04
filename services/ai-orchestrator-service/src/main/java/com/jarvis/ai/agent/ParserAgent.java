@@ -20,16 +20,19 @@ public class ParserAgent implements TransactionParser {
 
     private final ChatClient chatClient;
     private final String parserModel;
+    private final String keepAlive;
     private final String promptTemplate;
     private final List<String> categories;
 
     public ParserAgent(
         ChatClient.Builder chatClientBuilder,
         @Value("${jarvis.ai.parser-model}") String parserModel,
+        @Value("${jarvis.ai.keep-alive}") String keepAlive,
         @Value("${jarvis.ai.categories}") List<String> categories,
         @Value("classpath:prompts/parse-transaction.txt") Resource promptResource) {
         this.chatClient = chatClientBuilder.build();
         this.parserModel = parserModel;
+        this.keepAlive = keepAlive;
         this.categories = categories;
         this.promptTemplate = readResource(promptResource);
     }
@@ -45,6 +48,7 @@ public class ParserAgent implements TransactionParser {
                 OllamaChatOptions.builder()
                     .model(parserModel)
                     .temperature(0.0d)
+                    .keepAlive(keepAlive) // keep the model resident between calls
                     .disableThinking() // extraction task — skip chain-of-thought for speed
                     .build())
             .call()

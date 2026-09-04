@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { KeyRound, Pencil, Plus, Trash2, UserRound } from "lucide-react";
-import { changePassword, getProfile, updateProfile } from "@/api";
+import { changePassword, deleteAllData, getProfile, updateProfile } from "@/api";
 import { useFamily, type FamilyMember } from "@/lib/store";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
@@ -117,7 +117,63 @@ export default function Profile() {
       <SecuritySection />
 
       <FamilySection />
+
+      <DangerZone />
     </div>
+  );
+}
+
+function DangerZone() {
+  const { reload } = useFamily();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function wipe() {
+    setBusy(true);
+    setError("");
+    try {
+      await deleteAllData();
+      reload();
+      // Full refresh so every page re-fetches the now-empty data.
+      window.location.assign("/dashboard");
+    } catch {
+      setError("Couldn't delete the data. Please try again — the backend may be down.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+          <Trash2 className="size-4" />
+        </div>
+        <div>
+          <CardTitle className="text-destructive">Delete all data</CardTitle>
+          <CardDescription>Wipes your finances but keeps your profile &amp; login.</CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Permanently removes every account, transaction, investment, loan, reminder, spending
+          threshold, and imported statement. Your profile and login are kept. This cannot be undone.
+        </p>
+        <Button variant="destructive" onClick={() => setOpen(true)} disabled={busy}>
+          {busy ? "Deleting…" : "Delete all data"}
+        </Button>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </CardContent>
+
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete all your data?"
+        description="This permanently removes every account, transaction, investment, loan, reminder, and spending threshold. Your profile stays. This cannot be undone."
+        confirmLabel="Delete everything"
+        onConfirm={wipe}
+      />
+    </Card>
   );
 }
 

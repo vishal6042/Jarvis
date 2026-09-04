@@ -27,6 +27,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.jwtTokenService = jwtTokenService;
     }
 
+    /**
+     * Also run on ASYNC dispatches. Streaming endpoints (StreamingResponseBody, e.g. statement
+     * scanning) complete on an async thread; Spring Security's AuthorizationFilter re-checks on that
+     * async dispatch, so the JWT must be re-validated there too or the dispatch is denied (Access
+     * Denied) and the response can't finish cleanly.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(
         HttpServletRequest request, HttpServletResponse response, FilterChain chain)

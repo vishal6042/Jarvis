@@ -76,6 +76,18 @@ export function hashId(s: string): number {
 }
 
 // ---- Category breakdown + per-category history ----
+
+/** The budgetable spend categories (app config, not data) — used for threshold settings. */
+export const CATEGORIES = [
+  "Food",
+  "Shopping",
+  "Bills & Utilities",
+  "Transport",
+  "Entertainment",
+  "Health",
+  "Miscellaneous",
+];
+
 export const categoryBreakdown = [
   { name: "Food", value: 14200 },
   { name: "Shopping", value: 9800 },

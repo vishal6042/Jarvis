@@ -35,4 +35,15 @@ public class TransactionController {
     public ResponseEntity<TransactionDto> create(@Valid @RequestBody CreateTransactionRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createManual(req));
     }
+
+    @PutMapping("/{id}")
+    public TransactionDto update(@PathVariable Long id, @Valid @RequestBody CreateTransactionRequest req) {
+        return service.update(id, req);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        service.delete(id);
+    }
 }
