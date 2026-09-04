@@ -40,6 +40,9 @@ import kotlin.math.roundToInt
  * durable-delivery + offline-first behaviour. Shared as a process singleton by the SMS receiver, the
  * WorkManager job, and the UI.
  */
+/** Re-score at most daily even when the finance-score inputs are unchanged. */
+private const val SCORE_TTL_MS = 24L * 60 * 60 * 1000
+
 class SyncRepository private constructor(context: Context) {
 
     private val db = AppDatabase.get(context)
@@ -283,6 +286,21 @@ class SyncRepository private constructor(context: Context) {
         val investments = runCatching { api.investments(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val loans = runCatching { api.loans(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val recent = runCatching { api.recentTransactions(session.baseUrl, session.token, 10) }.getOrDefault(emptyList())
+        // Keep a previously computed score while its inputs are unchanged (the AI call is slow).
+        val previous = dashboardDao.get()?.let { parseExtras(it) }
+        val metrics = FinanceMetricsDto(
+            monthlyIncome = lastMonth.earning,
+            monthlySpend = lastMonth.spend,
+            savingsRate = savingsRate,
+            cashSavings = netWorth,
+            investments = investments.sumOf { it.current },
+            outstandingLoans = loans.sumOf { it.outstanding },
+            monthlyEmi = loans.sumOf { it.emi },
+        )
+        val fp = metrics.fingerprint()
+        val fresh = previous?.score != null && previous.scoreFingerprint == fp
+            && System.currentTimeMillis() - previous.scoreAt < SCORE_TTL_MS
+
         val extras = DashboardExtras(
             upcoming = upcoming(reminders),
             invested = investments.sumOf { it.principal },
@@ -291,19 +309,37 @@ class SyncRepository private constructor(context: Context) {
             loanEmi = loans.sumOf { it.emi },
             loanEmisLeft = loans.mapNotNull { emisLeft(it.outstanding, it.emi, it.rate) }.maxOrNull(),
             recent = recent,
-            accounts = accounts,
+            // Stable order (savings first, then by id): the API returns heap order, which shifts after
+            // updates and made the accounts strip re-anchor mid-scroll between refreshes.
+            accounts = accounts.sortedWith(compareBy({ it.type != "SAVINGS" }, { it.id })),
+            lastMonthSpend = lastMonth.spend,
+            score = if (fresh) previous.score else previous?.score, // stale score stays visible until replaced
+            scoreFingerprint = if (fresh) previous.scoreFingerprint else previous?.scoreFingerprint,
+            scoreAt = if (fresh) previous.scoreAt else (previous?.scoreAt ?: 0L),
         )
 
-        dashboardDao.upsert(
-            DashboardCache(
-                netWorth = netWorth,
-                monthSpend = thisMonth.spend,
-                lastMonthEarning = lastMonth.earning,
-                savingsRate = savingsRate,
-                topCategoriesJson = json.encodeToString(top),
-                extrasJson = json.encodeToString(extras),
-            )
+        val cache = DashboardCache(
+            netWorth = netWorth,
+            monthSpend = thisMonth.spend,
+            lastMonthEarning = lastMonth.earning,
+            savingsRate = savingsRate,
+            topCategoriesJson = json.encodeToString(top),
+            extrasJson = json.encodeToString(extras),
         )
+        dashboardDao.upsert(cache) // tiles first — the score below can take a while
+
+        val hasData = metrics.monthlyIncome > 0 || metrics.monthlySpend > 0 || metrics.cashSavings > 0
+        if (!fresh && hasData) {
+            runCatching { api.financeScore(session.baseUrl, session.token, metrics) }.onSuccess { score ->
+                dashboardDao.upsert(
+                    cache.copy(
+                        extrasJson = json.encodeToString(
+                            extras.copy(score = score, scoreFingerprint = fp, scoreAt = System.currentTimeMillis())
+                        )
+                    )
+                )
+            }
+        }
     }
 
     /** Reminders due in the next 30 days, monthly ones rolled forward to their next occurrence. */

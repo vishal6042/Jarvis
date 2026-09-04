@@ -77,6 +77,7 @@ data class TransactionDto(
     val source: String? = null,
     val note: String? = null,
     val transfer: Boolean = false,
+    val settlement: Boolean = false, // one side of a credit-card bill payment
 )
 
 /** Manual entry (quick-add from the phone): mirrors expense-service CreateTransactionRequest. */
@@ -135,6 +136,32 @@ data class NotificationDto(
     val createdAt: String,
 )
 
+/** Inputs for the AI finance score — the same numbers the web dashboard sends. */
+@Serializable
+data class FinanceMetricsDto(
+    val monthlyIncome: Double,
+    val monthlySpend: Double,
+    val savingsRate: Int,
+    val cashSavings: Double,
+    val investments: Double,
+    val outstandingLoans: Double,
+    val monthlyEmi: Double,
+) {
+    /** Cached scores are reused only while these inputs hold. */
+    fun fingerprint(): String = listOf(
+        monthlyIncome.toLong(), monthlySpend.toLong(), savingsRate, cashSavings.toLong(),
+        investments.toLong(), outstandingLoans.toLong(), monthlyEmi.toLong(),
+    ).joinToString("|")
+}
+
+@Serializable
+data class FinanceScoreDto(
+    val score: Int,
+    val rating: String,
+    val headline: String,
+    val tips: List<String> = emptyList(),
+)
+
 /** Extra dashboard sections cached with the tiles so they render offline too. */
 @Serializable
 data class DashboardExtras(
@@ -146,6 +173,10 @@ data class DashboardExtras(
     val loanEmisLeft: Int? = null,
     val recent: List<TransactionDto> = emptyList(),
     val accounts: List<AccountDto> = emptyList(),
+    val lastMonthSpend: Double = 0.0,
+    val score: FinanceScoreDto? = null,
+    val scoreFingerprint: String? = null,
+    val scoreAt: Long = 0L,
 )
 
 @Serializable

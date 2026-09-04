@@ -1,5 +1,11 @@
 package com.jarvis.sync.ui
 
+import com.jarvis.sync.data.FinanceScoreDto
+
+import androidx.compose.material.icons.filled.Lightbulb
+
+import androidx.compose.material.icons.filled.AutoAwesome
+
 import com.jarvis.sync.data.AccountDto
 
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -291,6 +297,10 @@ private fun DashboardScreen(vm: AppViewModel) {
         Spacer(Modifier.height(12.dp))
 
         val c = cache
+        if (c != null) {
+            FinanceScoreSection(vm.extras(c)?.score, vm.refreshing)
+            Spacer(Modifier.height(12.dp))
+        }
         if (c == null) {
             Box(Modifier.fillMaxWidth().height(160.dp), Alignment.Center) {
                 Text(if (vm.refreshing) "Loading…" else "Pull the refresh button to load your dashboard.")
@@ -339,6 +349,81 @@ private fun DashboardScreen(vm: AppViewModel) {
             Spacer(Modifier.height(72.dp)) // keep the last row clear of the FAB
         }
     }
+    }
+}
+
+/** Jarvis's AI finance score: a gauge, one-word rating, headline and tips (cached; re-scored when inputs change). */
+@Composable
+private fun FinanceScoreSection(score: FinanceScoreDto?, refreshing: Boolean) {
+    val accent = when (score?.rating?.lowercase()) {
+        "excellent" -> CardTints.greenAccent
+        "good" -> CardTints.tealAccent
+        "fair" -> CardTints.goldAccent
+        null -> CardTints.purpleAccent
+        else -> CardTints.roseAccent
+    }
+    val tint = when (score?.rating?.lowercase()) {
+        "excellent" -> CardTints.green
+        "good" -> CardTints.teal
+        "fair" -> CardTints.gold
+        null -> CardTints.purple
+        else -> CardTints.rose
+    }
+    FancyCard(tint, accent, Icons.Filled.AutoAwesome, Modifier.fillMaxWidth()) {
+        Column {
+            Text("Finance score", fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text("Your financial health, assessed by Jarvis", fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
+            Spacer(Modifier.height(12.dp))
+            if (score == null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (refreshing) {
+                        CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp, color = accent)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Analyzing your finances…", fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                    } else {
+                        Text("Score not available yet — pull to refresh once the AI service is running.",
+                            fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                    }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ScoreGauge(score.score, accent)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(score.rating, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(score.headline, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+                if (score.tips.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    score.tips.take(3).forEach { tip ->
+                        Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Filled.Lightbulb, null, tint = accent, modifier = Modifier.padding(top = 2.dp).width(14.dp).height(14.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(tip, fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Circular gauge: score out of 100, arc coloured by the rating. */
+@Composable
+private fun ScoreGauge(score: Int, accent: Color) {
+    Box(Modifier.width(72.dp).height(72.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val stroke = 7.dp.toPx()
+            drawArc(Color.White.copy(alpha = 0.15f), -90f, 360f, false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            drawArc(accent, -90f, 360f * score.coerceIn(0, 100) / 100f, false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(score.toString(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("/ 100", fontSize = 9.sp, color = Color.White.copy(alpha = 0.7f))
+        }
     }
 }
 
@@ -408,12 +493,13 @@ private fun DashboardExtrasSections(x: DashboardExtras) {
                         Column(Modifier.weight(1f)) {
                             Text(t.merchant?.takeIf { it.isNotBlank() } ?: t.category ?: "Transaction", maxLines = 1)
                             Text(
-                                listOfNotNull(t.occurredAt.take(10), t.category, t.accountName, if (t.transfer) "transfer" else null).joinToString(" · "),
+                                listOfNotNull(t.occurredAt.take(10), t.category, t.accountName,
+                                    if (t.transfer) "transfer" else if (t.settlement) "bill payment" else null).joinToString(" · "),
                                 fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                             )
                         }
                         Text((if (debit) "-" else "+") + money(t.amount), fontWeight = FontWeight.SemiBold,
-                            color = if (t.transfer) MaterialTheme.colorScheme.onSurfaceVariant else if (debit) Color(0xFFF43F5E) else Color(0xFF10B981))
+                            color = if (t.transfer || t.settlement) MaterialTheme.colorScheme.onSurfaceVariant else if (debit) Color(0xFFF43F5E) else Color(0xFF10B981))
                     }
                     if (i < x.recent.lastIndex) HorizontalDivider()
                 }

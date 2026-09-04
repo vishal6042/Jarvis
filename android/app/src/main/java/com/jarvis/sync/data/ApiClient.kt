@@ -90,6 +90,24 @@ class ApiClient {
     suspend fun notifications(baseUrl: String, token: String): List<NotificationDto> =
         getJson(baseUrl, token, "/api/notifications", emptyMap())
 
+    /** AI-assessed finance score; the local model can take a while, so this call gets a long timeout. */
+    suspend fun financeScore(baseUrl: String, token: String, metrics: FinanceMetricsDto): FinanceScoreDto =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(url(baseUrl, "/api/ai/finance-score"))
+                .header("Authorization", "Bearer $token")
+                .post(json.encodeToString(metrics).toRequestBody(jsonMedia))
+                .build()
+            client.newBuilder().readTimeout(120, TimeUnit.SECONDS).build().newCall(request).execute().use { resp ->
+                val text = resp.body?.string().orEmpty()
+                when {
+                    resp.isSuccessful -> json.decodeFromString<FinanceScoreDto>(text)
+                    resp.code == 401 -> throw ApiException.Unauthorized
+                    else -> throw ApiException.Http(resp.code)
+                }
+            }
+        }
+
     suspend fun createTransaction(baseUrl: String, token: String, req: CreateTransactionDto): TransactionDto =
         postJson(baseUrl, token, "/api/transactions", json.encodeToString(req))
 
