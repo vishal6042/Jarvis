@@ -43,6 +43,24 @@ data class AccountDto(
     val type: String,
     val balance: Double? = null,
     @SerialName("displayName") val displayName: String? = null,
+    val bank: String? = null,
+    val last4: String? = null,
+    val network: String? = null,
+    val creditLimit: Double? = null,
+)
+
+/** Heartbeat sent to PUT /api/devices/{id} so the web app can show this phone under Settings. */
+@Serializable
+data class DeviceHeartbeatDto(
+    val name: String,
+    val manufacturer: String,
+    val model: String,
+    val osVersion: String,
+    val appVersion: String,
+    val forwardingEnabled: Boolean,
+    val pendingCount: Int,
+    val forwardedTotal: Long,
+    val lastSyncAt: String? = null,
 )
 
 @Serializable
@@ -127,6 +145,7 @@ data class DashboardExtras(
     val loanEmi: Double = 0.0,
     val loanEmisLeft: Int? = null,
     val recent: List<TransactionDto> = emptyList(),
+    val accounts: List<AccountDto> = emptyList(),
 )
 
 @Serializable

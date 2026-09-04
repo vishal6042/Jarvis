@@ -193,6 +193,7 @@ class SyncRepository private constructor(context: Context) {
     }
 
     private suspend fun logDelivered(msg: PendingMessage, status: String, detail: String?) {
+        DeviceInfo.bumpForwarded(appContext)
         logDao.insert(
             SyncLogEntry(
                 snippet = msg.payload.take(140), sender = msg.sender, status = status, detail = detail, smsId = msg.smsId,
@@ -221,6 +222,31 @@ class SyncRepository private constructor(context: Context) {
                 api.readNotificationEvents(call, onEvent)
             } finally {
                 watcher.cancel()
+            }
+        }
+    }
+
+    // ---- device heartbeat ----
+
+    /** Tell the server what this phone is and how forwarding is going. Never throws. */
+    suspend fun heartbeat() {
+        runCatching {
+            authed { s ->
+                val lastSync = DeviceInfo.lastSyncAt(appContext)
+                api.heartbeat(
+                    s.baseUrl, s.token, DeviceInfo.id(appContext),
+                    DeviceHeartbeatDto(
+                        name = DeviceInfo.name(),
+                        manufacturer = DeviceInfo.manufacturer(),
+                        model = DeviceInfo.model(),
+                        osVersion = DeviceInfo.osVersion(),
+                        appVersion = DeviceInfo.appVersion(appContext),
+                        forwardingEnabled = s.forwardingEnabled,
+                        pendingCount = pendingDao.countNow(),
+                        forwardedTotal = DeviceInfo.forwardedTotal(appContext),
+                        lastSyncAt = if (lastSync > 0) DateTimeFormatter.ISO_INSTANT.format(Instant.ofEpochMilli(lastSync)) else null,
+                    ),
+                )
             }
         }
     }
@@ -265,6 +291,7 @@ class SyncRepository private constructor(context: Context) {
             loanEmi = loans.sumOf { it.emi },
             loanEmisLeft = loans.mapNotNull { emisLeft(it.outstanding, it.emi, it.rate) }.maxOrNull(),
             recent = recent,
+            accounts = accounts,
         )
 
         dashboardDao.upsert(

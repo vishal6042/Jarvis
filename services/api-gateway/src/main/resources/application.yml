@@ -21,7 +21,7 @@ spring:
             - id: ingestion-service
               uri: lb://ingestion-service
               predicates:
-                - Path=/api/ingest/**
+                - Path=/api/ingest/**,/api/devices/**
             - id: ai-orchestrator-service
               uri: lb://ai-orchestrator-service
               predicates:

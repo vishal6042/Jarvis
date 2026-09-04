@@ -130,6 +130,28 @@ export async function deleteAllData(): Promise<void> {
   ]);
 }
 
+// ---- Connected devices (ingestion-service; the Android app heartbeats here) ----
+export interface ConnectedDevice {
+  id: string;
+  name: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  osVersion: string | null;
+  appVersion: string | null;
+  forwardingEnabled: boolean;
+  pendingCount: number;
+  forwardedTotal: number;
+  lastSyncAt: string | null;
+  lastSeenAt: string;
+  firstSeenAt: string;
+}
+export async function listDevices(): Promise<ConnectedDevice[]> {
+  return (await api.get<ConnectedDevice[]>("/api/devices")).data;
+}
+export async function forgetDevice(id: string): Promise<void> {
+  await api.delete(`/api/devices/${id}`);
+}
+
 // ---- Notifications (notification-service) ----
 export async function listNotifications(): Promise<ApiNotification[]> {
   return (await api.get<ApiNotification[]>("/api/notifications")).data;

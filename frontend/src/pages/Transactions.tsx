@@ -83,6 +83,7 @@ export default function Transactions() {
   const [dir, setDir] = useState<"all" | Direction>("all");
   const [cat, setCat] = useState<string>("all");
   const [acct, setAcct] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all"); // "all" | "YYYY-MM"
   const [page, setPage] = useState(0);
 
   // dialogs
@@ -111,9 +112,17 @@ export default function Transactions() {
     return Array.from(set).sort();
   }, [txns]);
 
+  // Months present in the data, newest first — drives the month filter.
+  const months = useMemo(() => {
+    const set = new Set<string>();
+    txns.forEach((t) => set.add(t.occurredAt.slice(0, 7)));
+    return Array.from(set).sort().reverse();
+  }, [txns]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return txns.filter((t) => {
+      if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
       if (dir !== "all" && t.direction !== dir) return false;
       if (cat !== "all" && (t.category ?? "") !== cat) return false;
       if (acct !== "all" && String(t.accountId ?? "") !== acct) return false;
@@ -123,10 +132,10 @@ export default function Transactions() {
       }
       return true;
     });
-  }, [txns, q, dir, cat, acct]);
+  }, [txns, q, dir, cat, acct, month]);
 
   // reset to first page whenever the filter set changes
-  useEffect(() => setPage(0), [q, dir, cat, acct]);
+  useEffect(() => setPage(0), [q, dir, cat, acct, month]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -140,6 +149,13 @@ export default function Transactions() {
   const acctItems = [
     { value: "all", label: "All accounts" },
     ...accounts.map((a) => ({ value: String(a.id), label: a.displayName })),
+  ];
+  const monthItems = [
+    { value: "all", label: "All months" },
+    ...months.map((m) => ({
+      value: m,
+      label: new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+    })),
   ];
 
   function openAdd() {
@@ -214,6 +230,7 @@ export default function Transactions() {
             className="pl-9"
           />
         </div>
+        <FilterSelect value={month} onChange={setMonth} items={monthItems} width="w-[150px]" />
         <FilterSelect value={dir} onChange={(v) => setDir(v as "all" | Direction)} items={dirItems} width="w-[150px]" />
         <FilterSelect value={cat} onChange={setCat} items={catItems} width="w-[180px]" />
         <FilterSelect value={acct} onChange={setAcct} items={acctItems} width="w-[190px]" />

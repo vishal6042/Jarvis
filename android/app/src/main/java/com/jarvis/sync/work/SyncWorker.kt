@@ -17,6 +17,7 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
         return try {
             val drained = repo.flush()
             repo.pollAlerts(applicationContext) // every run (incl. the 15-min safety net) surfaces new server alerts
+            repo.heartbeat() // and tells the server this phone is alive + its queue state
             if (drained) Result.success() else Result.retry()
         } catch (e: Exception) {
             Result.retry()

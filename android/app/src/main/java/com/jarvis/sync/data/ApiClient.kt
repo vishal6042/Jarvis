@@ -97,6 +97,23 @@ class ApiClient {
         postJson<Unit>(baseUrl, token, "/api/notifications/read-all", "{}", decode = false)
     }
 
+    suspend fun heartbeat(baseUrl: String, token: String, deviceId: String, hb: DeviceHeartbeatDto) {
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(url(baseUrl, "/api/devices/$deviceId"))
+                .header("Authorization", "Bearer $token")
+                .put(json.encodeToString(hb).toRequestBody(jsonMedia))
+                .build()
+            client.newCall(request).execute().use { resp ->
+                when {
+                    resp.isSuccessful -> Unit
+                    resp.code == 401 -> throw ApiException.Unauthorized
+                    else -> throw ApiException.Http(resp.code)
+                }
+            }
+        }
+    }
+
     /** A long-lived call for the notifications SSE stream; read it with [readNotificationEvents]. */
     fun notificationStreamCall(baseUrl: String, token: String): Call {
         val request = Request.Builder()

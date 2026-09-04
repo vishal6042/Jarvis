@@ -1,5 +1,21 @@
 package com.jarvis.sync.ui
 
+import com.jarvis.sync.data.AccountDto
+
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+
+import androidx.compose.material.icons.filled.ShoppingCart
+
+import androidx.compose.material.icons.filled.Savings
+
+import androidx.compose.material.icons.filled.Home
+
+import androidx.compose.material.icons.filled.CreditCard
+
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+
+import androidx.compose.material.icons.filled.AccountBalance
+
 import com.jarvis.sync.data.DashboardExtras
 
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -281,14 +297,16 @@ private fun DashboardScreen(vm: AppViewModel) {
             }
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Net worth", money(c.netWorth), Modifier.weight(1f))
-                StatCard("Spend · ${monthShort()}", money(c.monthSpend), Modifier.weight(1f))
+                FancyStat("Net worth", money(c.netWorth), CardTints.purple, CardTints.purpleAccent, Icons.Filled.AccountBalanceWallet, Modifier.weight(1f))
+                FancyStat("Spend · ${monthShort()}", money(c.monthSpend), CardTints.rose, CardTints.roseAccent, Icons.Filled.ShoppingCart, Modifier.weight(1f))
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Earning · ${monthShort(1)}", money(c.lastMonthEarning), Modifier.weight(1f))
-                StatCard("Savings rate", "${c.savingsRate}%", Modifier.weight(1f))
+                FancyStat("Earning · ${monthShort(1)}", money(c.lastMonthEarning), CardTints.green, CardTints.greenAccent, Icons.AutoMirrored.Filled.TrendingUp, Modifier.weight(1f))
+                FancyStat("Savings rate", "${c.savingsRate}%", CardTints.blue, CardTints.blueAccent, Icons.Filled.Savings, Modifier.weight(1f))
             }
+
+            vm.extras(c)?.accounts?.takeIf { it.isNotEmpty() }?.let { AccountsRow(it) }
 
             val cats = vm.topCategories(c)
             if (cats.isNotEmpty()) {
@@ -354,24 +372,24 @@ private fun DashboardExtrasSections(x: DashboardExtras) {
             if (x.invested > 0) {
                 val gain = x.investmentValue - x.invested
                 val pct = if (x.invested > 0) gain / x.invested * 100 else 0.0
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Investments", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FancyCard(CardTints.teal, CardTints.tealAccent, Icons.AutoMirrored.Filled.TrendingUp, Modifier.weight(1f)) {
+                    Column {
+                        Text("Investments", fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
                         Spacer(Modifier.height(6.dp))
-                        Text(money(x.investmentValue), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(money(x.investmentValue), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text((if (gain >= 0) "+" else "-") + money(kotlin.math.abs(gain)) + " (" + String.format(Locale.US, "%.1f", pct) + "%)",
-                            fontSize = 12.sp, color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E))
+                            fontSize = 12.sp, color = if (gain >= 0) Color(0xFF34D399) else Color(0xFFFB7185))
                     }
                 }
             }
             if (x.loanOutstanding > 0) {
-                Card(Modifier.weight(1f)) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Loan outstanding", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FancyCard(CardTints.orange, CardTints.orangeAccent, Icons.Filled.Home, Modifier.weight(1f)) {
+                    Column {
+                        Text("Loan outstanding", fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
                         Spacer(Modifier.height(6.dp))
-                        Text(money(x.loanOutstanding), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(money(x.loanOutstanding), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text("EMI " + money(x.loanEmi) + (x.loanEmisLeft?.let { " · $it left" } ?: ""),
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            fontSize = 12.sp, color = Color.White.copy(alpha = 0.75f))
                     }
                 }
             }
@@ -398,6 +416,41 @@ private fun DashboardExtrasSections(x: DashboardExtras) {
                             color = if (t.transfer) MaterialTheme.colorScheme.onSurfaceVariant else if (debit) Color(0xFFF43F5E) else Color(0xFF10B981))
                     }
                     if (i < x.recent.lastIndex) HorizontalDivider()
+                }
+            }
+        }
+    }
+}
+
+/** Horizontal strip of the user's accounts and cards, tinted like the web Accounts page. */
+@Composable
+private fun AccountsRow(accounts: List<AccountDto>) {
+    Spacer(Modifier.height(20.dp))
+    Text("Accounts & cards", fontWeight = FontWeight.SemiBold)
+    Spacer(Modifier.height(8.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(accounts, key = { it.id }) { a ->
+            val savings = a.type == "SAVINGS"
+            val (tint, accent) = if (savings) CardTints.savings to CardTints.savingsAccent else CardTints.forNetwork(a.network)
+            FancyCard(
+                tint, accent, if (savings) Icons.Filled.AccountBalance else Icons.Filled.CreditCard,
+                Modifier.width(230.dp).height(120.dp),
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(a.displayName ?: ((a.bank ?: "") + " •••• " + (a.last4 ?: "")), fontWeight = FontWeight.SemiBold,
+                            color = Color.White, fontSize = 14.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                        TintBadge(if (savings) "SAVINGS" else "CARD", accent)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (savings) {
+                        Text("Balance", fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
+                        Text(a.balance?.let { money(it) } ?: "—", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    } else {
+                        Text(a.network ?: "Credit card", fontSize = 11.sp, color = Color.White.copy(alpha = 0.7f))
+                        Text(a.creditLimit?.let { "Limit " + money(it) } ?: (a.bank ?: "Credit card"),
+                            fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+                    }
                 }
             }
         }

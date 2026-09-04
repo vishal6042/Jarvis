@@ -39,6 +39,9 @@ interface PendingDao {
     @Query("SELECT COUNT(*) FROM pending_message")
     fun count(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM pending_message")
+    suspend fun countNow(): Int
+
     @Query("SELECT smsId FROM pending_message WHERE smsId IS NOT NULL")
     fun queuedSmsIds(): Flow<List<Long>>
 

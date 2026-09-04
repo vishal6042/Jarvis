@@ -151,6 +151,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 repo.refreshDashboard()
                 offline = false
+                repo.heartbeat()
             } catch (e: Exception) {
                 offline = true
             } finally {
