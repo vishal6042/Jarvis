@@ -1,6 +1,7 @@
 package com.jarvis.finance.web.internal;
 
 import com.jarvis.finance.domain.Investment;
+import com.jarvis.finance.domain.RdMath;
 import com.jarvis.finance.repo.InvestmentRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -69,7 +70,13 @@ public class InternalInvestmentController {
             }
         }
         if (req.balance() != null && (i.getValueAsOf() == null || !on.isBefore(i.getValueAsOf()))) {
-            i.setCurrent(req.balance());
+            // A recurring deposit's alert balance is the deposits so far; with a rate and an
+            // instalment known, the value is the quarterly-compounded accrual on those instalments.
+            boolean rd = "RD".equalsIgnoreCase(i.getKind()) && i.getRate() != null && i.getRate() > 0
+                && i.getSip() != null && i.getSip().signum() > 0;
+            i.setCurrent(rd
+                ? RdMath.accruedValue(i.getSip(), RdMath.instalmentsFor(req.balance(), i.getSip()), i.getRate())
+                : req.balance());
             i.setValueAsOf(on);
         }
         investments.save(i);
