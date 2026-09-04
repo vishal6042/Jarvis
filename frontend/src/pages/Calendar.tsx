@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import {
@@ -9,6 +9,9 @@ import {
   type ReminderType,
 } from "@/lib/sample";
 import { useReminders } from "@/lib/store";
+import { listTransactions } from "@/api";
+import type { Transaction } from "@/types";
+import { PAY_STATE_META, reminderStatus } from "@/lib/reminderStatus";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +57,10 @@ const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amo
 
 export default function Calendar() {
   const { items, add, update, remove } = useReminders();
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  useEffect(() => {
+    listTransactions(0, 500).then(setTxns).catch(() => setTxns([]));
+  }, []);
   const [view, setView] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -287,7 +294,19 @@ export default function Calendar() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">{formatDate(r.occursOn)}</div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {formatDate(r.occursOn)}
+                      {(() => {
+                        const st = reminderStatus(r.occursOn, r.amount, txns);
+                        if (st.state === "upcoming") return null;
+                        const m = PAY_STATE_META[st.state];
+                        return (
+                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: `${m.color}22`, color: m.color }}>
+                            {m.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <Badge
                     variant="secondary"

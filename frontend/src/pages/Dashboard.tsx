@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
 import CardArt from "@/components/CardArt";
-import { financeScore, listTransactions, netWorthTrend } from "@/api";
+import { cardSummaries, financeScore, listTransactions, netWorthTrend, type CardSummary } from "@/api";
+import { networkColor } from "@/components/CardArt";
+import { CreditCard } from "lucide-react";
 import type { FinanceScoreResult, NetWorthPoint, Transaction } from "@/types";
 import { formatINR } from "@/lib/format";
 import { type Period } from "@/lib/sample";
@@ -217,6 +219,77 @@ function metricsFingerprint(m: ScoreMetrics): string {
     Math.round(m.outstandingLoans),
     Math.round(m.monthlyEmi),
   ].join("|");
+}
+
+/** Every credit card's cycle: unbilled spend, the bill still due and when, last payment, utilisation. */
+function CardsSection() {
+  const [cards, setCards] = useState<CardSummary[]>([]);
+  useEffect(() => {
+    cardSummaries().then(setCards).catch(() => setCards([]));
+  }, []);
+  if (cards.length === 0) return null;
+  const fmtDay = (iso: string | null) =>
+    iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
+  return (
+    <div>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold tracking-tight">Your cards</h2>
+        <span className="text-xs text-muted-foreground">Unbilled since the last statement · bill due from settlement pairing</span>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((c) => {
+          const tint = networkColor(c.network, "#8b5cf6");
+          const util = c.utilisationPct ?? 0;
+          const dueSoon = c.dueOn ? (new Date(`${c.dueOn}T00:00:00`).getTime() - Date.now()) / 86_400_000 <= 5 : false;
+          return (
+            <Card key={c.accountId} className="relative isolate overflow-hidden">
+              <CardArt color={tint} icon={CreditCard} network={c.network} wave={false} />
+              <CardHeader className="pb-2">
+                <CardDescription className="flex items-center justify-between">
+                  <span className="truncate">{c.displayName}</span>
+                  {c.network && <span className="text-[10px] font-semibold tracking-wider uppercase">{c.network}</span>}
+                </CardDescription>
+                <div className="text-2xl font-bold tracking-tight">{formatINR(c.unbilled)}</div>
+                <p className="text-xs text-muted-foreground">unbilled{c.nextStatementOn ? ` · statement ${fmtDay(c.nextStatementOn)}` : ""}</p>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Bill due</span>
+                  {c.billDue > 0 ? (
+                    <span className={`font-semibold ${dueSoon ? "text-rose-500" : ""}`}>
+                      {formatINR(c.billDue)}{c.dueOn ? ` · ${fmtDay(c.dueOn)}` : ""}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-emerald-500">Nothing pending</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Last paid</span>
+                  <span className="font-medium">
+                    {c.lastPaidAmount != null ? `${formatINR(c.lastPaidAmount)} · ${fmtDay(c.lastPaidOn)}` : "—"}
+                  </span>
+                </div>
+                {c.creditLimit != null && c.creditLimit > 0 && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                      <span>Utilisation</span>
+                      <span>{util}% of {formatINR(c.creditLimit, { compact: true })}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.min(100, util)}%`, backgroundColor: util > 60 ? "#f43f5e" : tint }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 /** The headline card: an LLM-scored financial-health gauge with a motivating line + tips. */
@@ -495,6 +568,8 @@ export default function Dashboard() {
         <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} />
         <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} />
       </div>
+
+      <CardsSection />
 
       {!loading && txns.length === 0 ? (
         <Card>

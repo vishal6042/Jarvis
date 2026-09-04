@@ -1,5 +1,8 @@
 package com.jarvis.expense.web.internal;
 
+import com.jarvis.expense.domain.Direction;
+import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.List;
 import com.jarvis.expense.service.TransactionService;
 import com.jarvis.expense.web.dto.InternalTransactionRequest;
@@ -54,6 +57,20 @@ public class InternalTransactionController {
         @RequestHeader(value = "X-Internal-Key", required = false) String key, @PathVariable Long id) {
         check(key);
         service.delete(id);
+    }
+
+    /** Debits of about {@code amount} (±tolerancePct) between two dates — used to see if a reminder was paid. */
+    @GetMapping("/search")
+    public List<TransactionDto> search(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam BigDecimal amount,
+        @RequestParam(defaultValue = "2") double tolerancePct,
+        @RequestParam Instant from,
+        @RequestParam Instant to,
+        @RequestParam(defaultValue = "DEBIT") Direction direction) {
+        check(key);
+        BigDecimal tol = amount.multiply(BigDecimal.valueOf(tolerancePct / 100.0));
+        return service.findByAmountInWindow(direction, amount.subtract(tol), amount.add(tol), from, to);
     }
 
     private void check(String key) {

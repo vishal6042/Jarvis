@@ -1,5 +1,11 @@
 package com.jarvis.expense.service;
 
+import java.util.Optional;
+import java.time.temporal.ChronoUnit;
+import java.time.ZoneOffset;
+import java.time.LocalDate;
+import java.math.RoundingMode;
+import com.jarvis.expense.web.dto.CardSummary;
 import com.jarvis.expense.domain.Account;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Direction;
@@ -41,6 +47,76 @@ public class AnalyticsService {
         BigDecimal spend = transactions.sumByDirectionAndAccountTypes(
             Direction.DEBIT, List.of(AccountType.SAVINGS, AccountType.CREDIT_CARD, AccountType.DEBIT_CARD), from, to);
         return new PeriodSummary(from, to, earning, spend);
+    }
+
+    /** Per-card cycle view: unbilled spend, the last bill and what's still due, next dates. */
+    @Transactional(readOnly = true)
+    public List<CardSummary> cards() {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        Instant now = Instant.now();
+        List<CardSummary> out = new ArrayList<>();
+        for (Account a : accounts.findAll()) {
+            if (a.getType() != AccountType.CREDIT_CARD) {
+                continue;
+            }
+            Long id = a.getId();
+            Optional<Transaction> lastPaid =
+                transactions.findFirstByAccountIdAndDirectionAndSettlementTrueOrderByOccurredAtDesc(id, Direction.CREDIT);
+
+            LocalDate lastStmt = null, nextStmt = null, dueOn = null;
+            if (a.getBillingCycleDay() != null) {
+                lastStmt = onDay(YearMonth.from(today), a.getBillingCycleDay());
+                if (lastStmt.isAfter(today)) {
+                    lastStmt = onDay(YearMonth.from(today).minusMonths(1), a.getBillingCycleDay());
+                }
+                nextStmt = onDay(YearMonth.from(lastStmt).plusMonths(1), a.getBillingCycleDay());
+                if (a.getPaymentDueDay() != null) {
+                    dueOn = onDay(YearMonth.from(lastStmt), a.getPaymentDueDay());
+                    if (!dueOn.isAfter(lastStmt)) {
+                        dueOn = onDay(YearMonth.from(lastStmt).plusMonths(1), a.getPaymentDueDay());
+                    }
+                }
+            }
+
+            BigDecimal unbilled, billed = BigDecimal.ZERO, paid = BigDecimal.ZERO;
+            if (lastStmt != null) {
+                Instant stmt = startOfDay(lastStmt);
+                Instant prev = startOfDay(onDay(YearMonth.from(lastStmt).minusMonths(1), a.getBillingCycleDay()));
+                unbilled = net(id, stmt, now);
+                billed = net(id, prev, stmt);
+                paid = transactions.sumOnAccount(id, Direction.CREDIT, true, stmt, now);
+            } else {
+                // No billing day known: everything since the last payment is "unbilled".
+                Instant since = lastPaid.map(Transaction::getOccurredAt).orElse(now.minus(30, ChronoUnit.DAYS));
+                unbilled = net(id, since, now);
+            }
+            BigDecimal billDue = billed.subtract(paid).max(BigDecimal.ZERO);
+            Integer util = a.getCreditLimit() != null && a.getCreditLimit().signum() > 0
+                ? billDue.add(unbilled).multiply(BigDecimal.valueOf(100)).divide(a.getCreditLimit(), 0, RoundingMode.HALF_UP).intValue()
+                : null;
+
+            out.add(new CardSummary(
+                id, a.getDisplayName(), a.getBank(), a.getLast4(), a.getNetwork(), a.getCreditLimit(),
+                lastStmt, nextStmt, dueOn, unbilled, billed, paid, billDue,
+                lastPaid.map(t -> t.getOccurredAt().atZone(ZoneOffset.UTC).toLocalDate()).orElse(null),
+                lastPaid.map(Transaction::getAmount).orElse(null),
+                util));
+        }
+        return out;
+    }
+
+    /** Purchases minus refunds on a card inside a window (settlements excluded). */
+    private BigDecimal net(Long accountId, Instant from, Instant to) {
+        return transactions.sumOnAccount(accountId, Direction.DEBIT, false, from, to)
+            .subtract(transactions.sumOnAccount(accountId, Direction.CREDIT, false, from, to));
+    }
+
+    private static LocalDate onDay(YearMonth ym, int day) {
+        return ym.atDay(Math.min(day, ym.lengthOfMonth()));
+    }
+
+    private static Instant startOfDay(LocalDate d) {
+        return d.atStartOfDay(ZoneOffset.UTC).toInstant();
     }
 
     @Transactional(readOnly = true)

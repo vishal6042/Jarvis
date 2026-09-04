@@ -1,5 +1,6 @@
 package com.jarvis.expense.repo;
 
+import java.util.Optional;
 import java.util.Collection;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Direction;
@@ -107,6 +108,40 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     BigDecimal sumByDirectionAndAccountType(
         @Param("direction") Direction direction,
         @Param("type") AccountType type,
+        @Param("from") Instant from,
+        @Param("to") Instant to);
+
+    /** Σ amount on one account, in a direction, for settlement or non-settlement rows, inside [from, to). */
+    @Query(
+        """
+        select coalesce(sum(t.amount), 0) from Transaction t
+        where t.account.id = :accountId and t.direction = :direction
+          and t.settlement = :settlement and t.transfer = false
+          and t.occurredAt >= :from and t.occurredAt < :to
+        """)
+    BigDecimal sumOnAccount(
+        @Param("accountId") Long accountId,
+        @Param("direction") Direction direction,
+        @Param("settlement") boolean settlement,
+        @Param("from") Instant from,
+        @Param("to") Instant to);
+
+    /** The most recent bill payment landing on a card. */
+    Optional<Transaction> findFirstByAccountIdAndDirectionAndSettlementTrueOrderByOccurredAtDesc(Long accountId, Direction direction);
+
+    /** Reminder auto-close: debits of about this amount inside a window (newest first). */
+    @Query(
+        """
+        select t from Transaction t
+        where t.direction = :direction and t.transfer = false and t.settlement = false
+          and t.amount between :min and :max
+          and t.occurredAt >= :from and t.occurredAt < :to
+        order by t.occurredAt desc
+        """)
+    List<Transaction> findByAmountBetweenInWindow(
+        @Param("direction") Direction direction,
+        @Param("min") BigDecimal min,
+        @Param("max") BigDecimal max,
         @Param("from") Instant from,
         @Param("to") Instant to);
 

@@ -1,5 +1,6 @@
 package com.jarvis.expense.web;
 
+import com.jarvis.expense.web.dto.CardSummary;
 import com.jarvis.expense.service.AnalyticsService;
 import com.jarvis.expense.web.dto.CategorySpend;
 import com.jarvis.expense.web.dto.NetWorthPoint;
@@ -30,6 +31,12 @@ public class AnalyticsController {
     }
 
     /** Spend grouped by category over [from, to). Defaults to the last 30 days. */
+    /** Every credit card's current cycle: unbilled, bill due, dates, last payment. */
+    @GetMapping("/cards")
+    public List<CardSummary> cards() {
+        return analytics.cards();
+    }
+
     @GetMapping("/by-category")
     public List<CategorySpend> byCategory(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,

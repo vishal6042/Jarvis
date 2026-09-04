@@ -94,6 +94,25 @@ public class InsightClient {
         }
     }
 
+    /** Has a debit of about this amount been seen between two dates? (reminder auto-close) */
+    public boolean paymentSeen(BigDecimal amount, java.time.Instant from, java.time.Instant to) {
+        try {
+            List<Map<String, Object>> rows = expense.get()
+                .uri(b -> b.path("/internal/transactions/search")
+                    .queryParam("amount", amount.toPlainString())
+                    .queryParam("from", from.toString())
+                    .queryParam("to", to.toString())
+                    .build())
+                .header("X-Internal-Key", internalKey)
+                .retrieve()
+                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                .block();
+            return rows != null && !rows.isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record CategorySpend(String category, BigDecimal total) {}
 

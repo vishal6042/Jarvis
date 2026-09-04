@@ -61,6 +61,8 @@ export interface Transaction {
   occurredAt: string;
   source: TxnSource;
   note: string | null;
+  transfer?: boolean;
+  settlement?: boolean;
 }
 
 export interface CreateTransactionRequest {

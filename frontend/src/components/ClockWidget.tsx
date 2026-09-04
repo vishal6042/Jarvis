@@ -5,7 +5,9 @@ import CardArt from "@/components/CardArt";
 import { dueLabel, REMINDER_META, upcomingReminders } from "@/lib/sample";
 import { useReminders } from "@/lib/store";
 import { formatINR } from "@/lib/format";
-import { analyticsSummary } from "@/api";
+import { analyticsSummary, listTransactions } from "@/api";
+import type { Transaction } from "@/types";
+import { PAY_STATE_META, reminderStatus } from "@/lib/reminderStatus";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -95,6 +97,11 @@ function Dial({ h, m, s }: { h: number; m: number; s: number }) {
 }
 
 export default function ClockWidget() {
+  // Recent transactions, to tell whether an upcoming reminder has already been paid.
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  useEffect(() => {
+    listTransactions(0, 300).then(setTxns).catch(() => setTxns([]));
+  }, []);
   const [now, setNow] = useState(() => new Date());
   const [todaySpend, setTodaySpend] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -171,6 +178,20 @@ export default function ClockWidget() {
                       <div className="truncate text-sm font-medium">{r.title}</div>
                       <div className="text-xs text-muted-foreground">{dueLabel(r.occursOn)}</div>
                     </div>
+                    {(() => {
+                      const st = reminderStatus(r.occursOn, r.amount, txns);
+                      if (st.state === "upcoming") return null;
+                      const m = PAY_STATE_META[st.state];
+                      return (
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ backgroundColor: `${m.color}22`, color: m.color }}
+                          title={st.txn ? `Matched ${st.txn.merchant ?? "a debit"} on ${st.txn.occurredAt.slice(0, 10)}` : undefined}
+                        >
+                          {m.label}
+                        </span>
+                      );
+                    })()}
                     {r.amount != null && (
                       <span className="shrink-0 text-sm font-semibold tabular-nums">{formatINR(r.amount)}</span>
                     )}

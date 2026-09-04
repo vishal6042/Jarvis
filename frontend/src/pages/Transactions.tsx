@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy, ListChecks, Pencil, Plus, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { applyRules, createRule, deleteRule, listDuplicates, listRules, setTransactionCategory, type CategoryRule } from "@/api";
+import { Switch } from "@/components/ui/switch";
 import CardArt from "@/components/CardArt";
 import {
   createTransaction,
@@ -85,6 +87,10 @@ export default function Transactions() {
   const [cat, setCat] = useState<string>("all");
   const [acct, setAcct] = useState<string>("all");
   const [month, setMonth] = useState<string>("all"); // "all" | "YYYY-MM"
+  const [review, setReview] = useState(false); // only rows needing attention
+  const [dups, setDups] = useState<Transaction[][]>([]);
+  const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [page, setPage] = useState(0);
 
   // dialogs
@@ -99,6 +105,7 @@ export default function Transactions() {
         setTxns(t);
         setAccounts(a);
       })
+      .finally(() => listDuplicates().then(setDups).catch(() => setDups([])))
       .catch(() => {
         setTxns([]);
         setAccounts([]);
@@ -123,6 +130,7 @@ export default function Transactions() {
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return txns.filter((t) => {
+      if (review && !needsReview(t)) return false;
       if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
       if (dir !== "all" && t.direction !== dir) return false;
       if (cat !== "all" && (t.category ?? "") !== cat) return false;
@@ -133,10 +141,11 @@ export default function Transactions() {
       }
       return true;
     });
-  }, [txns, q, dir, cat, acct, month]);
+  }, [txns, q, dir, cat, acct, month, review]);
+  const reviewCount = useMemo(() => txns.filter(needsReview).length, [txns]);
 
   // reset to first page whenever the filter set changes
-  useEffect(() => setPage(0), [q, dir, cat, acct, month]);
+  useEffect(() => setPage(0), [q, dir, cat, acct, month, review]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -215,10 +224,68 @@ export default function Transactions() {
             {loading ? "Loading…" : `${filtered.length} of ${txns.length} transactions`}
           </p>
         </div>
-        <Button onClick={openAdd} className="gap-2">
-          <Plus className="size-4" /> Add transaction
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={review ? "default" : "outline"}
+            onClick={() => setReview((v) => !v)}
+            className="gap-2"
+            title="Uncategorised or unlinked rows, and probable duplicates"
+          >
+            <ListChecks className="size-4" /> Review{reviewCount + dups.length > 0 ? ` (${reviewCount + dups.length})` : ""}
+          </Button>
+          <Button variant="outline" onClick={() => setRulesOpen(true)} className="gap-2">
+            <Wand2 className="size-4" /> Rules
+          </Button>
+          <Button onClick={openAdd} className="gap-2">
+            <Plus className="size-4" /> Add transaction
+          </Button>
+        </div>
       </div>
+
+      <QuickCategoryDialog
+        txn={quick}
+        categories={categories}
+        onClose={() => setQuick(null)}
+        onSaved={reload}
+      />
+      <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} categories={categories} onApplied={reload} />
+
+      {review && dups.length > 0 && (
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#f59e0b" subtle />
+          <CardContent className="space-y-3 pt-5">
+            <div className="flex items-center gap-2">
+              <Copy className="size-4 text-amber-500" />
+              <span className="font-medium">Probable duplicates</span>
+              <span className="text-sm text-muted-foreground">
+                same day, amount and direction — usually a statement row and an SMS row for one purchase. Delete the one you don't want.
+              </span>
+            </div>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {dups.map(([a, b]) => (
+                <div key={`${a.id}-${b.id}`} className="rounded-lg border p-2 text-sm">
+                  {[a, b].map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-2 py-1">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{t.merchant ?? "—"}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {formatDate(t.occurredAt)} · {t.category ?? "—"} · {t.accountName ?? "no account"} · {t.source}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold tabular-nums">{formatINR(t.amount)}</span>
+                        <Button variant="ghost" size="sm" className="h-7 gap-1 text-rose-500" onClick={() => setToDelete(t)}>
+                          <Trash2 className="size-3.5" /> Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -270,11 +337,20 @@ export default function Transactions() {
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.occurredAt)}</TableCell>
                         <TableCell className="font-medium">{t.merchant ?? "—"}</TableCell>
                         <TableCell>
-                          {t.category ? (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{t.category}</span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setQuick(t)}
+                            title="Change category"
+                            className={`rounded-full px-2 py-0.5 text-xs transition-colors hover:ring-1 hover:ring-primary/50 ${
+                              !t.category || t.category === "Uncategorized"
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                : "bg-muted"
+                            }`}
+                          >
+                            {t.category ?? "Uncategorized"}
+                          </button>
+                          {t.settlement && <span className="ml-1 text-[10px] text-muted-foreground">bill payment</span>}
+                          {t.transfer && <span className="ml-1 text-[10px] text-muted-foreground">transfer</span>}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{t.accountName ?? "—"}</TableCell>
                         <TableCell className="text-right">
@@ -443,6 +519,194 @@ export default function Transactions() {
         onConfirm={confirmDelete}
       />
     </div>
+  );
+}
+
+/** Rows worth a look: no category / Uncategorized, or not linked to an account. */
+function needsReview(t: Transaction): boolean {
+  if (t.transfer || t.settlement) return false;
+  return !t.category || t.category === "Uncategorized" || t.accountId == null;
+}
+
+const FIXED_CATEGORIES = ["Card Payment", "Loan EMI", "Transfers", "Income", "Uncategorized"];
+function categoryItems(seen: string[]): { value: string; label: string }[] {
+  const all = Array.from(new Set([...CATEGORIES, ...seen, ...FIXED_CATEGORIES]));
+  return all.map((c) => ({ value: c, label: c }));
+}
+
+/** Inline category change, optionally remembered as a "merchant contains …" rule. */
+function QuickCategoryDialog({
+  txn,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  txn: Transaction | null;
+  categories: string[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState<string>("Uncategorized");
+  const [remember, setRemember] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setValue(txn?.category ?? "Uncategorized");
+    setRemember(false);
+  }, [txn]);
+  if (!txn) return null;
+  const merchant = (txn.merchant ?? "").trim();
+  async function save() {
+    if (!txn) return;
+    setBusy(true);
+    try {
+      await setTransactionCategory(txn.id, value);
+      if (remember && merchant) {
+        await createRule(merchant, value);
+        await applyRules(true);
+      }
+      onClose();
+      onSaved();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={!!txn} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Categorise</DialogTitle>
+          <DialogDescription>
+            {merchant || "This transaction"} · {formatINR(txn.amount)} on {formatDate(txn.occurredAt)}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Category</Label>
+            <FilterSelect value={value} onChange={setValue} items={categoryItems(categories)} width="w-full" />
+          </div>
+          {merchant && (
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3">
+              <span className="text-sm">
+                <span className="font-medium">Always use this</span>
+                <span className="block text-xs text-muted-foreground">
+                  Creates a rule: merchant contains “{merchant}” → {value}. Applies to future alerts and to existing
+                  uncategorised rows.
+                </span>
+              </span>
+              <Switch checked={remember} onCheckedChange={setRemember} />
+            </label>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={busy} className="gap-1">
+            <Sparkles className="size-3.5" /> {busy ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Manage "merchant contains …" rules and apply them to existing rows. */
+function RulesDialog({
+  open,
+  onOpenChange,
+  categories,
+  onApplied,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  categories: string[];
+  onApplied: () => void;
+}) {
+  const [rules, setRules] = useState<CategoryRule[]>([]);
+  const [pattern, setPattern] = useState("");
+  const [category, setCategory] = useState("Food");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const load = () => listRules().then(setRules).catch(() => setRules([]));
+  useEffect(() => {
+    if (open) {
+      load();
+      setNote(null);
+    }
+  }, [open]);
+  async function add() {
+    if (!pattern.trim()) return;
+    setBusy(true);
+    try {
+      await createRule(pattern.trim(), category);
+      setPattern("");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function apply(all: boolean) {
+    setBusy(true);
+    try {
+      const n = await applyRules(!all);
+      setNote(`${n} transaction${n === 1 ? "" : "s"} re-categorised.`);
+      onApplied();
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Category rules</DialogTitle>
+          <DialogDescription>
+            “Merchant contains …” rules beat the AI's guess for new alerts, and can be applied to what's already stored.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-end gap-2">
+          <div className="grid flex-1 gap-1.5">
+            <Label className="text-xs text-muted-foreground">Merchant contains</Label>
+            <Input value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="e.g. SWIGGY" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-xs text-muted-foreground">Category</Label>
+            <FilterSelect value={category} onChange={setCategory} items={categoryItems(categories)} width="w-[170px]" />
+          </div>
+          <Button onClick={add} disabled={busy || !pattern.trim()} className="gap-1">
+            <Plus className="size-4" /> Add
+          </Button>
+        </div>
+        <div className="space-y-1.5">
+          {rules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No rules yet. Tip: tick “Always use this” when you categorise a row.</p>
+          ) : (
+            rules.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+                <span>
+                  contains <span className="font-medium">“{r.pattern}”</span> → <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{r.category}</span>
+                </span>
+                <Button variant="ghost" size="icon" className="size-7 text-rose-500" onClick={() => deleteRule(r.id).then(load)} aria-label="Delete rule">
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+        {note && <p className="text-sm text-emerald-500">{note}</p>}
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => apply(false)} disabled={busy || rules.length === 0}>
+              Apply to uncategorised
+            </Button>
+            <Button variant="outline" onClick={() => apply(true)} disabled={busy || rules.length === 0} title="Overrides existing categories where a rule matches">
+              Apply to all
+            </Button>
+          </div>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

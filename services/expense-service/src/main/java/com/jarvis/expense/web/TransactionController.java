@@ -1,5 +1,6 @@
 package com.jarvis.expense.web;
 
+import java.util.Map;
 import com.jarvis.expense.service.TransactionService;
 import com.jarvis.expense.web.dto.CreateTransactionRequest;
 import com.jarvis.expense.web.dto.TransactionDto;
@@ -34,6 +35,18 @@ public class TransactionController {
     @PostMapping
     public ResponseEntity<TransactionDto> create(@Valid @RequestBody CreateTransactionRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createManual(req));
+    }
+
+    /** Inline category change. Body: {"category": "Food"}. */
+    @PatchMapping("/{id}/category")
+    public TransactionDto setCategory(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return service.setCategory(id, body.get("category"));
+    }
+
+    /** Probable duplicates (same day / amount / direction on one account, or one side unlinked). */
+    @GetMapping("/duplicates")
+    public List<List<TransactionDto>> duplicates() {
+        return service.duplicateCandidates();
     }
 
     @PutMapping("/{id}")

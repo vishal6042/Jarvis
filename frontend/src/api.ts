@@ -152,6 +152,58 @@ export async function forgetDevice(id: string): Promise<void> {
   await api.delete(`/api/devices/${id}`);
 }
 
+// ---- Categorisation: rules, inline category, duplicates (expense-service) ----
+export interface CategoryRule {
+  id: number;
+  pattern: string;
+  category: string;
+  createdAt: string;
+}
+export async function listRules(): Promise<CategoryRule[]> {
+  return (await api.get<CategoryRule[]>("/api/rules")).data;
+}
+export async function createRule(pattern: string, category: string): Promise<CategoryRule> {
+  return (await api.post<CategoryRule>("/api/rules", { pattern, category })).data;
+}
+export async function deleteRule(id: number): Promise<void> {
+  await api.delete(`/api/rules/${id}`);
+}
+/** Re-categorise stored transactions with the rules; returns how many rows changed. */
+export async function applyRules(onlyUncategorized = true): Promise<number> {
+  const { data } = await api.post<{ changed: number }>(`/api/rules/apply?onlyUncategorized=${onlyUncategorized}`);
+  return data.changed;
+}
+export async function setTransactionCategory(id: number, category: string): Promise<Transaction> {
+  return (await api.patch<Transaction>(`/api/transactions/${id}/category`, { category })).data;
+}
+/** Probable duplicates: pairs of [first, second] on the same day / amount / direction. */
+export async function listDuplicates(): Promise<Transaction[][]> {
+  return (await api.get<Transaction[][]>("/api/transactions/duplicates")).data;
+}
+
+// ---- Card cycles (expense-service) ----
+export interface CardSummary {
+  accountId: number;
+  displayName: string;
+  bank: string;
+  last4: string;
+  network: string | null;
+  creditLimit: number | null;
+  lastStatementOn: string | null;
+  nextStatementOn: string | null;
+  dueOn: string | null;
+  unbilled: number;
+  billed: number;
+  paid: number;
+  billDue: number;
+  lastPaidOn: string | null;
+  lastPaidAmount: number | null;
+  utilisationPct: number | null;
+}
+export async function cardSummaries(): Promise<CardSummary[]> {
+  return (await api.get<CardSummary[]>("/api/analytics/cards")).data;
+}
+
 // ---- Notifications (notification-service) ----
 export async function listNotifications(): Promise<ApiNotification[]> {
   return (await api.get<ApiNotification[]>("/api/notifications")).data;

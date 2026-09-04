@@ -84,6 +84,13 @@ public class NotificationEngine {
             }
             long days = ChronoUnit.DAYS.between(today, due);
             if (days >= 0 && days <= 7) {
+                // Already paid? A debit of that amount in the week around the due date closes it.
+                if (r.amount() != null && insight.paymentSeen(
+                        r.amount(),
+                        due.minusDays(5).atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                        due.plusDays(2).atStartOfDay(java.time.ZoneOffset.UTC).toInstant())) {
+                    continue;
+                }
                 String dueLabel = days == 0 ? "due today" : days == 1 ? "due tomorrow" : "due in " + days + " days";
                 String amount = r.amount() != null ? money(r.amount().doubleValue()) + " · " : "";
                 notifications.create(new NotificationRequest(

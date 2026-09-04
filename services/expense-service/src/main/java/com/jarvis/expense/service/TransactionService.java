@@ -1,5 +1,12 @@
 package com.jarvis.expense.service;
 
+import com.jarvis.expense.domain.Direction;
+
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
+import java.util.ArrayList;
 import java.math.BigDecimal;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Account;
@@ -29,18 +36,76 @@ public class TransactionService {
     private final CategoryRepository categories;
     private final DedupHasher dedupHasher;
     private final TransferService transfers;
+    private final RuleService rules;
 
     public TransactionService(
         TransactionRepository transactions,
         AccountRepository accounts,
         CategoryRepository categories,
         DedupHasher dedupHasher,
-        TransferService transfers) {
+        TransferService transfers,
+        RuleService rules) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
         this.dedupHasher = dedupHasher;
         this.transfers = transfers;
+        this.rules = rules;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransactionDto> findByAmountInWindow(Direction direction, BigDecimal min, BigDecimal max, Instant from, Instant to) {
+        return transactions.findByAmountBetweenInWindow(direction, min, max, from, to).stream().map(TransactionDto::from).toList();
+    }
+
+    /** Set just the category (inline edit from the Transactions page). */
+    @Transactional
+    public TransactionDto setCategory(Long id, String category) {
+        Transaction t = transactions
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        t.setCategory(category == null || category.isBlank() ? null : findOrCreateCategory(category.trim()));
+        return TransactionDto.from(transactions.save(t));
+    }
+
+    /**
+     * Same-day, same-amount, same-direction rows that are probably one transaction seen twice
+     * (statement import + SMS with different merchant text). Pairs of [first, second].
+     */
+    @Transactional(readOnly = true)
+    public List<List<TransactionDto>> duplicateCandidates() {
+        Map<String, List<Transaction>> groups = new LinkedHashMap<>();
+        for (Transaction t : transactions.findAll()) {
+            if (t.isTransfer() || t.isSettlement()) {
+                continue;
+            }
+            String key = t.getDirection() + "|" + t.getAmount().stripTrailingZeros().toPlainString() + "|"
+                + t.getOccurredAt().atZone(ZoneOffset.UTC).toLocalDate();
+            groups.computeIfAbsent(key, k -> new ArrayList<>()).add(t);
+        }
+        List<List<TransactionDto>> out = new ArrayList<>();
+        for (List<Transaction> g : groups.values()) {
+            if (g.size() < 2) {
+                continue;
+            }
+            // Post office RDs etc. legitimately repeat on the same day across DIFFERENT accounts — skip those.
+            g.sort(Comparator.comparing(Transaction::getId));
+            for (int i = 1; i < g.size(); i++) {
+                Transaction a = g.get(0);
+                Transaction b = g.get(i);
+                // Two rows from the same statement are two real transactions (e.g. two ATM withdrawals).
+                if (a.getSource() == MessageSource.STATEMENT && b.getSource() == MessageSource.STATEMENT) {
+                    continue;
+                }
+                boolean sameAccount = a.getAccount() != null && b.getAccount() != null
+                    && a.getAccount().getId().equals(b.getAccount().getId());
+                boolean oneUnlinked = a.getAccount() == null || b.getAccount() == null;
+                if (sameAccount || oneUnlinked) {
+                    out.add(List.of(TransactionDto.from(a), TransactionDto.from(b)));
+                }
+            }
+        }
+        return out;
     }
 
     @Transactional(readOnly = true)
@@ -157,8 +222,10 @@ public class TransactionService {
         } else if (req.last4() != null && !req.last4().isBlank()) {
             matchAccount(req.last4().trim(), req.bank()).ifPresent(t::setAccount);
         }
-        if (req.category() != null && !req.category().isBlank()) {
-            t.setCategory(findOrCreateCategory(req.category().trim()));
+        // A user rule for this merchant beats the parser's guess.
+        String category = rules.categoryFor(req.merchant()).orElse(req.category());
+        if (category != null && !category.isBlank()) {
+            t.setCategory(findOrCreateCategory(category.trim()));
         }
 
         String last4 = t.getAccount() != null ? t.getAccount().getLast4() : req.last4();
