@@ -417,3 +417,17 @@ export async function previewStatementStream(
 }
 
 export default api;
+
+// ---- User preferences (server-side; nothing personal lives only in the browser) ----
+export async function getPreferences(): Promise<Record<string, unknown>> {
+  return (await api.get<Record<string, unknown>>("/api/preferences")).data;
+}
+/** Body is the raw JSON value (number, string, object …), so stringify explicitly for primitives. */
+export async function putPreference(key: string, value: unknown): Promise<void> {
+  await api.put(`/api/preferences/${encodeURIComponent(key)}`, JSON.stringify(value), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+export async function deletePreference(key: string): Promise<void> {
+  await api.delete(`/api/preferences/${encodeURIComponent(key)}`);
+}

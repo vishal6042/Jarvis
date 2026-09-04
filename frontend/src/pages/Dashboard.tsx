@@ -18,7 +18,7 @@ import InsightsCard from "@/components/InsightsCard";
 import SpendBreakdownCard from "@/components/SpendBreakdownCard";
 import TimelineCard from "@/components/TimelineCard";
 import { useReminders, useThresholds } from "@/lib/store";
-import { useReserve } from "@/lib/prefs";
+import { usePref, useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { buildInsights } from "@/lib/insights";
 import { currentMonthBreakdown } from "@/lib/breakdown";
@@ -519,20 +519,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // Net worth is hard cash from savings; optionally fold in the investment portfolio.
-  const [includeInv, setIncludeInv] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("jarvis_networth_include_inv") === "1";
-    } catch {
-      return false;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem("jarvis_networth_include_inv", includeInv ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [includeInv]);
+  const [includeInv, setIncludeInv] = usePref<boolean>("networth.includeInvestments", false);
   const netWorth = f.savings + (includeInv ? f.investments : 0);
   const now = new Date();
   const thisMonth = now.toLocaleString(undefined, { month: "short" });

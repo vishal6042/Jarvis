@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { isAuthed } from "@/api";
 import AppShell from "@/components/AppShell";
+import { PrefsProvider } from "@/lib/prefs";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Analytics from "@/pages/Analytics";
@@ -18,7 +19,11 @@ import type { ReactNode } from "react";
 
 function Protected({ children }: { children: ReactNode }) {
   if (!isAuthed()) return <Navigate to="/login" replace />;
-  return <AppShell>{children}</AppShell>;
+  return (
+    <PrefsProvider>
+      <AppShell>{children}</AppShell>
+    </PrefsProvider>
+  );
 }
 
 export default function App() {
