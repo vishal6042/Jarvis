@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Self-hosted setup: allow plain HTTP to the gateway on the LAN. Trust system + user CAs so a
+     locally-installed cert (if the user later fronts the gateway with HTTPS) also works. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
