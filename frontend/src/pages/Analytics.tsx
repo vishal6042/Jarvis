@@ -5,6 +5,8 @@ import type { CategorySpend, RecurringPayment, Transaction } from "@/types";
 import { ChevronLeft, ChevronRight, Layers, Repeat, TrendingUp, Trophy, Wallet, X } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import MerchantBreakdownCard from "@/components/MerchantBreakdownCard";
+import { AnomaliesCard, BehaviourCard, BudgetVsActualCard, PeriodComparisonCard } from "@/components/AnalyticsDepth";
+import { useThresholds } from "@/lib/store";
 import { PERIOD_LABEL, type Period } from "@/lib/sample";
 import { categorySeries, categorySpend, periodLabel, periodWindow } from "@/lib/txnseries";
 import { formatINR, formatDate } from "@/lib/format";
@@ -55,7 +57,9 @@ export default function Analytics() {
 
   // Real spend-by-category from expense-service for the selected window.
   const [remote, setRemote] = useState<CategorySpend[]>([]);
+  const [prevRemote, setPrevRemote] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState<CategorySpend[]>([]);
+  const { items: budgets } = useThresholds();
   // Recent transactions back the drill-down + per-category trend (all from the DB).
   const [txns, setTxns] = useState<Transaction[]>([]);
   useEffect(() => {
@@ -67,6 +71,10 @@ export default function Analytics() {
     analyticsIncomeBySource(from.toISOString(), to.toISOString())
       .then((rows) => alive && setIncome(rows ?? []))
       .catch(() => alive && setIncome([]));
+    const prev = periodWindow(period, offset + 1);
+    analyticsByCategory(prev.from.toISOString(), prev.to.toISOString())
+      .then((rows) => alive && setPrevRemote(rows ?? []))
+      .catch(() => alive && setPrevRemote([]));
     return () => {
       alive = false;
     };
@@ -100,6 +108,10 @@ export default function Analytics() {
   );
   const total = data.reduce((s, c) => s + c.value, 0);
   const hasData = data.length > 0;
+  const prevData = useMemo(
+    () => prevRemote.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
+    [prevRemote]
+  );
 
   const incomeData = useMemo(
     () => income.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
@@ -176,6 +188,19 @@ export default function Analytics() {
           iconColor="#10b981"
         />
       </div>
+
+      {(hasData || prevData.length > 0) && (
+        <>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <PeriodComparisonCard now={data} prev={prevData} period={period} offset={offset} />
+            <BudgetVsActualCard budgets={budgets} actual={data} period={period} />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <BehaviourCard txns={txns} period={period} offset={offset} />
+            <AnomaliesCard txns={txns} />
+          </div>
+        </>
+      )}
 
       {!hasData ? (
         <Card>
