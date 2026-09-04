@@ -54,6 +54,23 @@ class AlertHintsTest {
     }
 
     @Test
+    void balanceIsReadFromTextWhenModelGivesNone() {
+        assertEquals(new java.math.BigDecimal("90000.00"), AlertHints.balanceHint(null,
+            "Account  No. XXXXXXXX1507 CREDIT with amount Rs. 5000.00 on 27-08-2026. Balance: Rs.90000.00. [IN2792298]"));
+        assertEquals(new java.math.BigDecimal("904471.87"), AlertHints.balanceHint("",
+            "ICICI Bank Account XX380 credited:Rs. 7,75,283.00 on 31-Aug-26. Available Balance is Rs. 9,04,471.87."));
+        assertEquals(new java.math.BigDecimal("12345.67"), AlertHints.balanceHint(null,
+            "Rs 499.00 debited from A/c XX1234 to SWIGGY via UPI. Avl Bal Rs 12,345.67 -HDFC Bank"));
+        assertEquals(new java.math.BigDecimal("777.50"), AlertHints.balanceHint("777.50", "ignored"));
+    }
+
+    @Test
+    void cardLimitsAreNotBalances() {
+        assertNull(AlertHints.balanceHint(null,
+            "INR 468.41 spent using ICICI Bank Card XX0009 on 04-Sep-26 on SHELL INDIA MAR. Avl Limit: INR 22,71,544.69."));
+    }
+
+    @Test
     void realBankAlertsPassThePreFilter() {
         assertFalse(AlertHints.isNotATransaction(
             "ICICI Bank Acct XX380 debited for Rs 700.00 on 02-Aug-26; SHAIK ABDUL AZE credited. UPI:621420543940."));

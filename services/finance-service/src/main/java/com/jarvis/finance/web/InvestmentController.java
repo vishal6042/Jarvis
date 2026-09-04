@@ -60,6 +60,17 @@ public class InvestmentController {
         i.setCommencementDate(req.commencementDate());
         i.setMaturityDate(req.maturityDate());
         i.setNotes(req.notes());
+        // Link fields are optional and mostly maintained by ingestion — only overwrite when sent,
+        // so an edit from the web form (which doesn't know them) doesn't unlink the account.
+        if (req.accountLast4() != null) {
+            i.setAccountLast4(req.accountLast4().isBlank() ? null : req.accountLast4().trim());
+        }
+        if (req.valueAsOf() != null) {
+            i.setValueAsOf(req.valueAsOf());
+        }
+        if (req.lastContributionOn() != null) {
+            i.setLastContributionOn(req.lastContributionOn());
+        }
     }
 
     private ResponseStatusException notFound() {

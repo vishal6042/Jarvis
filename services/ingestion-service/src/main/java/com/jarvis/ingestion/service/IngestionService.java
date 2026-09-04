@@ -1,5 +1,6 @@
 package com.jarvis.ingestion.service;
 
+import com.jarvis.ingestion.client.FinanceClient;
 import java.util.List;
 import com.jarvis.ingestion.web.dto.ReprocessResult;
 import com.jarvis.ingestion.client.AiClient;
@@ -32,11 +33,14 @@ public class IngestionService {
     private final RawMessageRepository rawMessages;
     private final AiClient ai;
     private final ExpenseClient expense;
+    private final FinanceClient finance;
 
-    public IngestionService(RawMessageRepository rawMessages, AiClient ai, ExpenseClient expense) {
+    public IngestionService(
+        RawMessageRepository rawMessages, AiClient ai, ExpenseClient expense, FinanceClient finance) {
         this.rawMessages = rawMessages;
         this.ai = ai;
         this.expense = expense;
+        this.finance = finance;
     }
 
     @Transactional
@@ -61,7 +65,7 @@ public class IngestionService {
     public ReprocessResult reprocessUnlinked() {
         List<Long> orphanIds = expense.unlinkedTransactionIds();
         List<RawMessage> msgs = orphanIds.isEmpty() ? List.of() : rawMessages.findByTransactionRefIn(orphanIds);
-        int relinked = 0, stillUnlinked = 0, duplicate = 0, ignored = 0, failed = 0;
+        int relinked = 0, stillUnlinked = 0, duplicate = 0, ignored = 0, failed = 0, investment = 0;
         for (RawMessage msg : msgs) {
             try {
                 expense.delete(msg.getTransactionRef());
@@ -77,12 +81,13 @@ public class IngestionService {
                 case PARSED -> { if (out.accountId() != null) relinked++; else stillUnlinked++; }
                 case DUPLICATE -> duplicate++;
                 case IGNORED -> ignored++;
+                case INVESTMENT -> investment++;
                 default -> failed++;
             }
         }
-        log.info("Relink pass: {} examined, {} relinked, {} still unlinked, {} duplicate, {} ignored, {} failed",
-            msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed);
-        return new ReprocessResult(msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed);
+        log.info("Relink pass: {} examined, {} relinked, {} still unlinked, {} duplicate, {} ignored, {} failed, {} investment",
+            msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed, investment);
+        return new ReprocessResult(msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed, investment);
     }
 
     /** Parse → persist → record the outcome, for a raw message that is already stored. */
@@ -105,9 +110,26 @@ public class IngestionService {
                 return new Outcome(finish(msg, ParseStatus.FAILED, null, "Missing or invalid amount/direction."), null);
             }
 
+            String last4 = AlertHints.last4Hint(parsed.last4(), msg.getPayload()); // model digits, else from the text
+            BigDecimal balanceAfter = AlertHints.balanceHint(parsed.balanceAfter(), msg.getPayload());
+            Instant occurredAt = resolveOccurredAt(parsed.occurredOn(), msg.getReceivedAt());
+
+            // Money going INTO an account linked to an investment (post office RD, PPF …) is a
+            // contribution: record it on the investment instead of creating a transaction.
+            if ("CREDIT".equals(direction)) {
+                var linked = finance.findByLast4(last4);
+                if (linked.isPresent()) {
+                    var res = finance.contribute(
+                        linked.get().accountLast4(), amount, balanceAfter, occurredAt.atZone(ZoneOffset.UTC).toLocalDate());
+                    String detail = "Contribution to " + res.name()
+                        + (res.applied() ? "" : " (already counted)") + " · value ₹" + res.current().toPlainString();
+                    return new Outcome(finish(msg, ParseStatus.INVESTMENT, null, detail), null);
+                }
+            }
+
             var createReq = new ExpenseClient.CreateTransactionRequest(
                 null, // SMS path matches the account by last-4, not an explicit id
-                AlertHints.last4Hint(parsed.last4(), msg.getPayload()), // model digits, else read from the text
+                last4,
                 blankToNull(parsed.bank()),
                 amount,
                 parsed.currency() == null || parsed.currency().isBlank() ? "INR" : parsed.currency(),
@@ -115,10 +137,10 @@ public class IngestionService {
                 parsed.merchant(),
                 parsed.category() == null || parsed.category().isBlank()
                     ? "Uncategorized" : parsed.category().trim(),
-                resolveOccurredAt(parsed.occurredOn(), msg.getReceivedAt()),
+                occurredAt,
                 msg.getSource().name(),
                 String.valueOf(msg.getId()),
-                parseAmount(parsed.balanceAfter()));
+                balanceAfter);
             ExpenseClient.CreateResult result = expense.create(createReq);
             if (!result.created()) {
                 return new Outcome(finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction."), null);

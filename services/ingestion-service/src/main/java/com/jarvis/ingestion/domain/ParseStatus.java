@@ -6,5 +6,6 @@ public enum ParseStatus {
     PARSED,     // successfully turned into a transaction
     FAILED,     // parser could not extract a transaction
     IGNORED,    // not a transaction alert (OTP, promo, etc.)
-    DUPLICATE   // parsed but matched an existing transaction
+    DUPLICATE,  // parsed but matched an existing transaction
+    INVESTMENT  // alert for an account linked to an investment — contribution recorded, no transaction
 }

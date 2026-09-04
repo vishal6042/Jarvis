@@ -73,6 +73,38 @@ public final class AlertHints {
         return bare.find() ? trailingDigits(bare.group(1)) : null;
     }
 
+    /** "Avl Bal Rs 12,345.67", "Available Balance is Rs. 9,04,471.87", "Balance: Rs.90000.00" — group 1 is the number. */
+    private static final Pattern BALANCE = Pattern.compile(
+        "(?i)(?:avl|avbl|available|closing)?\\s*(?:bal|balance)\\s*(?:is)?\\s*:?\\s*(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)");
+
+    /** Balance stated in the alert: the model's answer if numeric, else read from the text (cards' limits are never matched). */
+    public static java.math.BigDecimal balanceHint(String modelBalance, String text) {
+        java.math.BigDecimal fromModel = toAmount(modelBalance);
+        if (fromModel != null) {
+            return fromModel;
+        }
+        if (text == null || text.toLowerCase().contains("limit")) {
+            return null;
+        }
+        Matcher m = BALANCE.matcher(text);
+        return m.find() ? toAmount(m.group(1)) : null;
+    }
+
+    static java.math.BigDecimal toAmount(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String cleaned = raw.replaceAll("[^0-9.]", "");
+        if (cleaned.isEmpty() || cleaned.equals(".")) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(cleaned);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     /** "XX380" → "380", "4xxx4008" → "4008", "1234" → "1234", "" / "X" → null. */
     static String trailingDigits(String raw) {
         if (raw == null) {

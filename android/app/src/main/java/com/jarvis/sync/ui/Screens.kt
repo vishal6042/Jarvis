@@ -441,6 +441,7 @@ private fun StatusChip(status: String) {
         "IGNORED" -> Color(0xFFF59E0B)
         "NEW" -> Color(0xFF6366F1)
         "QUEUED", "SENT" -> Color(0xFF3B82F6)
+        "INVESTMENT" -> Color(0xFF14B8A6)
         else -> Color(0xFFF43F5E) // FAILED / anything else
     }
     Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {

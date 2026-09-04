@@ -52,4 +52,18 @@ public class Investment {
 
     @Column(columnDefinition = "text")
     private String notes;
+
+    // ---- Linked bank/post-office account: alerts for it update this investment ----
+
+    /** Last digits of the instrument's account number as they appear in its SMS alerts (e.g. "1507"). */
+    @Column(name = "account_last4", length = 4)
+    private String accountLast4;
+
+    /** Date of the alert that last set {@link #current}, so an older alert never overwrites a newer value. */
+    @Column(name = "value_as_of")
+    private LocalDate valueAsOf;
+
+    /** Date of the last contribution counted into {@link #principal} (guards against double counting). */
+    @Column(name = "last_contribution_on")
+    private LocalDate lastContributionOn;
 }

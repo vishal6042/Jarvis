@@ -16,4 +16,8 @@ public record InvestmentRequest(
     LocalDate openingDate,
     LocalDate commencementDate,
     LocalDate maturityDate,
-    String notes) {}
+    String notes,
+    /** Optional: last digits of the linked account; alerts for it then update this investment. */
+    String accountLast4,
+    LocalDate valueAsOf,
+    LocalDate lastContributionOn) {}
