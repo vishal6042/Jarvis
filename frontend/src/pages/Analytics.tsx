@@ -189,7 +189,8 @@ export default function Analytics() {
         <>
       <Separator />
 
-      <Card>
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="#8b5cf6" subtle />
         <CardHeader>
           <CardTitle>Spend by category</CardTitle>
           <CardDescription>Click a ring or a legend row to see every expenditure.</CardDescription>
@@ -263,7 +264,8 @@ export default function Analytics() {
       </Card>
 
       {selected ? (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="var(--primary)" subtle />
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
             <div>
               <CardTitle>
@@ -340,7 +342,8 @@ export default function Analytics() {
       )}
 
       {/* Category spending — per-category graph with a filter */}
-      <Card>
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="var(--primary)" subtle />
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Category spending</CardTitle>
@@ -396,7 +399,8 @@ export default function Analytics() {
       )}
 
       {incomeTotal > 0 && (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#10b981" subtle />
           <CardHeader>
             <div className="flex items-center gap-2">
               <TrendingUp className="size-4 text-emerald-500" />
@@ -428,7 +432,8 @@ export default function Analytics() {
       )}
 
       {recurring.length > 0 && (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#8b5cf6" subtle />
           <CardHeader>
             <div className="flex items-center gap-2">
               <Repeat className="size-4 text-violet-500" />

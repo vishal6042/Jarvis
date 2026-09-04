@@ -137,7 +137,7 @@ function ThemeToggle() {
 function Brand() {
   return (
     <div className="flex items-center gap-2 px-2 py-1">
-      <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-chart-1 text-primary-foreground shadow-md shadow-primary/30 ring-1 ring-white/15">
         <Zap className="size-5" />
       </div>
       <div className="leading-tight">
@@ -158,10 +158,10 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                ? "bg-gradient-to-r from-primary/20 to-primary/5 text-primary shadow-sm ring-1 ring-primary/25 before:absolute before:top-1/2 before:left-0 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-r-full before:bg-primary"
+                : "text-muted-foreground hover:bg-primary/8 hover:text-foreground"
             )
           }
         >
@@ -185,7 +185,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-sidebar px-3 py-4 md:flex">
+      <aside className="sidebar-art fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r px-3 py-4 md:flex">
         <Brand />
         <div className="mt-6 flex-1">
           <NavItems />
@@ -200,7 +200,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       <div className="md:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background px-4">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-primary/10 bg-background/75 px-4 backdrop-blur-md">
           <div className="flex items-center gap-2 md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}>
