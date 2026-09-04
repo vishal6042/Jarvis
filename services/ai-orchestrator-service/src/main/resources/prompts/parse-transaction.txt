@@ -25,6 +25,9 @@ Rules:
   (e.g. "Avl Bal Rs 12,345.67" -> 12345.67, "Available balance: INR 1,00,000.00" -> 100000.00),
   else null. A card's "Avl Limit" / "Available limit" is NOT a balance — leave null for cards.
 - category: choose the single best fit from this list ONLY: {categories}.
-  If unsure, use "Uncategorized".
+  "Loan EMI" for loan repayments, EMIs and standing instructions to a loan account.
+  "Transfers" for money moved to a person or to another account (NEFT/IMPS/RTGS/UPI to a name),
+  including the user's own other accounts. "Income" only for salary, interest, dividends,
+  refunds and similar money earned. If unsure, use "Uncategorized".
 
 Return only the structured result. Do not invent values that are not supported by the text.

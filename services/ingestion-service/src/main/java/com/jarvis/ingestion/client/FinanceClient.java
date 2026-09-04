@@ -54,6 +54,53 @@ public class FinanceClient {
         }
     }
 
+    /**
+     * The loan an EMI debit pays: by the loan account digits named in the alert, else by an
+     * EMI-sized amount (within 2%) leaving the account the loan is linked to. Failures → empty.
+     */
+    public Optional<LinkedLoan> findLoan(String loanDigits, String fromLast4, BigDecimal amount) {
+        try {
+            List<LinkedLoan> linked = web.get()
+                .uri("/internal/loans/linked")
+                .header("X-Internal-Key", internalKey)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<LinkedLoan>>() {})
+                .block();
+            if (linked == null || linked.isEmpty()) {
+                return Optional.empty();
+            }
+            if (loanDigits != null) {
+                Optional<LinkedLoan> byRef = linked.stream()
+                    .filter(l -> l.loanAccountLast4() != null
+                        && (l.loanAccountLast4().equals(loanDigits) || l.loanAccountLast4().endsWith(loanDigits)))
+                    .findFirst();
+                if (byRef.isPresent()) {
+                    return byRef;
+                }
+            }
+            if (fromLast4 != null && amount != null) {
+                return linked.stream()
+                    .filter(l -> fromLast4.equals(l.emiFromLast4()) && l.emi() != null && l.emi().signum() > 0)
+                    .filter(l -> amount.subtract(l.emi()).abs().doubleValue() <= l.emi().doubleValue() * 0.02)
+                    .findFirst();
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            log.warn("Could not look up linked loans: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public LoanPaymentResult recordLoanPayment(Long loanId, BigDecimal amount, LocalDate date) {
+        return web.post()
+            .uri("/internal/loans/payment")
+            .header("X-Internal-Key", internalKey)
+            .bodyValue(new LoanPaymentRequest(loanId, amount, date))
+            .retrieve()
+            .bodyToMono(LoanPaymentResult.class)
+            .block();
+    }
+
     public ContributionResult contribute(String last4, BigDecimal amount, BigDecimal balance, LocalDate date) {
         return web.post()
             .uri("/internal/investments/contribution")
@@ -69,4 +116,11 @@ public class FinanceClient {
     public record ContributionRequest(String last4, BigDecimal amount, BigDecimal balance, LocalDate date) {}
 
     public record ContributionResult(Long investmentId, String name, BigDecimal current, boolean applied) {}
+
+    public record LinkedLoan(
+        Long id, String lender, String kind, BigDecimal emi, String loanAccountLast4, String emiFromLast4) {}
+
+    public record LoanPaymentRequest(Long loanId, BigDecimal amount, LocalDate date) {}
+
+    public record LoanPaymentResult(Long loanId, String lender, BigDecimal outstanding, boolean applied) {}
 }

@@ -68,6 +68,13 @@ public class Transaction {
     @Column(columnDefinition = "text")
     private String note;
 
+    /**
+     * One side of a transfer between two of the user's own accounts (paired by amount and date
+     * with the opposite-direction row on another account). Excluded from earning / spend.
+     */
+    @Column(nullable = false)
+    private boolean transfer = false;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

@@ -59,6 +59,13 @@ public class LoanController {
         l.setStartDate(req.startDate());
         l.setEndDate(req.endDate());
         l.setNotes(req.notes());
+        // Link fields are optional; only overwrite when sent so the web form can't unlink by omission.
+        if (req.loanAccountLast4() != null) {
+            l.setLoanAccountLast4(req.loanAccountLast4().isBlank() ? null : req.loanAccountLast4().trim());
+        }
+        if (req.emiFromLast4() != null) {
+            l.setEmiFromLast4(req.emiFromLast4().isBlank() ? null : req.emiFromLast4().trim());
+        }
     }
 
     private ResponseStatusException notFound() {

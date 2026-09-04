@@ -50,4 +50,20 @@ public class Loan {
 
     @Column(columnDefinition = "text")
     private String notes;
+
+    // ---- Linked to alerts: an EMI debit is recorded as a payment ----
+
+    /** Digits of the loan account as alerts show it ("to Loan A/c No.XXXXX432573" → "2573"). */
+    @Column(name = "loan_account_last4", length = 4)
+    private String loanAccountLast4;
+
+    /** Digits of the savings account the EMI leaves from; a debit ≈ EMI from it counts as a payment. */
+    @Column(name = "emi_from_last4", length = 4)
+    private String emiFromLast4;
+
+    @Column(name = "last_payment_on")
+    private LocalDate lastPaymentOn;
+
+    @Column(name = "payments_recorded", nullable = false)
+    private int paymentsRecorded = 0;
 }

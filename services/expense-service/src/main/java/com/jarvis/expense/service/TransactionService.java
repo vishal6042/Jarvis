@@ -28,16 +28,19 @@ public class TransactionService {
     private final AccountRepository accounts;
     private final CategoryRepository categories;
     private final DedupHasher dedupHasher;
+    private final TransferService transfers;
 
     public TransactionService(
         TransactionRepository transactions,
         AccountRepository accounts,
         CategoryRepository categories,
-        DedupHasher dedupHasher) {
+        DedupHasher dedupHasher,
+        TransferService transfers) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
         this.dedupHasher = dedupHasher;
+        this.transfers = transfers;
     }
 
     @Transactional(readOnly = true)
@@ -163,6 +166,7 @@ public class TransactionService {
 
         Optional<Transaction> saved = save(t);
         saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));
+        saved.ifPresent(transfers::pair); // an own-account transfer is neither earning nor spend
         return saved.map(TransactionDto::from);
     }
 

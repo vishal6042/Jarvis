@@ -71,6 +71,16 @@ class AlertHintsTest {
     }
 
     @Test
+    void loanAccountDigitsAreReadFromStandingInstructionAlerts() {
+        assertEquals("2573", AlertHints.loanAccountLast4(
+            "Dear Customer, Standing Instruction has been successfully executed for Rs. 68,339.00 from A/c No.XXXXX036971 to Loan A/c No.XXXXX432573 on 10/08/26.  - SBI."));
+        assertEquals("6971", AlertHints.last4Hint(null,
+            "Dear Customer, Standing Instruction has been successfully executed for Rs. 68,339.00 from A/c No.XXXXX036971 to Loan A/c No.XXXXX432573 on 10/08/26.  - SBI."));
+        assertNull(AlertHints.loanAccountLast4(
+            "Your A/C XXXXX036971 Debited INR 68,339.00 on 10/05/26 -Transferred to Mr. VISHALBHARTI. Avl Balance INR 7,345.04-SBI"));
+    }
+
+    @Test
     void realBankAlertsPassThePreFilter() {
         assertFalse(AlertHints.isNotATransaction(
             "ICICI Bank Acct XX380 debited for Rs 700.00 on 02-Aug-26; SHAIK ABDUL AZE credited. UPI:621420543940."));

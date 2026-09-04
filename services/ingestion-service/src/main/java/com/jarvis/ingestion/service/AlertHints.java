@@ -42,6 +42,19 @@ public final class AlertHints {
         "(?i)(?:a/?c|acct|account|card)(?:\\s*(?:no\\.?|number|ending(?:\\s+in|\\s+with)?))?\\s*:?\\s*"
             + "(?:\\d{0,2}[xX*]{1,12}|[xX*]{2,12}|ending\\s+)(\\d{2,})\\b");
 
+    /** The loan account an EMI went to: "to Loan A/c No.XXXXX432573" → "2573". */
+    private static final Pattern LOAN_REF = Pattern.compile(
+        "(?i)loan\\s*a/?c(?:count)?(?:\\s*(?:no\\.?|number))?\\s*:?\\s*[xX*]*(\\d{2,})\\b");
+
+    /** Digits of the loan account named in the text, or null. */
+    public static String loanAccountLast4(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher m = LOAN_REF.matcher(text);
+        return m.find() ? trailingDigits(m.group(1)) : null;
+    }
+
     /** Bare masked numbers without a keyword, e.g. "XXXXXXXX1507 CREDIT" — lower confidence, so tried last. */
     private static final Pattern BARE_MASKED = Pattern.compile("[xX*]{4,}(\\d{3,})\\b");
 

@@ -127,6 +127,24 @@ public class IngestionService {
                 }
             }
 
+            // An EMI leaving for a linked loan: still a spend, but categorised as such and recorded
+            // on the loan (payment count, last payment, outstanding when rate/balance are known).
+            String category = parsed.category() == null || parsed.category().isBlank()
+                ? "Uncategorized" : parsed.category().trim();
+            String loanNote = "";
+            if ("DEBIT".equals(direction)) {
+                var loan = finance.findLoan(AlertHints.loanAccountLast4(msg.getPayload()), last4, amount);
+                if (loan.isPresent()) {
+                    category = "Loan EMI";
+                    var paid = finance.recordLoanPayment(
+                        loan.get().id(), amount, occurredAt.atZone(ZoneOffset.UTC).toLocalDate());
+                    loanNote = " · EMI to " + paid.lender() + " loan"
+                        + (paid.applied() ? "" : " (already counted)")
+                        + (paid.outstanding() != null && paid.outstanding().signum() > 0
+                            ? " · outstanding ₹" + paid.outstanding().toPlainString() : "");
+                }
+            }
+
             var createReq = new ExpenseClient.CreateTransactionRequest(
                 null, // SMS path matches the account by last-4, not an explicit id
                 last4,
@@ -135,8 +153,7 @@ public class IngestionService {
                 parsed.currency() == null || parsed.currency().isBlank() ? "INR" : parsed.currency(),
                 direction,
                 parsed.merchant(),
-                parsed.category() == null || parsed.category().isBlank()
-                    ? "Uncategorized" : parsed.category().trim(),
+                category,
                 occurredAt,
                 msg.getSource().name(),
                 String.valueOf(msg.getId()),
@@ -146,7 +163,8 @@ public class IngestionService {
                 return new Outcome(finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction."), null);
             }
             msg.setTransactionRef(result.transactionId());
-            String detail = result.accountId() != null ? "Parsed and stored." : "Parsed and stored (no matching account).";
+            String detail = (result.accountId() != null ? "Parsed and stored" : "Parsed and stored (no matching account)")
+                + loanNote + ".";
             return new Outcome(finish(msg, ParseStatus.PARSED, result.transactionId(), detail), result.accountId());
         } catch (Exception e) {
             log.warn("Ingest failed for raw message {}: {}", msg.getId(), e.getMessage());

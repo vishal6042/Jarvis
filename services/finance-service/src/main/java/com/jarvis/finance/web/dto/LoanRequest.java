@@ -16,4 +16,7 @@ public record LoanRequest(
     Integer tenureMonths,
     LocalDate startDate,
     LocalDate endDate,
-    String notes) {}
+    String notes,
+    /** Optional link to alerts: loan account digits, and/or the savings account the EMI is debited from. */
+    String loanAccountLast4,
+    String emiFromLast4) {}

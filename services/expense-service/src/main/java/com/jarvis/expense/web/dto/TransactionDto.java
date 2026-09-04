@@ -17,7 +17,8 @@ public record TransactionDto(
     String category,
     Instant occurredAt,
     MessageSource source,
-    String note) {
+    String note,
+    boolean transfer) {
 
     public static TransactionDto from(Transaction t) {
         return new TransactionDto(
@@ -31,6 +32,7 @@ public record TransactionDto(
             t.getCategory() != null ? t.getCategory().getName() : null,
             t.getOccurredAt(),
             t.getSource(),
-            t.getNote());
+            t.getNote(),
+            t.isTransfer());
     }
 }
