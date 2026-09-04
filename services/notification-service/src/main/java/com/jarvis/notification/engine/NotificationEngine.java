@@ -70,26 +70,54 @@ public class NotificationEngine {
         }
     }
 
-    /** A reminder (rent/bill/EMI/SIP) is due within the next 7 days. */
+    /**
+     * A reminder (rent/bill/EMI/SIP) is due within the next 7 days. Monthly reminders are rolled
+     * forward to their next occurrence on or after today, so a "rent on the 2nd" reminder created
+     * months ago keeps firing every month (mirrors the FE's upcomingReminders roll-forward).
+     */
     private void detectPayments() {
         LocalDate today = LocalDate.now();
         for (ReminderInfo r : insight.reminders()) {
-            if (r.date() == null) {
+            LocalDate due = nextOccurrence(r.date(), r.repeat(), today);
+            if (due == null) {
                 continue;
             }
-            long days = ChronoUnit.DAYS.between(today, r.date());
+            long days = ChronoUnit.DAYS.between(today, due);
             if (days >= 0 && days <= 7) {
-                String due = days == 0 ? "due today" : days == 1 ? "due tomorrow" : "due in " + days + " days";
+                String dueLabel = days == 0 ? "due today" : days == 1 ? "due tomorrow" : "due in " + days + " days";
                 String amount = r.amount() != null ? money(r.amount().doubleValue()) + " · " : "";
                 notifications.create(new NotificationRequest(
                     "PAYMENT",
-                    r.title() + " " + due,
+                    r.title() + " " + dueLabel,
                     amount + (r.type() == null ? "Reminder" : r.type()),
                     "/calendar",
                     "#6366f1",
-                    "payment:" + r.id() + ":" + r.date()));
+                    "payment:" + r.id() + ":" + due));
             }
         }
+    }
+
+    /**
+     * The next date this reminder falls due on or after {@code today}. One-off reminders return
+     * their stored date (even if past — the caller's window check drops those). Monthly reminders
+     * return this month's occurrence if it hasn't passed, else next month's, clamped to the month's
+     * length (a "31st" reminder falls on the 30th in a 30-day month), and never before the base date.
+     */
+    static LocalDate nextOccurrence(LocalDate base, String repeat, LocalDate today) {
+        if (base == null) {
+            return null;
+        }
+        if (!"monthly".equalsIgnoreCase(repeat)) {
+            return base;
+        }
+        int day = base.getDayOfMonth();
+        YearMonth ym = YearMonth.from(today);
+        LocalDate candidate = ym.atDay(Math.min(day, ym.lengthOfMonth()));
+        if (candidate.isBefore(today)) {
+            ym = ym.plusMonths(1);
+            candidate = ym.atDay(Math.min(day, ym.lengthOfMonth()));
+        }
+        return candidate.isBefore(base) ? base : candidate;
     }
 
     /** A card expires within ~60 days (or already has). */

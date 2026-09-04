@@ -102,5 +102,6 @@ public class InsightClient {
         Long id, String bank, String type, String last4, Integer expiryMonth, Integer expiryYear) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record ReminderInfo(Long id, String title, LocalDate date, String type, BigDecimal amount) {}
+    public record ReminderInfo(
+        Long id, String title, LocalDate date, String type, BigDecimal amount, String repeat) {}
 }
