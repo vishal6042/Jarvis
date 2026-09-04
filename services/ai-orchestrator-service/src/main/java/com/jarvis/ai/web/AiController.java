@@ -66,7 +66,7 @@ public class AiController {
 
     @PostMapping("/api/ai/chat")
     public ChatReply chat(@Valid @RequestBody ChatRequest req) {
-        return new ChatReply(queryAgent.ask(req.message()));
+        return new ChatReply(queryAgent.ask(req.message(), req.context()));
     }
 
     /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
@@ -77,7 +77,8 @@ public class AiController {
 
     public record ParseRequest(@NotBlank String text) {}
 
-    public record ChatRequest(@NotBlank String message) {}
+    /** {@code context}: optional snapshot the web app computed (safe-to-spend, upcoming bills …). */
+    public record ChatRequest(@NotBlank String message, String context) {}
 
     public record ChatReply(String answer) {}
 

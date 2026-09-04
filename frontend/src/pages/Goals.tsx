@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { listTransactions } from "@/api";
+import type { Transaction } from "@/types";
+import { useFinanceSummary } from "@/lib/finance";
+import { goalEta, monthlyNetSaving } from "@/lib/projection";
+import ForecastCard from "@/components/ForecastCard";
 import { Pencil, Plus, PiggyBank, Target, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import {
@@ -58,6 +63,12 @@ function monthsUntil(date?: string | null): number | null {
 
 export default function Goals() {
   const [goals, setGoals] = useState<ApiGoal[]>([]);
+  const f = useFinanceSummary();
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  useEffect(() => {
+    listTransactions(0, 1000).then(setTxns).catch(() => setTxns([]));
+  }, []);
+  const pace = useMemo(() => monthlyNetSaving(txns), [txns]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -150,6 +161,8 @@ export default function Goals() {
         </Button>
       </div>
 
+      <ForecastCard txns={txns} currentNetWorth={f.savings + f.investments} />
+
       {!loading && goals.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
@@ -176,6 +189,12 @@ export default function Goals() {
             const months = monthsUntil(g.targetDate);
             const perMonth = months && remaining > 0 ? Math.ceil(remaining / months) : null;
             const done = pct >= 100;
+            const eta = done ? null : goalEta(remaining, pace.amount);
+            const target = g.targetDate ? new Date(`${g.targetDate}T00:00:00`) : null;
+            const etaNote = !eta
+              ? pace.amount <= 0 ? "At your current pace this goal isn't moving — spending exceeds income." : null
+              : `At your current pace: ${eta.on.toLocaleDateString("en-IN", { month: "short", year: "numeric" })}` +
+                (target ? (eta.on <= target ? " · ahead of target" : " · after your target date") : "");
             return (
               <Card key={g.id} className="group relative isolate overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10">
                 <CardArt color={color} icon={Target} />
@@ -224,6 +243,10 @@ export default function Goals() {
                       </span>
                     )}
                   </div>
+
+                  {etaNote && (
+                    <p className={`text-xs ${eta && target && eta.on > target ? "text-[var(--warn)]" : "text-muted-foreground"}`}>{etaNote}</p>
+                  )}
 
                   {!done && (
                     <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => setContributeTo(g)}>

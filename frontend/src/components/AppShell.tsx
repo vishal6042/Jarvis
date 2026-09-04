@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
@@ -27,6 +27,7 @@ import { useFamily } from "@/lib/store";
 import { useNotifications } from "@/lib/notifications";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import CommandBar from "@/components/CommandBar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -181,6 +182,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     navigate("/login");
   };
   const showFab = location.pathname !== "/assistant";
+  const [cmdOpen, setCmdOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -220,7 +222,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </DropdownMenu>
             <Brand />
           </div>
-          <div className="hidden md:block" />
+          <button
+            type="button"
+            onClick={() => setCmdOpen(true)}
+            className="hidden items-center gap-2 rounded-full border bg-card/60 px-3 py-1.5 text-sm text-muted-foreground ring-1 ring-primary/10 transition-colors hover:text-foreground hover:ring-primary/30 md:flex"
+          >
+            <Sparkles className="size-4 text-primary" />
+            <span>Ask Jarvis anything…</span>
+            <kbd className="ml-2 rounded border px-1.5 py-0.5 text-[10px]">Ctrl K</kbd>
+          </button>
           <div className="flex items-center gap-2">
             <NotificationBell />
             <MemberSwitcher />
@@ -232,6 +242,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
         <main className="app-canvas min-h-[calc(100vh-3.5rem)] w-full p-4 md:p-6 2xl:px-10">{children}</main>
       </div>
+
+      <CommandBar open={cmdOpen} onOpenChange={setCmdOpen} />
 
       {showFab && (
         <button

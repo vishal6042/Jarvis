@@ -317,8 +317,9 @@ export async function listRecurring(): Promise<RecurringPayment[]> {
 }
 
 // ---- AI orchestrator ----
-export async function aiChat(message: string): Promise<string> {
-  return (await api.post<ChatReply>("/api/ai/chat", { message })).data.answer;
+/** Ask the agent; `context` is a plain-text snapshot of figures the app already computed. */
+export async function aiChat(message: string, context?: string): Promise<string> {
+  return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data.answer;
 }
 
 /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */

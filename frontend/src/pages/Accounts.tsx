@@ -5,6 +5,7 @@ import type { Account, AccountRequest, AccountType } from "@/types";
 import { formatINR } from "@/lib/format";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import CardArt, { networkColor } from "@/components/CardArt";
+import BestCardCard from "@/components/BestCardCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -410,6 +411,8 @@ export default function Accounts() {
           ))}
         </div>
       )}
+
+      <BestCardCard accounts={accounts} />
 
       <AccountDetailsDialog
         account={details}

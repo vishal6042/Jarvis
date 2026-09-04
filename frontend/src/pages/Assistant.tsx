@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Bot, Send, Sparkles } from "lucide-react";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
-import { aiChat } from "@/api";
+import { aiChat, cardSummaries, listTransactions, type CardSummary } from "@/api";
+import type { Transaction } from "@/types";
+import { useReminders } from "@/lib/store";
+import { useReserve } from "@/lib/prefs";
+import { buildForecast } from "@/lib/forecast";
+import { formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Markdown from "@/components/Markdown";
@@ -26,6 +32,38 @@ export default function Assistant() {
     savingsRate: f.savingsRate,
   };
 
+  // Live snapshot for the agent: the same forecast the dashboard shows, as plain text.
+  const [txns, setTxns] = useState<Transaction[]>([]);
+  const [cards, setCards] = useState<CardSummary[]>([]);
+  const { items: reminders } = useReminders();
+  const [reserve] = useReserve();
+  useEffect(() => {
+    listTransactions(0, 500).then(setTxns).catch(() => setTxns([]));
+    cardSummaries().then(setCards).catch(() => setCards([]));
+  }, []);
+  const contextText = useMemo(() => {
+    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve });
+    const lines = [
+      `Today: ${fc.today}`,
+      `Savings balance (cash): ${formatINR(f.savings)}; investments: ${formatINR(f.investments)}; outstanding loans: ${formatINR(f.outstanding)}`,
+      `Last month: earning ${formatINR(f.earning)}, spend ${formatINR(f.lastMonthSpend)}; savings rate ${f.savingsRate}%`,
+      `This month so far: spend ${formatINR(f.spend)}`,
+      `Emergency reserve the user keeps: ${formatINR(reserve)}`,
+      `Safe to spend for the rest of this month (after known bills and the reserve): ${formatINR(fc.safeToSpend)}`,
+      `Projected balance on ${fc.projectedOn}: ${formatINR(fc.projected)}; lowest point ${formatINR(fc.minBalance)} on ${fc.minOn}`,
+      fc.salary.amount > 0
+        ? `Typical salary: ${formatINR(fc.salary.amount)} around day ${fc.salary.dayOfMonth}; received this month: ${fc.salary.receivedThisMonth ? "yes" : "not yet"}`
+        : "Salary pattern: unknown",
+      "Upcoming (next 30 days):",
+      ...fc.events
+        .filter((e) => e.kind !== "start" && e.kind !== "end")
+        .slice(0, 12)
+        .map((e) => `  - ${e.on} ${e.label}: ${e.unknownAmount ? "amount not set" : (e.amount > 0 ? "+" : "-") + formatINR(Math.abs(e.amount))}`),
+      ...(cards.length ? ["Cards:", ...cards.map((c) => `  - ${c.displayName}: unbilled ${formatINR(c.unbilled)}, bill due ${formatINR(c.billDue)}${c.dueOn ? " on " + c.dueOn : ""}`)] : []),
+    ];
+    return lines.join("\n");
+  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve]);
+
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
@@ -40,6 +78,17 @@ export default function Assistant() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Deep link from the command bar: /assistant?q=… asks once, after the snapshot has loaded.
+  const [params] = useSearchParams();
+  const askedRef = useRef(false);
+  useEffect(() => {
+    const q0 = params.get("q");
+    if (!q0 || askedRef.current || txns.length === 0) return;
+    askedRef.current = true;
+    ask(q0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, txns.length]);
+
   async function ask(text: string) {
     const q = text.trim();
     if (!q || busy) return;
@@ -48,7 +97,7 @@ export default function Assistant() {
     setBusy(true);
     try {
       // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
-      const answer = await aiChat(q);
+      const answer = await aiChat(q, contextText);
       setMessages((m) => [...m, { role: "assistant", text: answer }]);
     } catch {
       // Backend unavailable → quick local heuristic over the on-device data.

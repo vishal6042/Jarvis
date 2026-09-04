@@ -33,9 +33,22 @@ public class QueryAgent {
     }
 
     public String ask(String message) {
+        return ask(message, null);
+    }
+
+    /**
+     * Answer with an optional live snapshot from the app (already-computed figures such as safe
+     * to spend, projected balance and upcoming bills). The model is told to trust and cite them
+     * rather than recompute, so "can I afford X" gets a grounded answer.
+     */
+    public String ask(String message, String context) {
+        String system = context == null || context.isBlank()
+            ? SYSTEM
+            : SYSTEM + "\n\nLive snapshot from the app (already computed — trust these figures and cite them; "
+                + "do not recompute or invent numbers):\n" + context.strip();
         return chatClient
             .prompt()
-            .system(SYSTEM)
+            .system(system)
             .user(message)
             .tools(tools)
             .options(OllamaChatOptions.builder().model(agentModel).build())
