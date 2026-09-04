@@ -44,20 +44,46 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { to: "/accounts", label: "Accounts & Cards", icon: CreditCard },
-  { to: "/import", label: "Import statements", icon: Upload },
-  { to: "/investments", label: "Investments", icon: PiggyBank },
-  { to: "/loans", label: "Loans", icon: Banknote },
-  { to: "/goals", label: "Goals", icon: Target },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/assistant", label: "Assistant", icon: Sparkles },
-  { to: "/settings", label: "Settings", icon: Settings },
-  { to: "/profile", label: "Profile", icon: User },
+const NAV_GROUPS = [
+  {
+    label: "Money",
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { to: "/analytics", label: "Analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Accounts",
+    items: [
+      { to: "/accounts", label: "Accounts & Cards", icon: CreditCard },
+      { to: "/import", label: "Import statements", icon: Upload },
+    ],
+  },
+  {
+    label: "Wealth",
+    items: [
+      { to: "/investments", label: "Investments", icon: PiggyBank },
+      { to: "/loans", label: "Loans", icon: Banknote },
+    ],
+  },
+  {
+    label: "Planning",
+    items: [
+      { to: "/goals", label: "Goals", icon: Target },
+      { to: "/calendar", label: "Calendar", icon: CalendarDays },
+    ],
+  },
+  { label: "Intelligence", items: [{ to: "/assistant", label: "Assistant", icon: Sparkles }] },
+  {
+    label: "System",
+    items: [
+      { to: "/settings", label: "Settings", icon: Settings },
+      { to: "/profile", label: "Profile", icon: User },
+    ],
+  },
 ];
+const NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 function NotificationBell() {
   const navigate = useNavigate();
@@ -151,8 +177,11 @@ function Brand() {
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <nav className="flex flex-col gap-1">
-      {NAV.map(({ to, label, icon: Icon }) => (
+    <nav className="flex flex-col gap-4">
+      {NAV_GROUPS.map((g) => (
+        <div key={g.label} className="flex flex-col gap-0.5">
+          <div className="px-3 pb-1 text-[10px] font-semibold tracking-[0.14em] text-muted-foreground/70 uppercase">{g.label}</div>
+          {g.items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -169,6 +198,8 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
           <Icon className="size-4" />
           {label}
         </NavLink>
+          ))}
+        </div>
       ))}
     </nav>
   );

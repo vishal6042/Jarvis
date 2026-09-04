@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
 import CardArt from "@/components/CardArt";
-import { cardSummaries, financeScore, listTransactions, netWorthTrend, type CardSummary } from "@/api";
+import { cardSummaries, financeScore, listTransactions, type CardSummary } from "@/api";
 import { networkColor } from "@/components/CardArt";
 import { CreditCard } from "lucide-react";
-import type { FinanceScoreResult, NetWorthPoint, Transaction } from "@/types";
+import type { FinanceScoreResult, Transaction } from "@/types";
 import { formatINR } from "@/lib/format";
 import { type Period } from "@/lib/sample";
 import { cashflowSeries, periodLabel } from "@/lib/txnseries";
@@ -16,7 +16,7 @@ import ClockWidget from "@/components/ClockWidget";
 import PulseHeader from "@/components/PulseHeader";
 import InsightsCard from "@/components/InsightsCard";
 import SpendBreakdownCard from "@/components/SpendBreakdownCard";
-import TimelineCard from "@/components/TimelineCard";
+import GoalsStrip from "@/components/GoalsStrip";
 import { useReminders, useThresholds } from "@/lib/store";
 import { usePref, useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
@@ -437,82 +437,6 @@ function FinanceScoreCard({
   );
 }
 
-const netWorthConfig = {
-  netWorth: { label: "Net worth", color: "#8b5cf6" },
-} satisfies ChartConfig;
-
-/** Net worth (savings cash) at each month-end; optionally folds in the current investment value. */
-function NetWorthTrendCard({ addInvestments }: { addInvestments: number }) {
-  const [points, setPoints] = useState<NetWorthPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let alive = true;
-    netWorthTrend(12)
-      .then((p) => alive && setPoints(p))
-      .catch(() => alive && setPoints([]))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const data = useMemo(
-    () =>
-      points.map((p) => ({
-        label: new Date(`${p.month}-01T00:00:00`).toLocaleString(undefined, { month: "short" }),
-        netWorth: Math.round(Number(p.netWorth)) + addInvestments,
-      })),
-    [points, addInvestments]
-  );
-  const hasData = data.some((d) => d.netWorth !== 0);
-
-  return (
-    <Card className="relative isolate overflow-hidden">
-      <CardArt color="#8b5cf6" subtle />
-      <CardHeader>
-        <CardTitle>Net worth trend</CardTitle>
-        <CardDescription>
-          Savings cash at each month-end{addInvestments > 0 ? " · incl. investments" : ""} · last 12 months
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">Loading…</div>
-        ) : !hasData ? (
-          <div className="flex h-[260px] flex-col items-center justify-center gap-1 text-center">
-            <p className="text-sm font-medium">No balance history yet</p>
-            <p className="text-sm text-muted-foreground">Import a savings statement to build your net-worth trend.</p>
-          </div>
-        ) : (
-          <ChartContainer config={netWorthConfig} className="h-[260px] w-full">
-            <AreaChart data={data} margin={{ left: 16, right: 16, top: 8 }}>
-              <defs>
-                <linearGradient id="nw-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-netWorth)" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="var(--color-netWorth)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
-              <YAxis hide domain={["auto", "auto"]} />
-              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Area
-                dataKey="netWorth"
-                name="Net worth"
-                type="monotone"
-                stroke="var(--color-netWorth)"
-                fill="url(#nw-fill)"
-                strokeWidth={2}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function Dashboard() {
   const { activeId, activeMember } = useFamily();
   const f = useFinanceSummary();
@@ -653,10 +577,7 @@ export default function Dashboard() {
             <CashflowChart txns={txns} loading={loading} />
             <SpendBreakdownCard b={breakdown} />
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-            <TimelineCard f={forecast} />
-            <NetWorthTrendCard addInvestments={includeInv ? f.investments : 0} />
-          </div>
+          <GoalsStrip />
         </>
       )}
     </div>

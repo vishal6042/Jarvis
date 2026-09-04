@@ -8,7 +8,14 @@ import {
   type Reminder,
   type ReminderType,
 } from "@/lib/sample";
-import { useReminders } from "@/lib/store";
+import { useFamily, useInvestments, useLoans, useReminders } from "@/lib/store";
+import { cardSummaries, type CardSummary } from "@/api";
+import { useFinanceSummary } from "@/lib/finance";
+import { useReserve } from "@/lib/prefs";
+import { buildForecast } from "@/lib/forecast";
+import { FIN_EVENT_META, financialEvents, upcomingOutflows, type FinEvent } from "@/lib/calendarEvents";
+import TimelineCard from "@/components/TimelineCard";
+import { ArrowDownRight, ArrowUpRight, CalendarRange } from "lucide-react";
 import { listTransactions } from "@/api";
 import type { Transaction } from "@/types";
 import { PAY_STATE_META, reminderStatus } from "@/lib/reminderStatus";
@@ -57,6 +64,15 @@ const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amo
 
 export default function Calendar() {
   const { items, add, update, remove } = useReminders();
+  const { activeId } = useFamily();
+  const { items: investments } = useInvestments(activeId);
+  const { items: loans } = useLoans(activeId);
+  const f = useFinanceSummary();
+  const [reserve] = useReserve();
+  const [cards, setCards] = useState<CardSummary[]>([]);
+  useEffect(() => {
+    cardSummaries().then(setCards).catch(() => setCards([]));
+  }, []);
   const [txns, setTxns] = useState<Transaction[]>([]);
   useEffect(() => {
     listTransactions(0, 500).then(setTxns).catch(() => setTxns([]));
@@ -71,6 +87,22 @@ export default function Calendar() {
   const byDate = useMemo(
     () => occurrencesInMonth(items, view.year, view.month),
     [items, view.year, view.month]
+  );
+  // Derived financial events (card dues, statements, salary, RD/SIP, EMIs) for the visible month.
+  const finByDate = useMemo(() => {
+    const map: Record<string, FinEvent[]> = {};
+    for (const e of financialEvents({ year: view.year, month: view.month, cards, txns, investments, loans, reminders: items })) {
+      (map[e.on] ??= []).push(e);
+    }
+    return map;
+  }, [view.year, view.month, cards, txns, investments, loans, items]);
+  const outflow = useMemo(
+    () => upcomingOutflows(14, { cards, txns, investments, loans, reminders: items }),
+    [cards, txns, investments, loans, items],
+  );
+  const forecast = useMemo(
+    () => buildForecast({ balance: f.savings, txns, reminders: items, cards, reserve }),
+    [f.savings, txns, items, cards, reserve],
   );
 
   // Upcoming list filter: "next30" (default) or a specific YYYY-M.
@@ -146,7 +178,7 @@ export default function Calendar() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground">Reminders for rent, bills, EMIs, investments &amp; SIPs.</p>
+          <p className="text-muted-foreground">Reminders, card dues, EMIs, RD/SIP instalments and your expected salary, in one place.</p>
         </div>
         <Button onClick={() => openAdd()} className="gap-2">
           <Plus className="size-4" /> Add reminder
@@ -154,6 +186,78 @@ export default function Calendar() {
       </div>
 
       <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+          <Card className="relative isolate overflow-hidden">
+            <CardArt color="#f43f5e" subtle />
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarRange className="size-4 text-primary" /> Next 14 days
+              </CardTitle>
+              <CardDescription>
+                {formatDate(outflow.from)} – {formatDate(outflow.to)}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border bg-card/60 p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ArrowDownRight className="size-3.5 text-[color:var(--danger)]" /> Going out
+                  </div>
+                  <p className="mt-1 text-xl font-semibold tabular-nums">{formatINR(outflow.total)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {outflow.items.filter((e) => e.direction === "out").length} payments
+                    {outflow.unknownCount > 0 ? ` · ${outflow.unknownCount} without an amount` : ""}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-card/60 p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ArrowUpRight className="size-3.5 text-[color:var(--ok)]" /> Coming in
+                  </div>
+                  <p className="mt-1 text-xl font-semibold tabular-nums">{formatINR(outflow.income)}</p>
+                  <p className="text-xs text-muted-foreground">{outflow.income > 0 ? "Expected salary" : "No income expected"}</p>
+                </div>
+              </div>
+              {outflow.items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nothing due in the next two weeks.</p>
+              ) : (
+                <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                  {outflow.items.map((e) => (
+                    <div key={e.id} className="flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-sm">
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: e.color }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">{e.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(e.on)}
+                          {e.detail ? ` · ${e.detail}` : ""}
+                        </div>
+                      </div>
+                      {e.amount != null && (
+                        <span className={`shrink-0 font-semibold tabular-nums ${e.direction === "in" ? "text-[color:var(--ok)]" : ""}`}>
+                          {e.direction === "in" ? "+" : ""}
+                          {formatINR(e.amount)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(FIN_EVENT_META) as (keyof typeof FIN_EVENT_META)[]).map((k) => (
+                  <span
+                    key={k}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                    style={{ backgroundColor: `${FIN_EVENT_META[k].color}22`, color: FIN_EVENT_META[k].color }}
+                  >
+                    <span className="size-1.5 rounded-full" style={{ backgroundColor: FIN_EVENT_META[k].color }} />
+                    {FIN_EVENT_META[k].label}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <TimelineCard f={forecast} />
+        </div>
+
         {/* Month grid */}
         <Card className="relative isolate overflow-hidden">
           <CardArt color="var(--primary)" subtle />
@@ -182,6 +286,11 @@ export default function Calendar() {
                 const day = i + 1;
                 const ds = iso(view.year, view.month, day);
                 const dayRems = byDate[ds] ?? [];
+                const dayFin = finByDate[ds] ?? [];
+                const chips = [
+                  ...dayRems.map((r) => ({ id: r.id, title: r.title, color: REMINDER_META[r.type].color })),
+                  ...dayFin.map((e) => ({ id: e.id, title: e.title, color: e.color })),
+                ];
                 const isToday = ds === today;
                 const col = (firstWeekday + i) % 7;
                 const isSunday = col === 0;
@@ -210,22 +319,22 @@ export default function Calendar() {
                         {day}
                       </span>
                       <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
-                        {dayRems.slice(0, 2).map((r) => (
+                        {chips.slice(0, 2).map((c) => (
                           <span
-                            key={r.id}
+                            key={c.id}
                             className="flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] leading-tight"
-                            style={{ backgroundColor: `${REMINDER_META[r.type].color}22`, color: REMINDER_META[r.type].color }}
+                            style={{ backgroundColor: `${c.color}22`, color: c.color }}
                           >
-                            <span className="h-2.5 w-0.5 shrink-0 rounded-full" style={{ backgroundColor: REMINDER_META[r.type].color }} />
-                            <span className="truncate">{r.title}</span>
+                            <span className="h-2.5 w-0.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                            <span className="truncate">{c.title}</span>
                           </span>
                         ))}
-                        {dayRems.length > 2 && (
-                          <span className="px-1 text-[10px] text-muted-foreground">+{dayRems.length - 2} more</span>
+                        {chips.length > 2 && (
+                          <span className="px-1 text-[10px] text-muted-foreground">+{chips.length - 2} more</span>
                         )}
                       </div>
                     </button>
-                    {dayRems.length > 0 && (
+                    {chips.length > 0 && (
                       <div className={`pointer-events-none absolute z-50 hidden w-64 rounded-lg border bg-popover p-2.5 text-popover-foreground shadow-md group-hover:block ${popHoriz} ${popVert}`}>
                         <div className="mb-2 text-xs font-medium text-muted-foreground">{formatDate(ds)}</div>
                         <div className="space-y-2">
@@ -245,6 +354,27 @@ export default function Calendar() {
                                 )}
                               </div>
                               {r.notes && <div className="mt-1 pl-4 text-[10px] text-muted-foreground">{r.notes}</div>}
+                            </div>
+                          ))}
+                          {dayFin.map((e) => (
+                            <div key={e.id} className="rounded-md border p-2">
+                              <div className="flex items-center gap-2">
+                                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: e.color }} />
+                                <span className="min-w-0 flex-1 truncate text-xs font-medium">{e.title}</span>
+                                <span
+                                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                  style={{ backgroundColor: `${e.color}22`, color: e.color }}
+                                >
+                                  {FIN_EVENT_META[e.kind].label}
+                                </span>
+                                {e.amount != null && (
+                                  <span className="shrink-0 text-xs font-semibold tabular-nums">
+                                    {e.direction === "in" ? "+" : ""}
+                                    {formatINR(e.amount)}
+                                  </span>
+                                )}
+                              </div>
+                              {e.detail && <div className="mt-1 pl-4 text-[10px] text-muted-foreground">{e.detail}</div>}
                             </div>
                           ))}
                         </div>

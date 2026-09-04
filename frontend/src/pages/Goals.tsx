@@ -4,6 +4,7 @@ import type { Transaction } from "@/types";
 import { useFinanceSummary } from "@/lib/finance";
 import { goalEta, monthlyNetSaving } from "@/lib/projection";
 import ForecastCard from "@/components/ForecastCard";
+import NetWorthTrendCard from "@/components/NetWorthTrendCard";
 import { Pencil, Plus, PiggyBank, Target, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import {
@@ -161,7 +162,10 @@ export default function Goals() {
         </Button>
       </div>
 
-      <ForecastCard txns={txns} currentNetWorth={f.savings + f.investments} />
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+        <ForecastCard txns={txns} currentNetWorth={f.savings + f.investments} />
+        <NetWorthTrendCard addInvestments={f.investments} />
+      </div>
 
       {!loading && goals.length === 0 ? (
         <Card>

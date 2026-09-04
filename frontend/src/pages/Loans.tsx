@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
+import LoanAnalytics from "@/components/LoanAnalytics";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
 import { useFamily, useLoans } from "@/lib/store";
 import { formatINR, formatDate } from "@/lib/format";
@@ -361,6 +362,18 @@ export default function Loans() {
               onDelete={() => setToDelete(loan)}
               canDelete={!isAll}
             />
+          ))}
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Payoff plans</h2>
+            <p className="text-sm text-muted-foreground">Amortisation from today’s outstanding balance. Try a prepayment to see how much sooner you are debt-free.</p>
+          </div>
+          {items.map((loan) => (
+            <LoanAnalytics key={loan.id} loan={loan} />
           ))}
         </div>
       )}
