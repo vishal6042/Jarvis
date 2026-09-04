@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Plus, Trash2 } from "lucide-react";
+import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
 import { useFamily, useLoans } from "@/lib/store";
@@ -93,9 +93,15 @@ function LoanCard({
       : 0;
   return (
     <Card
-      className="relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md"
+      className="group relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
       onClick={onOpen}
     >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      >
+        <Pencil className="size-3" /> Edit
+      </span>
       <CardArt
         color={color}
         icon={loan.kind === "HOME" ? Home : loan.kind === "CAR" ? Car : loan.kind === "EDUCATION" ? GraduationCap : Banknote}

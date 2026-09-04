@@ -6,6 +6,7 @@ import { aiChat } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Markdown from "@/components/Markdown";
+import CardArt from "@/components/CardArt";
 
 interface Msg {
   role: "user" | "assistant";
@@ -63,9 +64,9 @@ export default function Assistant() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-1 text-primary-foreground shadow-lg shadow-primary/30 ring-1 ring-white/15">
           <Sparkles className="size-5" />
         </div>
         <div>
@@ -76,19 +77,21 @@ export default function Assistant() {
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border bg-card/40 p-4">
+      <div className="relative isolate min-h-0 flex-1 overflow-hidden rounded-2xl border card-sheen">
+        <CardArt color="var(--primary)" subtle />
+        <div className="h-full space-y-4 overflow-y-auto p-4 md:p-6">
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && (
-              <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/80 to-chart-1/80 text-primary-foreground shadow-sm">
                 <Bot className="size-4" />
               </div>
             )}
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
                 m.role === "user"
-                  ? "rounded-br-sm bg-primary text-primary-foreground"
-                  : "rounded-bl-sm bg-muted"
+                  ? "rounded-br-sm bg-gradient-to-br from-primary to-chart-1 text-primary-foreground"
+                  : "rounded-bl-sm bg-card ring-1 ring-primary/15"
               }`}
             >
               {m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
@@ -97,10 +100,10 @@ export default function Assistant() {
         ))}
         {busy && (
           <div className="flex justify-start gap-2">
-            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/80 to-chart-1/80 text-primary-foreground shadow-sm">
               <Bot className="size-4" />
             </div>
-            <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-muted-foreground">
+            <div className="rounded-2xl rounded-bl-sm bg-card px-4 py-2.5 text-sm text-muted-foreground ring-1 ring-primary/15">
               <span className="inline-flex gap-1">
                 <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
                 <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
@@ -110,6 +113,7 @@ export default function Assistant() {
           </div>
         )}
         <div ref={endRef} />
+        </div>
       </div>
 
       {messages.length <= 1 && (
@@ -119,7 +123,7 @@ export default function Assistant() {
               key={s}
               onClick={() => ask(s)}
               disabled={busy}
-              className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-foreground disabled:opacity-50"
+              className="rounded-full bg-primary/8 px-3 py-1.5 text-xs text-foreground/80 ring-1 ring-primary/20 transition-colors hover:bg-primary/15 hover:text-foreground disabled:opacity-50"
             >
               {s}
             </button>
@@ -127,15 +131,25 @@ export default function Assistant() {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="mt-3 flex items-center gap-2">
+      <form
+        onSubmit={onSubmit}
+        className="mt-3 flex items-center gap-2 rounded-2xl border bg-card p-1.5 pl-3 shadow-sm ring-1 ring-primary/10 card-sheen"
+      >
+        <Sparkles className="size-4 shrink-0 text-primary/70" />
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your finances…"
           autoFocus
           disabled={busy}
+          className="border-0 bg-transparent shadow-none focus-visible:ring-0"
         />
-        <Button type="submit" size="icon" disabled={!input.trim() || busy}>
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!input.trim() || busy}
+          className="rounded-xl bg-gradient-to-br from-primary to-chart-1 shadow-md shadow-primary/30"
+        >
           <Send className="size-4" />
         </Button>
       </form>

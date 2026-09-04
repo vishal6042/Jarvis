@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Plus, PiggyBank, TrendingUp, Wallet, Trash2 } from "lucide-react";
+import { Pencil, Plus, PiggyBank, TrendingUp, Wallet, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import {
   KIND_META,
@@ -92,10 +92,16 @@ function InvestmentCard({
   const color = KIND_META[inv.kind].color;
   return (
     <Card
-      className="relative cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
+      className="group relative isolate cursor-pointer overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
       onClick={onOpen}
     >
       <CardArt color={color} icon={inv.kind === "MF" ? TrendingUp : PiggyBank} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      >
+        <Pencil className="size-3" /> Edit
+      </span>
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start gap-2">
           <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { KeyRound, Pencil, Plus, Trash2, UserRound } from "lucide-react";
+import { KeyRound, Pencil, Plus, ShieldAlert, Trash2, UserRound, Users } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { changePassword, deleteAllData, getProfile, updateProfile } from "@/api";
 import { useFamily, type FamilyMember } from "@/lib/store";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -58,16 +59,32 @@ export default function Profile() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">Signed in as {username || "…"}</p>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="relative isolate overflow-hidden rounded-2xl border p-6 card-sheen">
+        <CardArt color="var(--primary)" icon={UserRound} />
+        <div className="flex items-center gap-4">
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-1 text-2xl font-bold text-primary-foreground shadow-lg shadow-primary/30 ring-1 ring-white/15">
+            {(username || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
+            <p className="text-muted-foreground">Signed in as {username || "…"}</p>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal details</CardTitle>
-          <CardDescription>Used across your dashboard.</CardDescription>
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
+      <div className="space-y-6">
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="var(--primary)" subtle />
+        <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <UserRound className="size-4" />
+          </div>
+          <div>
+            <CardTitle>Personal details</CardTitle>
+            <CardDescription>Used across your dashboard.</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -113,12 +130,16 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+      </div>{/* left column */}
+      <div className="space-y-6">
 
       <SecuritySection />
 
       <FamilySection />
 
       <DangerZone />
+      </div>{/* right column */}
+      </div>
     </div>
   );
 }
@@ -144,7 +165,8 @@ function DangerZone() {
   }
 
   return (
-    <Card className="border-destructive/40">
+    <Card className="relative isolate overflow-hidden border-destructive/40">
+      <CardArt color="#f43f5e" icon={ShieldAlert} subtle />
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
         <div className="flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
           <Trash2 className="size-4" />
@@ -213,9 +235,10 @@ function SecuritySection() {
   }
 
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color="#f59e0b" icon={KeyRound} subtle />
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
           <KeyRound className="size-4" />
         </div>
         <div>
@@ -301,11 +324,17 @@ function FamilySection() {
   }
 
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color="#10b981" icon={Users} subtle />
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <div>
-          <CardTitle>Family members</CardTitle>
-          <CardDescription>Add family to monitor their finances too.</CardDescription>
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500">
+            <Users className="size-4" />
+          </div>
+          <div>
+            <CardTitle>Family members</CardTitle>
+            <CardDescription>Add family to monitor their finances too.</CardDescription>
+          </div>
         </div>
         <Button onClick={openAdd} size="sm" className="gap-2">
           <Plus className="size-4" /> Add

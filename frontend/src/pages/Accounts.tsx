@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { CreditCard, Landmark, Plus, Trash2, Wallet } from "lucide-react";
+import { CreditCard, Landmark, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { createAccount, deleteAccount, listAccounts, updateAccount } from "@/api";
 import type { Account, AccountRequest, AccountType } from "@/types";
 import { formatINR } from "@/lib/format";
@@ -131,9 +131,15 @@ function AccountCard({
   return (
     <Card
       onClick={onEdit}
-      className="relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/30"
+      className="group relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
     >
       <CardArt color={tint} icon={isCard ? CreditCard : Landmark} network={isCard ? account.network : null} />
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      >
+        <Pencil className="size-3" /> Edit
+      </span>
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-3">
         <div className="flex items-center gap-3">
           <div
@@ -190,8 +196,7 @@ function AccountCard({
             <Row label="Current balance" value={account.balance != null ? formatINR(account.balance) : null} />
           </>
         )}
-        <div className="mt-auto flex items-center justify-between pt-3">
-          <span className="text-xs text-muted-foreground">Click card to edit</span>
+        <div className="mt-auto flex items-center justify-end pt-3">
           <Button
             variant="ghost"
             size="sm"
