@@ -54,7 +54,8 @@ public class AiClient {
         String last4,
         String bank,
         String occurredOn,
-        String category) {}
+        String category,
+        String balanceAfter) {}
 
     /** Mirror of the orchestrator's StatementParseResult. */
     public record StatementResult(

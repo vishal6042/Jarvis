@@ -1,5 +1,7 @@
 package com.jarvis.ingestion.service;
 
+import java.util.List;
+import com.jarvis.ingestion.web.dto.ReprocessResult;
 import com.jarvis.ingestion.client.AiClient;
 import com.jarvis.ingestion.client.ExpenseClient;
 import com.jarvis.ingestion.domain.ParseStatus;
@@ -46,23 +48,67 @@ public class IngestionService {
         msg.setReceivedAt(req.receivedAt() == null ? Instant.now() : req.receivedAt());
         msg.setStatus(ParseStatus.PENDING);
         msg = rawMessages.save(msg);
+        return process(msg).response();
+    }
 
+    /** The pipeline result plus the account it landed on (null when unmatched) — for the relink pass. */
+    private record Outcome(IngestResponse response, Long accountId) {}
+
+    /**
+     * Re-run alerts whose transaction has no account (e.g. ingested before suffix matching existed):
+     * delete the orphan row, then push the stored raw message through the pipeline again.
+     */
+    public ReprocessResult reprocessUnlinked() {
+        List<Long> orphanIds = expense.unlinkedTransactionIds();
+        List<RawMessage> msgs = orphanIds.isEmpty() ? List.of() : rawMessages.findByTransactionRefIn(orphanIds);
+        int relinked = 0, stillUnlinked = 0, duplicate = 0, ignored = 0, failed = 0;
+        for (RawMessage msg : msgs) {
+            try {
+                expense.delete(msg.getTransactionRef());
+            } catch (Exception e) {
+                log.warn("Could not delete orphan transaction {}: {}", msg.getTransactionRef(), e.getMessage());
+                failed++;
+                continue;
+            }
+            msg.setTransactionRef(null);
+            msg.setError(null);
+            Outcome out = process(msg);
+            switch (out.response().status()) {
+                case PARSED -> { if (out.accountId() != null) relinked++; else stillUnlinked++; }
+                case DUPLICATE -> duplicate++;
+                case IGNORED -> ignored++;
+                default -> failed++;
+            }
+        }
+        log.info("Relink pass: {} examined, {} relinked, {} still unlinked, {} duplicate, {} ignored, {} failed",
+            msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed);
+        return new ReprocessResult(msgs.size(), relinked, stillUnlinked, duplicate, ignored, failed);
+    }
+
+    /** Parse → persist → record the outcome, for a raw message that is already stored. */
+    private Outcome process(RawMessage msg) {
         try {
-            AiClient.ParsedTransaction parsed = ai.parse(req.payload());
+            if (AlertHints.isNotATransaction(msg.getPayload())) {
+                return new Outcome(
+                    finish(msg, ParseStatus.IGNORED, null, "Not a bank transaction alert (wallet / statement / notice)."),
+                    null);
+            }
+            AiClient.ParsedTransaction parsed = ai.parse(msg.getPayload());
 
             if (parsed == null || !parsed.isTransaction()) {
-                return finish(msg, ParseStatus.IGNORED, null, "Not a transaction alert.");
+                return new Outcome(finish(msg, ParseStatus.IGNORED, null, "Not a transaction alert."), null);
             }
 
             BigDecimal amount = parseAmount(parsed.amount());
             String direction = parseDirection(parsed.direction());
             if (amount == null || direction == null) {
-                return finish(msg, ParseStatus.FAILED, null, "Missing or invalid amount/direction.");
+                return new Outcome(finish(msg, ParseStatus.FAILED, null, "Missing or invalid amount/direction."), null);
             }
 
             var createReq = new ExpenseClient.CreateTransactionRequest(
                 null, // SMS path matches the account by last-4, not an explicit id
-                blankToNull(parsed.last4()),
+                AlertHints.last4Hint(parsed.last4(), msg.getPayload()), // model digits, else read from the text
+                blankToNull(parsed.bank()),
                 amount,
                 parsed.currency() == null || parsed.currency().isBlank() ? "INR" : parsed.currency(),
                 direction,
@@ -71,18 +117,18 @@ public class IngestionService {
                     ? "Uncategorized" : parsed.category().trim(),
                 resolveOccurredAt(parsed.occurredOn(), msg.getReceivedAt()),
                 msg.getSource().name(),
-                String.valueOf(msg.getId()));
-
+                String.valueOf(msg.getId()),
+                parseAmount(parsed.balanceAfter()));
             ExpenseClient.CreateResult result = expense.create(createReq);
             if (!result.created()) {
-                return finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction.");
+                return new Outcome(finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction."), null);
             }
             msg.setTransactionRef(result.transactionId());
-            return finish(msg, ParseStatus.PARSED, result.transactionId(), "Parsed and stored.");
-
+            String detail = result.accountId() != null ? "Parsed and stored." : "Parsed and stored (no matching account).";
+            return new Outcome(finish(msg, ParseStatus.PARSED, result.transactionId(), detail), result.accountId());
         } catch (Exception e) {
             log.warn("Ingest failed for raw message {}: {}", msg.getId(), e.getMessage());
-            return finish(msg, ParseStatus.FAILED, null, e.getMessage());
+            return new Outcome(finish(msg, ParseStatus.FAILED, null, e.getMessage()), null);
         }
     }
 

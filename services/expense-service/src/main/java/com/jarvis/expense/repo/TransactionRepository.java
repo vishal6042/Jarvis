@@ -21,6 +21,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Page<Transaction> findByOrderByOccurredAtDesc(Pageable pageable);
 
+    /** Ids of imported (non-manual) transactions with no account — candidates for a relink pass. */
+    @Query(
+        """
+        select t.id from Transaction t
+        where t.account is null and t.source <> com.jarvis.expense.domain.MessageSource.MANUAL
+        order by t.occurredAt asc
+        """)
+    List<Long> findUnlinkedIds();
+
     List<Transaction> findByAccountIdOrderByOccurredAtDesc(Long accountId, Pageable pageable);
 
     /** All DEBIT transactions since a date — grouped by merchant for recurring-payment detection. */

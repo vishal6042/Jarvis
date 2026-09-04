@@ -70,6 +70,10 @@ public class Account {
     @Column(name = "balance", precision = 16, scale = 2)
     private BigDecimal balance;
 
+    /** When {@link #balance} was last set from an alert, so an older alert never overwrites a newer balance. */
+    @Column(name = "balance_as_of")
+    private Instant balanceAsOf;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

@@ -1,5 +1,6 @@
 package com.jarvis.expense.web.internal;
 
+import java.util.List;
 import com.jarvis.expense.service.TransactionService;
 import com.jarvis.expense.web.dto.InternalTransactionRequest;
 import com.jarvis.expense.web.dto.TransactionDto;
@@ -33,12 +34,31 @@ public class InternalTransactionController {
     public ResponseEntity<TransactionDto> create(
         @RequestHeader(value = "X-Internal-Key", required = false) String key,
         @Valid @RequestBody InternalTransactionRequest req) {
-        if (!internalKey.equals(key)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bad internal key");
-        }
+        check(key);
         Optional<TransactionDto> created = service.ingestParsed(req);
         return created
             .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto))
             .orElseGet(() -> ResponseEntity.ok().build()); // duplicate → 200, no body
+    }
+
+    /** Ids of alert-created transactions that couldn't be matched to an account (ingestion's relink pass). */
+    @GetMapping("/unlinked")
+    public List<Long> unlinked(@RequestHeader(value = "X-Internal-Key", required = false) String key) {
+        check(key);
+        return service.unlinkedIds();
+    }
+
+    /** Remove a transaction so ingestion can push its alert through the pipeline again. */
+    @DeleteMapping("/{id}")
+    public void delete(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key, @PathVariable Long id) {
+        check(key);
+        service.delete(id);
+    }
+
+    private void check(String key) {
+        if (!internalKey.equals(key)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Bad internal key");
+        }
     }
 }

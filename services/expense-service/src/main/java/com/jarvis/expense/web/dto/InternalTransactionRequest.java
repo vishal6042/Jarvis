@@ -14,6 +14,7 @@ import java.time.Instant;
 public record InternalTransactionRequest(
     Long accountId, // when set (e.g. statement import), link this account directly
     String last4,
+    String bank, // issuer short name from the alert; breaks ties when last4 is a short suffix
     @NotNull @Positive BigDecimal amount,
     String currency,
     @NotNull Direction direction,
@@ -21,4 +22,6 @@ public record InternalTransactionRequest(
     String category,
     Instant occurredAt,
     MessageSource source,
-    String sourceRef) {}
+    String sourceRef,
+    /** Balance stated in the alert after this transaction (savings accounts); refreshes the account balance. */
+    BigDecimal balanceAfter) {}

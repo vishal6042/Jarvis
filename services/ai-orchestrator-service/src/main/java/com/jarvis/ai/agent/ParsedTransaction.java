@@ -14,4 +14,5 @@ public record ParsedTransaction(
     String last4,
     String bank,
     String occurredOn, // ISO date yyyy-MM-dd, or null
-    String category) {}
+    String category,
+    String balanceAfter) {} // balance stated after the transaction (bank accounts only), or null

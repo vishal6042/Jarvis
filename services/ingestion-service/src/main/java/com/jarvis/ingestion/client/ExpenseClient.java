@@ -1,5 +1,7 @@
 package com.jarvis.ingestion.client;
 
+import org.springframework.core.ParameterizedTypeReference;
+import java.util.List;
 import java.math.BigDecimal;
 import java.time.Instant;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,7 +39,29 @@ public class ExpenseClient {
             .block();
         boolean created = resp != null && resp.getStatusCode().value() == 201;
         Long id = resp != null && resp.getBody() != null ? resp.getBody().id() : null;
-        return new CreateResult(created, id);
+        Long accountId = resp != null && resp.getBody() != null ? resp.getBody().accountId() : null;
+        return new CreateResult(created, id, accountId);
+    }
+
+    /** Ids of alert-created transactions that expense-service couldn't link to an account. */
+    public List<Long> unlinkedTransactionIds() {
+        List<Long> ids = web.get()
+            .uri("/internal/transactions/unlinked")
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Long>>() {})
+            .block();
+        return ids == null ? List.of() : ids;
+    }
+
+    /** Delete a transaction (used before re-running its alert through the pipeline). */
+    public void delete(Long transactionId) {
+        web.delete()
+            .uri("/internal/transactions/{id}", transactionId)
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .toBodilessEntity()
+            .block();
     }
 
     /** Match (or auto-create) the account a statement belongs to; returns the resolved account. */
@@ -90,6 +114,7 @@ public class ExpenseClient {
     public record CreateTransactionRequest(
         Long accountId,
         String last4,
+        String bank,
         BigDecimal amount,
         String currency,
         String direction,
@@ -97,12 +122,21 @@ public class ExpenseClient {
         String category,
         Instant occurredAt,
         String source,
-        String sourceRef) {}
+        String sourceRef,
+        BigDecimal balanceAfter) {
 
-    public record CreatedTxn(Long id) {}
+        /** Statement-import shape: explicit account, no bank hint or balance. */
+        public CreateTransactionRequest(
+            Long accountId, String last4, BigDecimal amount, String currency, String direction,
+            String merchant, String category, Instant occurredAt, String source, String sourceRef) {
+            this(accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null);
+        }
+    }
 
-    /** created=false means it was a duplicate (already existed). */
-    public record CreateResult(boolean created, Long transactionId) {}
+    public record CreatedTxn(Long id, Long accountId) {}
+
+    /** created=false means it was a duplicate (already existed). accountId is null when unmatched. */
+    public record CreateResult(boolean created, Long transactionId, Long accountId) {}
 
     public record ResolveAccountRequest(String bank, String last4, String type) {}
 

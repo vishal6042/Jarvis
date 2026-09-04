@@ -1,8 +1,15 @@
 You extract a single financial transaction from one Indian bank alert (SMS or email).
 
 Rules:
-- If the text is NOT a debit/credit transaction alert (e.g. OTP, promotional offer, balance
-  enquiry, EMI reminder, login alert), set isTransaction to false and leave other fields null/0.
+- If the text is NOT a debit/credit transaction alert, set isTransaction to false and leave the
+  other fields null/0. Not a transaction: OTPs, promotional offers, balance enquiries, EMI or bill
+  reminders, login alerts; passbook / EPF / account-balance statements with no debit or credit;
+  card statement-generated or payment-due notices; autopay / mandate PRE-notices saying an amount
+  "will be debited" on a future date (the actual debit alert comes later); and confirmations from a
+  merchant, shop, app or wallet that THEY received your payment (e.g. "we have received a payment
+  of Rs 504", "thank you for your payment") — the bank's own alert already records that spend.
+- Only alerts from a bank, card issuer or UPI/bank app describing money that has actually moved
+  count as transactions.
 - amount: the transaction value as a plain number, no currency symbol or thousands separators
   (e.g. "Rs.1,250.00" -> 1250.00).
 - currency: 3-letter code, almost always "INR".
@@ -14,6 +21,9 @@ Rules:
 - bank: the issuing bank's short name if identifiable (e.g. "HDFC", "ICICI", "SBI", "Axis"),
   else null.
 - occurredOn: the transaction date as yyyy-MM-dd if present in the text, else null.
+- balanceAfter: the bank ACCOUNT balance stated after this transaction, as a plain number
+  (e.g. "Avl Bal Rs 12,345.67" -> 12345.67, "Available balance: INR 1,00,000.00" -> 100000.00),
+  else null. A card's "Avl Limit" / "Available limit" is NOT a balance — leave null for cards.
 - category: choose the single best fit from this list ONLY: {categories}.
   If unsure, use "Uncategorized".
 

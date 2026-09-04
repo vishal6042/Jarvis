@@ -1,5 +1,7 @@
 package com.jarvis.expense.service;
 
+import java.math.BigDecimal;
+import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Account;
 import com.jarvis.expense.domain.Category;
 import com.jarvis.expense.domain.MessageSource;
@@ -150,10 +152,7 @@ public class TransactionService {
         if (req.accountId() != null) {
             accounts.findById(req.accountId()).ifPresent(t::setAccount);
         } else if (req.last4() != null && !req.last4().isBlank()) {
-            List<Account> matches = accounts.findByLast4(req.last4());
-            if (matches.size() == 1) {
-                t.setAccount(matches.get(0));
-            }
+            matchAccount(req.last4().trim(), req.bank()).ifPresent(t::setAccount);
         }
         if (req.category() != null && !req.category().isBlank()) {
             t.setCategory(findOrCreateCategory(req.category().trim()));
@@ -162,7 +161,57 @@ public class TransactionService {
         String last4 = t.getAccount() != null ? t.getAccount().getLast4() : req.last4();
         t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
 
-        return save(t).map(TransactionDto::from);
+        Optional<Transaction> saved = save(t);
+        saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));
+        return saved.map(TransactionDto::from);
+    }
+
+    /**
+     * Match the account an alert refers to. Exact last-4 first; if the alert only shows the last
+     * two or three digits (ICICI savings alerts say "Acct XX380"), accept the single account whose
+     * last-4 ends with them, using the bank name to break ties. Ambiguous → no account.
+     */
+    Optional<Account> matchAccount(String digits, String bank) {
+        List<Account> matches = accounts.findByLast4(digits);
+        if (matches.isEmpty() && digits.length() < 4 && digits.chars().allMatch(Character::isDigit)) {
+            matches = accounts.findAll().stream()
+                .filter(a -> a.getLast4() != null && a.getLast4().endsWith(digits))
+                .toList();
+        }
+        if (matches.size() > 1 && bank != null && !bank.isBlank()) {
+            String b = bank.trim().toLowerCase();
+            List<Account> byBank = matches.stream()
+                .filter(a -> a.getBank() != null && a.getBank().toLowerCase().contains(b))
+                .toList();
+            if (!byBank.isEmpty()) {
+                matches = byBank;
+            }
+        }
+        return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+    }
+
+    /**
+     * Savings-account alerts usually state the balance after the transaction ("Avl Bal Rs …"). Use
+     * it as the account's current balance unless a newer alert already set one — this is what keeps
+     * net worth moving without manual edits.
+     */
+    private void applyBalance(Transaction t, BigDecimal balanceAfter) {
+        Account a = t.getAccount();
+        if (a == null || balanceAfter == null || a.getType() != AccountType.SAVINGS) {
+            return;
+        }
+        if (a.getBalanceAsOf() != null && t.getOccurredAt().isBefore(a.getBalanceAsOf())) {
+            return;
+        }
+        a.setBalance(balanceAfter);
+        a.setBalanceAsOf(t.getOccurredAt());
+        accounts.save(a);
+    }
+
+    /** Alert-created transactions that couldn't be linked to an account (ingestion re-runs these). */
+    @Transactional(readOnly = true)
+    public List<Long> unlinkedIds() {
+        return transactions.findUnlinkedIds();
     }
 
     /**
