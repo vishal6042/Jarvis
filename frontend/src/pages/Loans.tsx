@@ -93,7 +93,7 @@ function LoanCard({
       : 0;
   return (
     <Card
-      className="relative flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md"
+      className="relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md"
       onClick={onOpen}
     >
       <CardArt
@@ -411,7 +411,8 @@ function Stat({
   iconColor?: string;
 }) {
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color={iconColor} subtle />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
         {icon && (

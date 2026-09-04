@@ -230,7 +230,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl p-4 md:p-6">{children}</main>
+        <main className="app-canvas min-h-[calc(100vh-3.5rem)] w-full p-4 md:p-6 2xl:px-10">{children}</main>
       </div>
 
       {showFab && (

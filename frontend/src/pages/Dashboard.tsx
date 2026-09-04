@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, Upload, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { financeScore, listTransactions, netWorthTrend } from "@/api";
 import type { FinanceScoreResult, NetWorthPoint, Transaction } from "@/types";
 import { formatINR } from "@/lib/format";
@@ -27,15 +28,18 @@ function StatCard({
   icon,
   iconColor = "var(--primary)",
   footer,
+  art,
 }: {
   title: string;
   value: string;
   icon: React.ReactNode;
   iconColor?: string;
   footer?: React.ReactNode;
+  art?: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color={iconColor} icon={art} subtle={!art} />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
         <div
@@ -60,6 +64,7 @@ const cashflowConfig = {
 
 /** Real earning vs spend over the selected period, from recorded transactions. */
 function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolean }) {
+  // (chart cards get a subtle tint only — no wave behind the plot)
   const [period, setPeriod] = useState<Period>("month");
   const [offset, setOffset] = useState(0); // 0 = current period; higher = further back
   const data = useMemo(() => cashflowSeries(txns, period, offset), [txns, period, offset]);
@@ -67,7 +72,8 @@ function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolea
   const tickInterval = period === "day" ? 2 : period === "month" ? 4 : 0;
 
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color="var(--chart-1)" subtle />
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Cash flow</CardTitle>
@@ -269,14 +275,8 @@ function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
   const color = result ? scoreColor(result.score) : "var(--primary)";
 
   return (
-    <Card
-      className="overflow-hidden border-0 shadow-sm"
-      style={{
-        background: result
-          ? `linear-gradient(135deg, color-mix(in oklab, ${color} 16%, var(--card)), var(--card) 65%)`
-          : undefined,
-      }}
-    >
+    <Card className="relative isolate overflow-hidden border-0 shadow-sm">
+      <CardArt color={color} icon={Sparkles} />
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="size-4" style={{ color }} />
@@ -360,7 +360,8 @@ function NetWorthTrendCard({ addInvestments }: { addInvestments: number }) {
   const hasData = data.some((d) => d.netWorth !== 0);
 
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color="#8b5cf6" subtle />
       <CardHeader>
         <CardTitle>Net worth trend</CardTitle>
         <CardDescription>
@@ -479,6 +480,7 @@ export default function Dashboard() {
           value={formatINR(netWorth)}
           icon={<Wallet className="size-4" />}
           iconColor="#8b5cf6"
+          art={Wallet}
           footer={
             <label className="mt-2 flex cursor-pointer items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">
@@ -488,10 +490,10 @@ export default function Dashboard() {
             </label>
           }
         />
-        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" />
-        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" />
-        <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" />
-        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" />
+        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" art={TrendingUp} />
+        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" art={ArrowDownRight} />
+        <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} />
+        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} />
       </div>
 
       {!loading && txns.length === 0 ? (

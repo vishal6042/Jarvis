@@ -13,16 +13,19 @@ export default function CardArt({
   color,
   icon: Icon,
   network,
+  subtle = false,
 }: {
   color: string;
   icon?: ComponentType<{ className?: string; style?: React.CSSProperties }>;
   network?: string | null;
+  /** Gradient + glow only (for chart cards and dense tiles) — no wave, no mark. */
+  subtle?: boolean;
 }) {
   const key = (network ?? "").toUpperCase();
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-0"
+      className="pointer-events-none absolute inset-0 -z-10"
       style={{
         background: `linear-gradient(135deg, color-mix(in oklab, ${color} 26%, var(--card)) 0%, color-mix(in oklab, ${color} 8%, var(--card)) 60%, var(--card) 100%)`,
       }}
@@ -32,6 +35,8 @@ export default function CardArt({
         className="absolute -top-10 -right-10 size-44 rounded-full"
         style={{ background: `radial-gradient(circle, ${color}33 0%, transparent 70%)` }}
       />
+      {subtle ? null : (
+      <>
       {/* wave */}
       <svg className="absolute inset-x-0 bottom-0 h-24 w-full" viewBox="0 0 400 100" preserveAspectRatio="none">
         <path
@@ -79,6 +84,8 @@ export default function CardArt({
           <Icon className="size-20 opacity-20" />
         ) : null}
       </div>
+      </>
+      )}
     </div>
   );
 }

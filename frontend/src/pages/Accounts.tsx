@@ -131,7 +131,7 @@ function AccountCard({
   return (
     <Card
       onClick={onEdit}
-      className="relative flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/30"
+      className="relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/30"
     >
       <CardArt color={tint} icon={isCard ? CreditCard : Landmark} network={isCard ? account.network : null} />
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-3">
@@ -491,7 +491,8 @@ export default function Accounts() {
 
 function SummaryCard({ title, count, icon, color }: { title: string; count: number; icon: React.ReactNode; color: string }) {
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color={color} subtle />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
         <div

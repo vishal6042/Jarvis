@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, Cell, RadialBar, RadialBarChart, XAxis, Y
 import { analyticsByCategory, analyticsIncomeBySource, listRecurring, listTransactions } from "@/api";
 import type { CategorySpend, RecurringPayment, Transaction } from "@/types";
 import { ChevronLeft, ChevronRight, Layers, Repeat, TrendingUp, Trophy, Wallet, X } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { PERIOD_LABEL, type Period } from "@/lib/sample";
 import { categorySeries, categorySpend, periodLabel, periodWindow } from "@/lib/txnseries";
 import { formatINR, formatDate } from "@/lib/format";
@@ -497,7 +498,8 @@ function Stat({
   iconColor?: string;
 }) {
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color={iconColor} subtle />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
         {icon && (

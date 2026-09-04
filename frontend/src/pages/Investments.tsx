@@ -430,7 +430,8 @@ function Stat({
   iconColor?: string;
 }) {
   return (
-    <Card>
+    <Card className="relative isolate overflow-hidden">
+      <CardArt color={iconColor} subtle />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
         {icon && (
