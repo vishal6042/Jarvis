@@ -75,6 +75,14 @@ public class Transaction {
     @Column(nullable = false)
     private boolean transfer = false;
 
+    /**
+     * One side of a credit-card bill payment (savings DEBIT ↔ card CREDIT of the same amount).
+     * Excluded from earning / spend — the card's own purchases are the spend — but the savings
+     * side still counts as cash leaving the account for the net-worth trend.
+     */
+    @Column(nullable = false)
+    private boolean settlement = false;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

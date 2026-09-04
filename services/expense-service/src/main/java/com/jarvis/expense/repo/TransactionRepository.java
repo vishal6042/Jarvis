@@ -1,5 +1,6 @@
 package com.jarvis.expense.repo;
 
+import java.util.Collection;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Direction;
 import com.jarvis.expense.domain.Transaction;
@@ -29,7 +30,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = :direction and t.amount = :amount
           and t.account is not null and t.account.id <> :accountId
           and t.occurredAt >= :from and t.occurredAt <= :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         order by t.occurredAt asc
         """)
     List<Transaction> findTransferCandidates(
@@ -41,11 +42,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     /** Reset every transfer flag (the backfill recomputes pairs from scratch). */
     @Modifying
-    @Query("update Transaction t set t.transfer = false where t.transfer = true")
+    @Query("update Transaction t set t.transfer = false, t.settlement = false where t.transfer = true or t.settlement = true")
     int clearTransferFlags();
 
     /** Every account-linked row not yet marked as a transfer — scanned by the backfill. */
-    @Query("select t from Transaction t where t.account is not null and t.transfer = false order by t.occurredAt asc")
+    @Query("select t from Transaction t where t.account is not null and t.transfer = false and t.settlement = false order by t.occurredAt asc")
     List<Transaction> findLinkedNotTransfer();
 
     /** Ids of imported (non-manual) transactions with no account — candidates for a relink pass. */
@@ -65,7 +66,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         select t from Transaction t
         where t.direction = com.jarvis.expense.domain.Direction.DEBIT
           and t.occurredAt >= :from
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         """)
     List<Transaction> findDebitsSince(@Param("from") Instant from);
 
@@ -85,7 +86,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         select coalesce(sum(t.amount), 0) from Transaction t
         where t.direction = :direction
           and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         """)
     BigDecimal sumByDirectionAndPeriod(
         @Param("direction") Direction direction,
@@ -101,11 +102,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         select coalesce(sum(t.amount), 0) from Transaction t
         where t.direction = :direction and t.account.type = :type
           and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         """)
     BigDecimal sumByDirectionAndAccountType(
         @Param("direction") Direction direction,
         @Param("type") AccountType type,
+        @Param("from") Instant from,
+        @Param("to") Instant to);
+
+    /** Total in a direction across several account types (spend = savings + card debits). */
+    @Query(
+        """
+        select coalesce(sum(t.amount), 0) from Transaction t
+        where t.direction = :direction and t.account.type in :types
+          and t.occurredAt >= :from and t.occurredAt < :to
+          and t.transfer = false and t.settlement = false
+        """)
+    BigDecimal sumByDirectionAndAccountTypes(
+        @Param("direction") Direction direction,
+        @Param("types") Collection<AccountType> types,
         @Param("from") Instant from,
         @Param("to") Instant to);
 
@@ -120,7 +135,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         from Transaction t left join t.category c
         where t.direction = com.jarvis.expense.domain.Direction.DEBIT
           and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
           and t.account.type in (com.jarvis.expense.domain.AccountType.SAVINGS,
                                  com.jarvis.expense.domain.AccountType.CREDIT_CARD)
           and (c is null or c.name <> 'Card Payment')
@@ -140,7 +155,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = com.jarvis.expense.domain.Direction.CREDIT
           and t.account.type = com.jarvis.expense.domain.AccountType.SAVINGS
           and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         group by c.name
         order by sum(t.amount) desc
         """)
@@ -153,7 +168,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         from Transaction t left join t.category c
         where t.direction = :direction
           and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false
+          and t.transfer = false and t.settlement = false
         group by c.name
         order by sum(t.amount) desc
         """)

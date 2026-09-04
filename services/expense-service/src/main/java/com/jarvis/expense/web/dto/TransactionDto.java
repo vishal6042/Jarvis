@@ -18,7 +18,8 @@ public record TransactionDto(
     Instant occurredAt,
     MessageSource source,
     String note,
-    boolean transfer) {
+    boolean transfer,
+    boolean settlement) {
 
     public static TransactionDto from(Transaction t) {
         return new TransactionDto(
@@ -33,6 +34,7 @@ public record TransactionDto(
             t.getOccurredAt(),
             t.getSource(),
             t.getNote(),
-            t.isTransfer());
+            t.isTransfer(),
+            t.isSettlement());
     }
 }

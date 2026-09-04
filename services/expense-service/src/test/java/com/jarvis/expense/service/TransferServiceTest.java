@@ -6,13 +6,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.jarvis.expense.domain.Account;
+import com.jarvis.expense.domain.Category;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Direction;
 import com.jarvis.expense.domain.Transaction;
+import com.jarvis.expense.repo.CategoryRepository;
 import com.jarvis.expense.repo.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.Test;
 class TransferServiceTest {
 
     private TransactionRepository repo;
+    private CategoryRepository categories;
     private TransferService service;
     private final Account icici = account(5L);
     private final Account sbi = account(10L);
@@ -30,7 +34,11 @@ class TransferServiceTest {
     @BeforeEach
     void setUp() {
         repo = mock(TransactionRepository.class);
-        service = new TransferService(repo);
+        categories = mock(CategoryRepository.class);
+        Category cardPayment = new Category();
+        cardPayment.setName("Card Payment");
+        when(categories.findByNameIgnoreCase("Card Payment")).thenReturn(java.util.Optional.of(cardPayment));
+        service = new TransferService(repo, categories);
     }
 
     @Test
@@ -80,19 +88,40 @@ class TransferServiceTest {
     }
 
     @Test
-    void creditCardBillPaymentsAreNotTransfers() {
-        // A savings debit that lands on a card is the bill payment — the only place card spend is counted.
+    void creditCardBillPaymentsBecomeSettlementsNotTransfers() {
+        // A savings debit that lands on a card is the bill payment: flag both as settlement,
+        // categorise both "Card Payment", and never mark them as a bank transfer.
         Account card = account(8L);
         card.setType(AccountType.CREDIT_CARD);
-        Transaction billPay = txn(1L, icici, Direction.DEBIT, "100643.63", "2026-07-01T00:00:00Z");
-        Transaction cardCredit = txn(2L, card, Direction.CREDIT, "100643.63", "2026-07-01T00:00:00Z");
+        Transaction billPay = txn(1L, icici, Direction.DEBIT, "118428", "2026-09-02T00:00:00Z");
+        Transaction cardCredit = txn(2L, card, Direction.CREDIT, "118428", "2026-09-02T00:00:00Z");
         when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(cardCredit));
 
-        assertFalse(service.pair(billPay));
+        assertTrue(service.pair(billPay));
+        assertTrue(billPay.isSettlement());
+        assertTrue(cardCredit.isSettlement());
         assertFalse(billPay.isTransfer());
         assertFalse(cardCredit.isTransfer());
-        // and starting from the card side never pairs either
-        assertFalse(service.pair(cardCredit));
+        assertEquals("Card Payment", billPay.getCategory().getName());
+        assertEquals("Card Payment", cardCredit.getCategory().getName());
+    }
+
+    @Test
+    void cardPurchasesAndCardToCardNeverPair() {
+        Account card = account(8L);
+        card.setType(AccountType.CREDIT_CARD);
+        Account card2 = account(9L);
+        card2.setType(AccountType.CREDIT_CARD);
+        // savings CREDIT + card DEBIT is not a bill payment (would be a cash advance / refund shape)
+        Transaction savingsCredit = txn(1L, icici, Direction.CREDIT, "5000", "2026-09-02T00:00:00Z");
+        Transaction cardDebit = txn(2L, card, Direction.DEBIT, "5000", "2026-09-02T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(cardDebit));
+        assertFalse(service.pair(savingsCredit));
+        // card → card never pairs
+        Transaction cardA = txn(3L, card, Direction.DEBIT, "700", "2026-09-02T00:00:00Z");
+        Transaction cardB = txn(4L, card2, Direction.CREDIT, "700", "2026-09-02T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(cardB));
+        assertFalse(service.pair(cardA));
     }
 
     private static Account account(Long id) {

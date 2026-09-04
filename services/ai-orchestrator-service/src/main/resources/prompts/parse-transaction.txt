@@ -26,6 +26,8 @@ Rules:
   else null. A card's "Avl Limit" / "Available limit" is NOT a balance — leave null for cards.
 - category: choose the single best fit from this list ONLY: {categories}.
   "Loan EMI" for loan repayments, EMIs and standing instructions to a loan account.
+  "Card Payment" for credit-card bill payments: money sent to pay a card bill, and a card's own
+  alert that a payment was received / credited towards its outstanding (that is NOT income).
   "Transfers" for money moved to a person or to another account (NEFT/IMPS/RTGS/UPI to a name),
   including the user's own other accounts. "Income" only for salary, interest, dividends,
   refunds and similar money earned. If unsure, use "Uncategorized".

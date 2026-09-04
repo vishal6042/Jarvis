@@ -34,10 +34,12 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public PeriodSummary summary(Instant from, Instant to) {
-        // Earning/spend come only from the savings account (money in/out). Credit-card rows are
-        // excluded — paying the card bill is already a savings DEBIT, so counting them double-counts.
+        // Earning = money into savings. Spend = every purchase, whether from savings or on a card.
+        // Card bill payments are "settlement" pairs and own-account moves are "transfer" pairs —
+        // both excluded, so nothing is counted twice.
         BigDecimal earning = transactions.sumByDirectionAndAccountType(Direction.CREDIT, AccountType.SAVINGS, from, to);
-        BigDecimal spend = transactions.sumByDirectionAndAccountType(Direction.DEBIT, AccountType.SAVINGS, from, to);
+        BigDecimal spend = transactions.sumByDirectionAndAccountTypes(
+            Direction.DEBIT, List.of(AccountType.SAVINGS, AccountType.CREDIT_CARD, AccountType.DEBIT_CARD), from, to);
         return new PeriodSummary(from, to, earning, spend);
     }
 
