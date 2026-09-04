@@ -33,4 +33,4 @@ Thumbs.db
 .claude/
 
 # Local statement files / test data (never commit personal financial data)
-data/
+/data/

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.jarvis.sync.data.ApiException
 import com.jarvis.sync.data.CategorySpendDto
 import com.jarvis.sync.data.SyncRepository
+import com.jarvis.sync.sms.InboxSms
 import com.jarvis.sync.data.db.DashboardCache
 import com.jarvis.sync.data.db.SessionEntity
 import com.jarvis.sync.work.SyncScheduler
@@ -40,6 +41,55 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val log = repo.syncLog()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ---- Inbox tab ----
+    /** Transaction-looking SMS from the phone inbox, newest first (loaded on demand). */
+    var inbox by mutableStateOf<List<InboxSms>>(emptyList())
+        private set
+    var inboxBusy by mutableStateOf(false)
+        private set
+    var inboxError by mutableStateOf<String?>(null)
+        private set
+    val importedSmsIds = repo.importedSmsIds().map { it.toHashSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), hashSetOf<Long>())
+    val queuedSmsIds = repo.queuedSmsIds().map { it.toHashSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), hashSetOf<Long>())
+    val smsVerdicts = repo.smsVerdicts().map { list -> list.associate { it.smsId to it.status } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap<Long, String>())
+
+    fun loadInbox() {
+        viewModelScope.launch {
+            inboxBusy = true
+            inboxError = null
+            try {
+                inbox = repo.scanInbox()
+            } catch (e: SecurityException) {
+                inboxError = "SMS permission is needed to read the inbox."
+            } catch (e: Exception) {
+                inboxError = e.message ?: "Couldn't read the inbox."
+            } finally {
+                inboxBusy = false
+            }
+        }
+    }
+
+    /** Queue the given inbox messages (those not already sent) and kick the sync worker. */
+    fun syncInbox(messages: List<InboxSms>) {
+        val done = importedSmsIds.value
+        val fresh = messages.filter { it.id !in done }
+        if (fresh.isEmpty()) return
+        viewModelScope.launch {
+            inboxBusy = true
+            try {
+                repo.syncInbox(fresh)
+                SyncScheduler.syncNow(getApplication())
+            } catch (e: Exception) {
+                inboxError = e.message ?: "Sync failed."
+            } finally {
+                inboxBusy = false
+            }
+        }
+    }
 
     var loginBusy by mutableStateOf(false)
         private set

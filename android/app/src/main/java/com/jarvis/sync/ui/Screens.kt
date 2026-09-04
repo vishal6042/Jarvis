@@ -24,6 +24,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.filled.Sms
+import com.jarvis.sync.sms.InboxSms
+import com.jarvis.sync.sms.SmsFilter
+import java.time.YearMonth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -150,6 +156,7 @@ private fun MainScaffold(
 ) {
     val tabs = listOf(
         Tab("Dashboard", Icons.Filled.Dashboard),
+        Tab("Inbox", Icons.Filled.Sms),
         Tab("History", Icons.Filled.History),
         Tab("Settings", Icons.Filled.Settings),
     )
@@ -173,7 +180,8 @@ private fun MainScaffold(
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (selected) {
                 0 -> DashboardScreen(vm)
-                1 -> HistoryScreen(vm)
+                1 -> InboxScreen(vm, hasSmsPermission, onRequestPermissions)
+                2 -> HistoryScreen(vm)
                 else -> SettingsScreen(vm, session, hasSmsPermission, onRequestPermissions)
             }
         }
@@ -260,6 +268,124 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
     }
 }
 
+/**
+ * Every bank/UPI transaction SMS already on the phone, filtered month-wise, with a Sync button that
+ * queues the visible ones for Jarvis. Each row shows a cheap on-device read (amount + debit/credit)
+ * and, once delivered, the server's verdict.
+ */
+@Composable
+private fun InboxScreen(vm: AppViewModel, hasSmsPermission: Boolean, onRequestPermissions: () -> Unit) {
+    val imported by vm.importedSmsIds.collectAsState()
+    val queued by vm.queuedSmsIds.collectAsState()
+    val verdicts by vm.smsVerdicts.collectAsState()
+    val zone = remember { java.time.ZoneId.systemDefault() }
+
+    LaunchedEffect(hasSmsPermission) { if (hasSmsPermission && vm.inbox.isEmpty()) vm.loadInbox() }
+
+    if (!hasSmsPermission) {
+        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(Modifier.height(48.dp))
+            Text("SMS permission needed", fontWeight = FontWeight.SemiBold)
+            Text("Grant SMS access to list the bank alerts already on this phone.", fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onRequestPermissions) { Text("Grant permission") }
+        }
+        return
+    }
+
+    val months = remember(vm.inbox) {
+        vm.inbox.map { YearMonth.from(Date(it.receivedAt).toInstant().atZone(zone)) }.distinct().sortedDescending()
+    }
+    var selectedMonth by remember { mutableStateOf<YearMonth?>(null) } // null = All
+    LaunchedEffect(months) { if (selectedMonth == null && months.isNotEmpty()) selectedMonth = months.first() }
+
+    val visible = remember(vm.inbox, selectedMonth) {
+        val m = selectedMonth
+        if (m == null) vm.inbox else vm.inbox.filter { YearMonth.from(Date(it.receivedAt).toInstant().atZone(zone)) == m }
+    }
+    val unsynced = visible.count { it.id !in imported }
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Bank SMS", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    when {
+                        vm.inboxBusy -> "Working..."
+                        vm.inboxError != null -> vm.inboxError!!
+                        visible.isEmpty() -> "No transaction SMS found"
+                        unsynced == 0 -> "${visible.size} messages, all synced"
+                        else -> "${visible.size} messages, $unsynced not synced"
+                    },
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { vm.loadInbox() }, enabled = !vm.inboxBusy) { Icon(Icons.Filled.Refresh, "Rescan") }
+            Button(onClick = { vm.syncInbox(visible) }, enabled = unsynced > 0 && !vm.inboxBusy) {
+                Text(if (unsynced > 0) "Sync $unsynced" else "Synced")
+            }
+        }
+        if (months.isNotEmpty()) {
+            LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(selected = selectedMonth == null, onClick = { selectedMonth = null }, label = { Text("All") })
+                }
+                items(months) { m ->
+                    val label = m.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + m.year
+                    FilterChip(selected = selectedMonth == m, onClick = { selectedMonth = m }, label = { Text(label) })
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+        HorizontalDivider()
+        when {
+            vm.inboxBusy && vm.inbox.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
+            visible.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text("No bank transaction SMS in this period.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            else -> LazyColumn(Modifier.fillMaxSize()) {
+                items(visible, key = { it.id }) { sms ->
+                    val status = verdicts[sms.id] ?: when {
+                        sms.id in queued -> "QUEUED"
+                        sms.id in imported -> "SENT"
+                        else -> "NEW"
+                    }
+                    InboxRow(sms, status)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InboxRow(sms: InboxSms, status: String) {
+    val amount = remember(sms.id) { SmsFilter.amountOf(sms.body) }
+    val direction = remember(sms.id) { SmsFilter.directionOf(sms.body) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(sms.sender ?: "SMS", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            if (amount != null) {
+                val col = when (direction) {
+                    "CREDIT" -> Color(0xFF10B981)
+                    "DEBIT" -> Color(0xFFF43F5E)
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+                Text((if (direction == "CREDIT") "+" else if (direction == "DEBIT") "-" else "") + amount,
+                    color = col, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Spacer(Modifier.width(8.dp))
+            }
+            StatusChip(status)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(sms.body, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+        Text(relativeTime(sms.receivedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    HorizontalDivider()
+}
+
 @Composable
 private fun HistoryScreen(vm: AppViewModel) {
     val pending by vm.pendingCount.collectAsState()
@@ -313,6 +439,8 @@ private fun StatusChip(status: String) {
         "PARSED" -> Color(0xFF10B981)
         "DUPLICATE" -> Color(0xFF6B7280)
         "IGNORED" -> Color(0xFFF59E0B)
+        "NEW" -> Color(0xFF6366F1)
+        "QUEUED", "SENT" -> Color(0xFF3B82F6)
         else -> Color(0xFFF43F5E) // FAILED / anything else
     }
     Surface(color = color.copy(alpha = 0.15f), shape = MaterialTheme.shapes.small) {

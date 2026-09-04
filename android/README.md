@@ -22,6 +22,9 @@ automatically once the phone can reach the server again.
   rendered from a local cache (offline) and refreshed when online.
 - **History** — every forwarded SMS with the server's verdict (PARSED / DUPLICATE / IGNORED / FAILED)
   and a live count of anything still queued.
+- **Inbox** — every bank/UPI transaction SMS already on the phone, filterable month by month, with a
+  **Sync** button that queues the visible ones for Jarvis. Rows show the amount and debit/credit read
+  on-device and, once delivered, the server's verdict. Safe to re-run: the server dedups.
 
 ## Requirements
 
@@ -32,9 +35,10 @@ automatically once the phone can reach the server again.
 
 ## Build & install
 
-1. Open the `android/` folder in **Android Studio** → let Gradle sync (it resolves all pinned
-   dependencies and generates the Gradle wrapper). *(CLI alternative: run `gradle wrapper` once in
-   `android/`, then `./gradlew assembleDebug`.)*
+1. Open the `android/` folder in **Android Studio** and let Gradle sync, or build from the CLI with
+   `./gradlew assembleDebug` (the wrapper is checked in). Point `local.properties` at your SDK
+   (`sdk.dir=C:/Users/<you>/AppData/Local/Android/Sdk`, forward slashes) and use a **JDK 17–21** —
+   the Java 25 bundled with recent Android Studio builds is rejected by Gradle 8.9.
 2. **Run** onto a device/emulator. This is a **sideload** app — the SMS permissions it needs aren't
    grantable through the Play Store, which is fine for a personal self-hosted tool.
 3. On first launch, grant **SMS** (and notifications on Android 13+) when prompted.

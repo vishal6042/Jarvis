@@ -21,6 +21,24 @@ object SmsFilter {
         "flat ", "cashback offer", "recharge now", "click here",
     )
 
+    /** The first money figure in the message, e.g. "Rs 499.00" — display only; the backend parses properly. */
+    fun amountOf(body: String): String? = amount.find(body)?.value?.trim()
+
+    /** DEBIT / CREDIT guess from keywords, or null when unclear. */
+    fun directionOf(body: String): String? {
+        val b = body.lowercase()
+        val credit = listOf("credited", "received", "deposited", "refund", "cashback received")
+        val debit = listOf("debited", "spent", "paid", "withdrawn", "purchase", "payment of", "sent")
+        val isCredit = credit.any { b.contains(it) }
+        val isDebit = debit.any { b.contains(it) }
+        return when {
+            isCredit && !isDebit -> "CREDIT"
+            isDebit && !isCredit -> "DEBIT"
+            isDebit -> "DEBIT" // both words present (e.g. "debited ... credited to merchant") → treat as spend
+            else -> null
+        }
+    }
+
     fun looksLikeTransaction(body: String?): Boolean {
         if (body.isNullOrBlank()) return false
         val b = body.lowercase()
