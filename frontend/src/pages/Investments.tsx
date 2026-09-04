@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Plus, PiggyBank, TrendingUp, Wallet, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import {
   KIND_META,
   type Investment,
@@ -94,12 +95,8 @@ function InvestmentCard({
       className="relative cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
       onClick={onOpen}
     >
-      <span
-        className="absolute top-0 right-0 h-full w-1.5"
-        style={{ backgroundColor: color }}
-        aria-hidden
-      />
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+      <CardArt color={color} icon={inv.kind === "MF" ? TrendingUp : PiggyBank} />
+      <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start gap-2">
           <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
           <div>
@@ -115,7 +112,7 @@ function InvestmentCard({
           {inv.kind}
         </Badge>
       </CardHeader>
-      <CardContent className="space-y-1.5 text-sm">
+      <CardContent className="relative z-10 space-y-1.5 text-sm">
         <Row label="Invested" value={formatINR(inv.principal)} />
         <Row label="Current" value={formatINR(inv.current)} />
         {inv.sip ? <Row label="SIP / month" value={formatINR(inv.sip)} /> : null}

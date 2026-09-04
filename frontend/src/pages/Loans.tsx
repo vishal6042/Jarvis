@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Banknote, CalendarClock, Landmark, Layers, Plus, Trash2 } from "lucide-react";
+import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Plus, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
 import { useFamily, useLoans } from "@/lib/store";
 import { formatINR, formatDate } from "@/lib/format";
@@ -95,8 +96,11 @@ function LoanCard({
       className="relative flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md"
       onClick={onOpen}
     >
-      <span className="absolute top-0 right-0 h-full w-1.5" style={{ backgroundColor: color }} aria-hidden />
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+      <CardArt
+        color={color}
+        icon={loan.kind === "HOME" ? Home : loan.kind === "CAR" ? Car : loan.kind === "EDUCATION" ? GraduationCap : Banknote}
+      />
+      <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start gap-2">
           <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
           <div>
@@ -108,7 +112,7 @@ function LoanCard({
           {loan.kind}
         </Badge>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col space-y-1.5 text-sm">
+      <CardContent className="relative z-10 flex flex-1 flex-col space-y-1.5 text-sm">
         <Row label="Loan amount" value={formatINR(loan.sanctioned)} />
         <Row label="Outstanding" value={formatINR(loan.outstanding)} />
         <Row label="EMI / month" value={formatINR(loan.emi)} />

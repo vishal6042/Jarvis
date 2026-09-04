@@ -4,6 +4,7 @@ import { createAccount, deleteAccount, listAccounts, updateAccount } from "@/api
 import type { Account, AccountRequest, AccountType } from "@/types";
 import { formatINR } from "@/lib/format";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import CardArt, { networkColor } from "@/components/CardArt";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -126,12 +127,14 @@ function AccountCard({
   onDelete: () => void;
 }) {
   const isCard = account.type !== "SAVINGS";
+  const tint = isCard ? networkColor(account.network, ACCOUNT_TYPE_COLOR[account.type]) : ACCOUNT_TYPE_COLOR.SAVINGS;
   return (
     <Card
       onClick={onEdit}
-      className="flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/30"
+      className="relative flex h-full cursor-pointer flex-col overflow-hidden transition-shadow hover:shadow-md hover:ring-1 hover:ring-primary/30"
     >
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+      <CardArt color={tint} icon={isCard ? CreditCard : Landmark} network={isCard ? account.network : null} />
+      <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-3">
         <div className="flex items-center gap-3">
           <div
             className={`flex size-10 items-center justify-center rounded-xl ${
@@ -158,7 +161,7 @@ function AccountCard({
           {account.type.replace("_", " ")}
         </Badge>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col space-y-2 text-sm">
+      <CardContent className="relative z-10 flex flex-1 flex-col space-y-2 text-sm">
         {isCard ? (
           <>
             <Row label="Network" value={account.network} />
