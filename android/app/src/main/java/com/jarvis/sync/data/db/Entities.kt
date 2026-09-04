@@ -49,7 +49,7 @@ data class SyncLogEntry(
 data class ImportedSms(@PrimaryKey val smsId: Long)
 
 /** Projection: the server verdict for an inbox SMS (joins the Inbox list to sync_log). */
-data class SmsVerdict(val smsId: Long, val status: String)
+data class SmsVerdict(val smsId: Long, val status: String, val detail: String? = null)
 
 /** Last successfully fetched dashboard numbers, so the dashboard renders offline. Always row id = 1. */
 @Entity(tableName = "dashboard_cache")
@@ -61,4 +61,5 @@ data class DashboardCache(
     val savingsRate: Int,
     val topCategoriesJson: String, // serialized List<CategorySpendDto>
     val updatedAt: Long = System.currentTimeMillis(),
+    val extrasJson: String? = null, // serialized DashboardExtras (upcoming, investments, loan, recent)
 )

@@ -1,5 +1,31 @@
 package com.jarvis.sync.ui
 
+import com.jarvis.sync.data.DashboardExtras
+
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+
+import androidx.compose.material3.FloatingActionButton
+
+import androidx.compose.material3.BadgedBox
+
+import androidx.compose.material3.Badge
+
+import androidx.compose.material3.AlertDialog
+
+import androidx.compose.material.icons.filled.Notifications
+
+import androidx.compose.material.icons.filled.Add
+
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+
+import androidx.compose.foundation.layout.FlowRow
+
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+
+import androidx.compose.foundation.clickable
+
+import androidx.compose.foundation.background
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -161,9 +187,43 @@ private fun MainScaffold(
         Tab("Settings", Icons.Filled.Settings),
     )
     var selected by remember { mutableIntStateOf(0) }
+    var alertsOpen by remember { mutableStateOf(false) }
+    var addOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        vm.loadAlerts()
+        vm.startAlertStream()
+        vm.loadAccounts()
+    }
+
+    if (addOpen) {
+        QuickAddDialog(vm, onDismiss = { addOpen = false })
+    }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(tabs[selected].label) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(if (alertsOpen) "Alerts" else tabs[selected].label) },
+                navigationIcon = {
+                    if (alertsOpen) {
+                        IconButton(onClick = { alertsOpen = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    }
+                },
+                actions = {
+                    if (!alertsOpen) {
+                        IconButton(onClick = { alertsOpen = true; vm.loadAlerts() }) {
+                            BadgedBox(badge = { if (vm.unreadAlerts > 0) Badge { Text(vm.unreadAlerts.toString()) } }) {
+                                Icon(Icons.Filled.Notifications, "Alerts")
+                            }
+                        }
+                    }
+                },
+            )
+        },
+        floatingActionButton = {
+            if (!alertsOpen && selected == 0) {
+                FloatingActionButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "Add expense") }
+            }
+        },
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { i, tab ->
@@ -178,21 +238,24 @@ private fun MainScaffold(
         },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize()) {
-            when (selected) {
-                0 -> DashboardScreen(vm)
-                1 -> InboxScreen(vm, hasSmsPermission, onRequestPermissions)
-                2 -> HistoryScreen(vm)
+            when {
+                alertsOpen -> AlertsScreen(vm)
+                selected == 0 -> DashboardScreen(vm)
+                selected == 1 -> InboxScreen(vm, hasSmsPermission, onRequestPermissions)
+                selected == 2 -> HistoryScreen(vm)
                 else -> SettingsScreen(vm, session, hasSmsPermission, onRequestPermissions)
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DashboardScreen(vm: AppViewModel) {
     val cache by vm.dashboard.collectAsState()
     LaunchedEffect(Unit) { vm.refreshDashboard() }
 
+    PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = { vm.refreshDashboard() }, modifier = Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("This month", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -247,12 +310,206 @@ private fun DashboardScreen(vm: AppViewModel) {
                     }
                 }
             }
+            vm.extras(c)?.let { x -> DashboardExtrasSections(x) }
+
             Spacer(Modifier.height(8.dp))
             Text(
                 "Updated ${relativeTime(c.updatedAt)}",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(72.dp)) // keep the last row clear of the FAB
+        }
+    }
+    }
+}
+
+/** Upcoming payments, investments, loan, and the latest transactions — all from the cached extras. */
+@Composable
+private fun DashboardExtrasSections(x: DashboardExtras) {
+    if (x.upcoming.isNotEmpty()) {
+        Spacer(Modifier.height(20.dp))
+        Text("Upcoming · next 30 days", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(4.dp)) {
+                x.upcoming.forEachIndexed { i, u ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(u.title)
+                            Text(dueLabel(u.on) + (u.type?.let { " · " + it.lowercase().replaceFirstChar(Char::uppercase) } ?: ""),
+                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (u.amount != null) Text(money(u.amount), fontWeight = FontWeight.SemiBold)
+                    }
+                    if (i < x.upcoming.lastIndex) HorizontalDivider()
+                }
+            }
+        }
+    }
+
+    if (x.invested > 0 || x.loanOutstanding > 0) {
+        Spacer(Modifier.height(20.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (x.invested > 0) {
+                val gain = x.investmentValue - x.invested
+                val pct = if (x.invested > 0) gain / x.invested * 100 else 0.0
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Investments", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(6.dp))
+                        Text(money(x.investmentValue), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text((if (gain >= 0) "+" else "-") + money(kotlin.math.abs(gain)) + " (" + String.format(Locale.US, "%.1f", pct) + "%)",
+                            fontSize = 12.sp, color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E))
+                    }
+                }
+            }
+            if (x.loanOutstanding > 0) {
+                Card(Modifier.weight(1f)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Loan outstanding", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(6.dp))
+                        Text(money(x.loanOutstanding), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("EMI " + money(x.loanEmi) + (x.loanEmisLeft?.let { " · $it left" } ?: ""),
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+    }
+
+    if (x.recent.isNotEmpty()) {
+        Spacer(Modifier.height(20.dp))
+        Text("Recent transactions", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(4.dp)) {
+                x.recent.forEachIndexed { i, t ->
+                    val debit = t.direction == "DEBIT"
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(t.merchant?.takeIf { it.isNotBlank() } ?: t.category ?: "Transaction", maxLines = 1)
+                            Text(
+                                listOfNotNull(t.occurredAt.take(10), t.category, t.accountName, if (t.transfer) "transfer" else null).joinToString(" · "),
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                            )
+                        }
+                        Text((if (debit) "-" else "+") + money(t.amount), fontWeight = FontWeight.SemiBold,
+                            color = if (t.transfer) MaterialTheme.colorScheme.onSurfaceVariant else if (debit) Color(0xFFF43F5E) else Color(0xFF10B981))
+                    }
+                    if (i < x.recent.lastIndex) HorizontalDivider()
+                }
+            }
+        }
+    }
+}
+
+private fun dueLabel(isoDate: String): String {
+    val d = runCatching { LocalDate.parse(isoDate) }.getOrNull() ?: return isoDate
+    val days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), d)
+    return when {
+        days == 0L -> "Due today"
+        days == 1L -> "Due tomorrow"
+        else -> "Due in $days days · " + d.dayOfMonth + " " + d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+    }
+}
+
+/** Quick-add: a cash / missed spend or receipt, posted to Jarvis as a manual transaction. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuickAddDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var amount by remember { mutableStateOf("") }
+    var direction by remember { mutableStateOf("DEBIT") }
+    var category by remember { mutableStateOf("Food") }
+    var merchant by remember { mutableStateOf("") }
+    val savings = remember(vm.accounts) { vm.accounts.filter { it.type == "SAVINGS" } }
+    var accountId by remember(savings) { mutableStateOf(savings.firstOrNull()?.id) }
+    val categories = listOf("Food", "Shopping", "Bills & Utilities", "Transport", "Entertainment", "Health", "Transfers", "Income", "Uncategorized")
+    val value = amount.toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = { if (!vm.addBusy) onDismiss() },
+        title = { Text("Add transaction") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = direction == "DEBIT", onClick = { direction = "DEBIT" }, label = { Text("Spent") })
+                    FilterChip(selected = direction == "CREDIT", onClick = { direction = "CREDIT" }, label = { Text("Received") })
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = amount, onValueChange = { amount = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = { Text("Amount (₹)") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = merchant, onValueChange = { merchant = it },
+                    label = { Text("Paid to / note") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                Text("Category", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    categories.forEach { c ->
+                        FilterChip(selected = category == c, onClick = { category = c }, label = { Text(c, fontSize = 12.sp) })
+                    }
+                }
+                if (savings.size > 1) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("From account", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        savings.forEach { a ->
+                            FilterChip(selected = accountId == a.id, onClick = { accountId = a.id },
+                                label = { Text(a.displayName ?: ("•••• " + a.id), fontSize = 12.sp) })
+                        }
+                    }
+                }
+                vm.addError?.let { Spacer(Modifier.height(8.dp)); Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = value != null && value > 0 && !vm.addBusy,
+                onClick = { vm.addTransaction(value!!, direction, category, merchant, accountId, null, onDone = onDismiss) },
+            ) { Text(if (vm.addBusy) "Saving…" else "Save") }
+        },
+        dismissButton = { OutlinedButton(onClick = onDismiss, enabled = !vm.addBusy) { Text("Cancel") } },
+    )
+}
+
+/** Server-side alerts (thresholds, payments due, expiries, sync summaries). */
+@Composable
+private fun AlertsScreen(vm: AppViewModel) {
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Alerts", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(if (vm.unreadAlerts > 0) "${vm.unreadAlerts} unread" else "All read",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            OutlinedButton(onClick = { vm.markAllAlertsRead() }, enabled = vm.unreadAlerts > 0) { Text("Mark all read") }
+        }
+        HorizontalDivider()
+        if (vm.alerts.isEmpty()) {
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text("No alerts yet. Budget, EMI and card-expiry alerts appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(vm.alerts, key = { it.id }) { n ->
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+                        val dot = runCatching { Color(android.graphics.Color.parseColor(n.color ?: "#6366F1")) }.getOrDefault(Color(0xFF6366F1))
+                        Box(Modifier.padding(top = 6.dp).width(8.dp).height(8.dp).background(dot, MaterialTheme.shapes.small))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(n.title, fontWeight = if (n.read) FontWeight.Normal else FontWeight.SemiBold)
+                            Text(n.message, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(n.createdAt.take(16).replace('T', ' '), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    HorizontalDivider()
+                }
+            }
         }
     }
 }
@@ -273,6 +530,7 @@ private fun StatCard(label: String, value: String, modifier: Modifier = Modifier
  * queues the visible ones for Jarvis. Each row shows a cheap on-device read (amount + debit/credit)
  * and, once delivered, the server's verdict.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InboxScreen(vm: AppViewModel, hasSmsPermission: Boolean, onRequestPermissions: () -> Unit) {
     val imported by vm.importedSmsIds.collectAsState()
@@ -306,6 +564,7 @@ private fun InboxScreen(vm: AppViewModel, hasSmsPermission: Boolean, onRequestPe
     }
     val unsynced = visible.count { it.id !in imported }
 
+    PullToRefreshBox(isRefreshing = vm.inboxBusy && vm.inbox.isNotEmpty(), onRefresh = { vm.loadInbox() }, modifier = Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -353,18 +612,20 @@ private fun InboxScreen(vm: AppViewModel, hasSmsPermission: Boolean, onRequestPe
                         sms.id in imported -> "SENT"
                         else -> "NEW"
                     }
-                    InboxRow(sms, status)
+                    InboxRow(sms, status, verdicts[sms.id]?.let { vm.verdictDetail(sms.id) })
                 }
             }
         }
     }
+    }
 }
 
 @Composable
-private fun InboxRow(sms: InboxSms, status: String) {
+private fun InboxRow(sms: InboxSms, status: String, detail: String? = null) {
     val amount = remember(sms.id) { SmsFilter.amountOf(sms.body) }
     val direction = remember(sms.id) { SmsFilter.directionOf(sms.body) }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    var expanded by remember(sms.id) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(sms.sender ?: "SMS", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             if (amount != null) {
@@ -380,17 +641,26 @@ private fun InboxRow(sms: InboxSms, status: String) {
             StatusChip(status)
         }
         Spacer(Modifier.height(4.dp))
-        Text(sms.body, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+        Text(sms.body, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else 3)
+        if (expanded && !detail.isNullOrBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text("Jarvis: " + detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        }
         Text(relativeTime(sms.receivedAt), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     HorizontalDivider()
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HistoryScreen(vm: AppViewModel) {
     val pending by vm.pendingCount.collectAsState()
     val log by vm.log.collectAsState()
 
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(refreshing) { if (refreshing) { vm.syncNow(); kotlinx.coroutines.delay(1200); refreshing = false } }
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = { refreshing = true }, modifier = Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp),
@@ -417,17 +687,24 @@ private fun HistoryScreen(vm: AppViewModel) {
             }
         }
     }
+    }
 }
 
 @Composable
 private fun LogRow(entry: SyncLogEntry) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    var expanded by remember(entry.id) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(entry.sender ?: "SMS", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             StatusChip(entry.status)
         }
         Spacer(Modifier.height(4.dp))
-        Text(entry.snippet, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+        Text(entry.snippet, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = if (expanded) Int.MAX_VALUE else 2)
+        if (expanded && !entry.detail.isNullOrBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text("Jarvis: " + entry.detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+        }
         Text(relativeTime(entry.at), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     HorizontalDivider()

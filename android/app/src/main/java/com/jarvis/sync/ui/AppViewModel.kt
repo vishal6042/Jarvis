@@ -1,5 +1,21 @@
 package com.jarvis.sync.ui
 
+import kotlinx.coroutines.isActive
+
+import kotlinx.coroutines.delay
+
+import kotlinx.coroutines.Job
+
+import com.jarvis.sync.notify.AlertNotifier
+
+import com.jarvis.sync.data.NotificationDto
+
+import com.jarvis.sync.data.DashboardExtras
+
+import com.jarvis.sync.data.CreateTransactionDto
+
+import com.jarvis.sync.data.AccountDto
+
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +72,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), hashSetOf<Long>())
     val smsVerdicts = repo.smsVerdicts().map { list -> list.associate { it.smsId to it.status } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap<Long, String>())
+    private val smsVerdictDetails = repo.smsVerdicts().map { list -> list.associate { it.smsId to (it.detail ?: "") } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap<Long, String>())
+
+    /** What the server said about an inbox SMS once delivered (e.g. "Contribution to Post Office RD …"). */
+    fun verdictDetail(smsId: Long): String? = smsVerdictDetails.value[smsId]?.ifBlank { null }
 
     fun loadInbox() {
         viewModelScope.launch {
@@ -134,6 +155,73 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 offline = true
             } finally {
                 refreshing = false
+            }
+        }
+    }
+
+    fun extras(cache: DashboardCache): DashboardExtras? = repo.parseExtras(cache)
+
+    // ---- alerts ----
+    var alerts by mutableStateOf<List<NotificationDto>>(emptyList())
+        private set
+    val unreadAlerts: Int get() = alerts.count { !it.read }
+    private var alertStream: Job? = null
+
+    fun loadAlerts() {
+        viewModelScope.launch { runCatching { alerts = repo.notifications() } }
+    }
+
+    /** Keep the SSE stream open while the app is alive; reconnect after a drop. */
+    fun startAlertStream() {
+        if (alertStream?.isActive == true) return
+        alertStream = viewModelScope.launch {
+            while (isActive) {
+                repo.streamNotifications { n ->
+                    alerts = listOf(n) + alerts.filter { it.id != n.id }
+                    AlertNotifier.notifyNew(getApplication(), listOf(n))
+                }
+                delay(15_000)
+            }
+        }
+    }
+
+    fun markAllAlertsRead() {
+        alerts = alerts.map { it.copy(read = true) }
+        viewModelScope.launch { runCatching { repo.markAllNotificationsRead() } }
+    }
+
+    // ---- quick-add expense ----
+    var accounts by mutableStateOf<List<AccountDto>>(emptyList())
+        private set
+    var addBusy by mutableStateOf(false)
+        private set
+    var addError by mutableStateOf<String?>(null)
+        private set
+
+    fun loadAccounts() {
+        viewModelScope.launch { runCatching { accounts = repo.accounts() } }
+    }
+
+    fun addTransaction(
+        amount: Double, direction: String, category: String, merchant: String?, accountId: Long?, note: String?,
+        onDone: () -> Unit,
+    ) {
+        viewModelScope.launch {
+            addBusy = true
+            addError = null
+            try {
+                repo.createManualTransaction(
+                    CreateTransactionDto(
+                        accountId = accountId, amount = amount, direction = direction,
+                        merchant = merchant?.ifBlank { null }, category = category, note = note?.ifBlank { null },
+                    )
+                )
+                onDone()
+                refreshDashboard()
+            } catch (e: Exception) {
+                addError = friendly(e)
+            } finally {
+                addBusy = false
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.jarvis.sync.data
 
+import okhttp3.Call
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -72,6 +74,87 @@ class ApiClient {
 
     suspend fun byCategory(baseUrl: String, token: String, from: String, to: String): List<CategorySpendDto> =
         getJson(baseUrl, token, "/api/analytics/by-category", mapOf("from" to from, "to" to to))
+
+    suspend fun recentTransactions(baseUrl: String, token: String, size: Int = 10): List<TransactionDto> =
+        getJson(baseUrl, token, "/api/transactions", mapOf("page" to "0", "size" to size.toString()))
+
+    suspend fun reminders(baseUrl: String, token: String): List<ReminderDto> =
+        getJson(baseUrl, token, "/api/reminders", emptyMap())
+
+    suspend fun investments(baseUrl: String, token: String): List<InvestmentDto> =
+        getJson(baseUrl, token, "/api/investments", emptyMap())
+
+    suspend fun loans(baseUrl: String, token: String): List<LoanDto> =
+        getJson(baseUrl, token, "/api/loans", emptyMap())
+
+    suspend fun notifications(baseUrl: String, token: String): List<NotificationDto> =
+        getJson(baseUrl, token, "/api/notifications", emptyMap())
+
+    suspend fun createTransaction(baseUrl: String, token: String, req: CreateTransactionDto): TransactionDto =
+        postJson(baseUrl, token, "/api/transactions", json.encodeToString(req))
+
+    suspend fun markAllNotificationsRead(baseUrl: String, token: String) {
+        postJson<Unit>(baseUrl, token, "/api/notifications/read-all", "{}", decode = false)
+    }
+
+    /** A long-lived call for the notifications SSE stream; read it with [readNotificationEvents]. */
+    fun notificationStreamCall(baseUrl: String, token: String): Call {
+        val request = Request.Builder()
+            .url(url(baseUrl, "/api/notifications/stream"))
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "text/event-stream")
+            .get()
+            .build()
+        return client.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build().newCall(request)
+    }
+
+    /** Blocks reading SSE frames until the server closes or the call is cancelled. */
+    fun readNotificationEvents(call: Call, onEvent: (NotificationDto) -> Unit) {
+        call.execute().use { resp ->
+            if (resp.code == 401) throw ApiException.Unauthorized
+            if (!resp.isSuccessful) throw ApiException.Http(resp.code)
+            val source = resp.body?.source() ?: return
+            var event = "message"
+            val data = StringBuilder()
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                when {
+                    line.startsWith("event:") -> event = line.substring(6).trim()
+                    line.startsWith("data:") -> data.append(line.substring(5).trim())
+                    line.isEmpty() -> {
+                        if (event == "notification" && data.isNotEmpty()) {
+                            runCatching { json.decodeFromString<NotificationDto>(data.toString()) }.onSuccess(onEvent)
+                        }
+                        event = "message"
+                        data.clear()
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend inline fun <reified T> postJson(
+        baseUrl: String,
+        token: String,
+        path: String,
+        bodyText: String,
+        decode: Boolean = true,
+    ): T = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url(baseUrl, path))
+            .header("Authorization", "Bearer $token")
+            .post(bodyText.toRequestBody(jsonMedia))
+            .build()
+        client.newCall(request).execute().use { resp ->
+            val text = resp.body?.string().orEmpty()
+            when {
+                resp.isSuccessful && decode -> json.decodeFromString<T>(text)
+                resp.isSuccessful -> Unit as T
+                resp.code == 401 -> throw ApiException.Unauthorized
+                else -> throw ApiException.Http(resp.code)
+            }
+        }
+    }
 
     private suspend inline fun <reified T> getJson(
         baseUrl: String,

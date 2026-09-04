@@ -57,7 +57,7 @@ interface SyncLogDao {
     @Query("SELECT * FROM sync_log ORDER BY at DESC LIMIT 200")
     fun recent(): Flow<List<SyncLogEntry>>
 
-    @Query("SELECT smsId, status FROM sync_log WHERE smsId IS NOT NULL")
+    @Query("SELECT smsId, status, detail FROM sync_log WHERE smsId IS NOT NULL")
     fun verdicts(): Flow<List<SmsVerdict>>
 
     // Keep the log bounded — delete everything older than the newest 200 rows.

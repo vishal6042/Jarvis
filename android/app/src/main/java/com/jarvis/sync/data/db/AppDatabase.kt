@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SessionEntity::class, PendingMessage::class, SyncLogEntry::class, DashboardCache::class, ImportedSms::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +20,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun importedSmsDao(): ImportedSmsDao
 
     companion object {
+        /** v3: extra dashboard sections cached as one JSON blob. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE dashboard_cache ADD COLUMN extrasJson TEXT")
+            }
+        }
+
         /** v2: Inbox backfill — remember imported inbox ids and carry the inbox id through queue → log. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -38,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "jarvis-sync.db",
-                ).addMigrations(MIGRATION_1_2).fallbackToDestructiveMigration().build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

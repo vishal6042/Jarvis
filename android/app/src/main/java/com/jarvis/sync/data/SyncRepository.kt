@@ -1,5 +1,17 @@
 package com.jarvis.sync.data
 
+import kotlin.math.ln
+
+import kotlin.math.ceil
+
+import kotlinx.coroutines.launch
+
+import kotlinx.coroutines.awaitCancellation
+
+import java.time.YearMonth
+
+import com.jarvis.sync.notify.AlertNotifier
+
 import android.content.Context
 import androidx.room.withTransaction
 import com.jarvis.sync.data.db.AppDatabase
@@ -52,6 +64,9 @@ class SyncRepository private constructor(context: Context) {
     fun smsVerdicts(): Flow<List<SmsVerdict>> = logDao.verdicts()
 
     suspend fun session(): SessionEntity? = sessionDao.get()
+
+    fun parseExtras(cache: DashboardCache): DashboardExtras? =
+        cache.extrasJson?.let { runCatching { json.decodeFromString<DashboardExtras>(it) }.getOrNull() }
 
     fun parseTopCategories(cache: DashboardCache): List<CategorySpendDto> =
         runCatching { json.decodeFromString<List<CategorySpendDto>>(cache.topCategoriesJson) }
@@ -185,6 +200,38 @@ class SyncRepository private constructor(context: Context) {
         )
     }
 
+    // ---- alerts (server notifications) ----
+
+    suspend fun notifications(): List<NotificationDto> = authed { s -> api.notifications(s.baseUrl, s.token) }
+
+    suspend fun markAllNotificationsRead() = authed { s -> api.markAllNotificationsRead(s.baseUrl, s.token) }
+
+    /** Fetch alerts and raise phone notifications for the new unread ones. Never throws. */
+    suspend fun pollAlerts(context: Context) {
+        runCatching { AlertNotifier.notifyNew(context, notifications()) }
+    }
+
+    /** Hold the SSE stream open, calling [onEvent] per pushed alert, until cancelled or dropped. */
+    suspend fun streamNotifications(onEvent: (NotificationDto) -> Unit) {
+        val session = sessionDao.get() ?: return
+        val call = api.notificationStreamCall(session.baseUrl, session.token)
+        withContext(Dispatchers.IO) {
+            val watcher = launch { try { awaitCancellation() } finally { call.cancel() } }
+            try {
+                api.readNotificationEvents(call, onEvent)
+            } finally {
+                watcher.cancel()
+            }
+        }
+    }
+
+    // ---- manual entry ----
+
+    suspend fun accounts(): List<AccountDto> = authed { s -> api.accounts(s.baseUrl, s.token) }
+
+    suspend fun createManualTransaction(req: CreateTransactionDto): TransactionDto =
+        authed { s -> api.createTransaction(s.baseUrl, s.token, req) }
+
     // ---- dashboard (offline-first) ----
     /** Fetch current-month numbers and write the cache. Throws if offline/unreachable (UI shows cache). */
     suspend fun refreshDashboard() = authed { session ->
@@ -205,6 +252,21 @@ class SyncRepository private constructor(context: Context) {
             if (lastMonth.earning > 0) ((lastMonth.earning - lastMonth.spend) / lastMonth.earning * 100).roundToInt() else 0
         val top = cats.sortedByDescending { it.total }.take(5)
 
+        // Extra sections: each is best-effort so one unreachable service doesn't blank the dashboard.
+        val reminders = runCatching { api.reminders(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        val investments = runCatching { api.investments(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        val loans = runCatching { api.loans(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        val recent = runCatching { api.recentTransactions(session.baseUrl, session.token, 10) }.getOrDefault(emptyList())
+        val extras = DashboardExtras(
+            upcoming = upcoming(reminders),
+            invested = investments.sumOf { it.principal },
+            investmentValue = investments.sumOf { it.current },
+            loanOutstanding = loans.sumOf { it.outstanding },
+            loanEmi = loans.sumOf { it.emi },
+            loanEmisLeft = loans.mapNotNull { emisLeft(it.outstanding, it.emi, it.rate) }.maxOrNull(),
+            recent = recent,
+        )
+
         dashboardDao.upsert(
             DashboardCache(
                 netWorth = netWorth,
@@ -212,8 +274,38 @@ class SyncRepository private constructor(context: Context) {
                 lastMonthEarning = lastMonth.earning,
                 savingsRate = savingsRate,
                 topCategoriesJson = json.encodeToString(top),
+                extrasJson = json.encodeToString(extras),
             )
         )
+    }
+
+    /** Reminders due in the next 30 days, monthly ones rolled forward to their next occurrence. */
+    private fun upcoming(reminders: List<ReminderDto>, days: Long = 30): List<UpcomingItem> {
+        val today = LocalDate.now()
+        val until = today.plusDays(days)
+        return reminders.mapNotNull { r ->
+            val base = runCatching { LocalDate.parse(r.date) }.getOrNull() ?: return@mapNotNull null
+            val on = if (r.repeat.equals("monthly", ignoreCase = true)) {
+                var ym = YearMonth.from(today)
+                var c = ym.atDay(minOf(base.dayOfMonth, ym.lengthOfMonth()))
+                if (c.isBefore(today)) {
+                    ym = ym.plusMonths(1)
+                    c = ym.atDay(minOf(base.dayOfMonth, ym.lengthOfMonth()))
+                }
+                if (c.isBefore(base)) base else c
+            } else base
+            if (on.isBefore(today) || on.isAfter(until)) null else UpcomingItem(r.title, on.toString(), r.amount, r.type)
+        }.sortedBy { it.on }.take(5)
+    }
+
+    /** EMIs left on a reducing-balance loan (null when it can't be computed). */
+    private fun emisLeft(outstanding: Double, emi: Double, ratePct: Double?): Int? {
+        if (outstanding <= 0 || emi <= 0) return null
+        if (ratePct == null || ratePct <= 0) return ceil(outstanding / emi).toInt()
+        val r = ratePct / 1200.0
+        val x = 1 - outstanding * r / emi
+        if (x <= 0) return null
+        return ceil(-ln(x) / ln(1 + r)).toInt()
     }
 
     /** Run [block] with the current session; on a 401 re-login once and retry. */

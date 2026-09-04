@@ -15,7 +15,9 @@ class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorke
     override suspend fun doWork(): Result {
         val repo = SyncRepository.get(applicationContext)
         return try {
-            if (repo.flush()) Result.success() else Result.retry()
+            val drained = repo.flush()
+            repo.pollAlerts(applicationContext) // every run (incl. the 15-min safety net) surfaces new server alerts
+            if (drained) Result.success() else Result.retry()
         } catch (e: Exception) {
             Result.retry()
         }

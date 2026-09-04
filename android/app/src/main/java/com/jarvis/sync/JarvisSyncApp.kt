@@ -1,5 +1,7 @@
 package com.jarvis.sync
 
+import com.jarvis.sync.notify.AlertNotifier
+
 import android.app.Application
 import com.jarvis.sync.work.SyncScheduler
 
@@ -8,5 +10,6 @@ class JarvisSyncApp : Application() {
         super.onCreate()
         // Arm the ~15-min safety-net so queued messages sync even if a one-time job was dropped.
         SyncScheduler.ensurePeriodic(this)
+        AlertNotifier.ensureChannel(this)
     }
 }

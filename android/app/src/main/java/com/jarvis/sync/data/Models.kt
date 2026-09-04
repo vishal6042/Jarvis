@@ -46,6 +46,93 @@ data class AccountDto(
 )
 
 @Serializable
+data class TransactionDto(
+    val id: Long,
+    val accountId: Long? = null,
+    val accountName: String? = null,
+    val amount: Double,
+    val currency: String = "INR",
+    val direction: String,
+    val merchant: String? = null,
+    val category: String? = null,
+    val occurredAt: String,
+    val source: String? = null,
+    val note: String? = null,
+    val transfer: Boolean = false,
+)
+
+/** Manual entry (quick-add from the phone): mirrors expense-service CreateTransactionRequest. */
+@Serializable
+data class CreateTransactionDto(
+    val accountId: Long? = null,
+    val amount: Double,
+    val currency: String = "INR",
+    val direction: String,
+    val merchant: String? = null,
+    val category: String? = null,
+    val occurredAt: String? = null,
+    val note: String? = null,
+)
+
+@Serializable
+data class ReminderDto(
+    val id: Long,
+    val title: String,
+    val date: String,
+    val type: String? = null,
+    val amount: Double? = null,
+    val repeat: String? = null,
+)
+
+@Serializable
+data class InvestmentDto(
+    val id: Long,
+    val kind: String,
+    val name: String,
+    val principal: Double = 0.0,
+    val current: Double = 0.0,
+    val sip: Double? = null,
+)
+
+@Serializable
+data class LoanDto(
+    val id: Long,
+    val kind: String,
+    val lender: String,
+    val outstanding: Double = 0.0,
+    val emi: Double = 0.0,
+    val rate: Double? = null,
+    val endDate: String? = null,
+)
+
+@Serializable
+data class NotificationDto(
+    val id: String,
+    val type: String,
+    val title: String,
+    val message: String,
+    val href: String? = null,
+    val color: String? = null,
+    val read: Boolean = false,
+    val createdAt: String,
+)
+
+/** Extra dashboard sections cached with the tiles so they render offline too. */
+@Serializable
+data class DashboardExtras(
+    val upcoming: List<UpcomingItem> = emptyList(),
+    val invested: Double = 0.0,
+    val investmentValue: Double = 0.0,
+    val loanOutstanding: Double = 0.0,
+    val loanEmi: Double = 0.0,
+    val loanEmisLeft: Int? = null,
+    val recent: List<TransactionDto> = emptyList(),
+)
+
+@Serializable
+data class UpcomingItem(val title: String, val on: String, val amount: Double? = null, val type: String? = null)
+
+@Serializable
 data class CategorySpendDto(
     val category: String,
     val total: Double,
