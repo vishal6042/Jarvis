@@ -4,6 +4,7 @@ import { analyticsByCategory, analyticsIncomeBySource, listRecurring, listTransa
 import type { CategorySpend, RecurringPayment, Transaction } from "@/types";
 import { ChevronLeft, ChevronRight, Layers, Repeat, TrendingUp, Trophy, Wallet, X } from "lucide-react";
 import CardArt from "@/components/CardArt";
+import MerchantBreakdownCard from "@/components/MerchantBreakdownCard";
 import { PERIOD_LABEL, type Period } from "@/lib/sample";
 import { categorySeries, categorySpend, periodLabel, periodWindow } from "@/lib/txnseries";
 import { formatINR, formatDate } from "@/lib/format";
@@ -340,6 +341,8 @@ export default function Analytics() {
           </div>
         </div>
       )}
+
+      <MerchantBreakdownCard txns={txns} period={period} offset={offset} />
 
       {/* Category spending — per-category graph with a filter */}
       <Card className="relative isolate overflow-hidden">

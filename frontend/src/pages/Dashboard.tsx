@@ -13,6 +13,15 @@ import { cashflowSeries, periodLabel } from "@/lib/txnseries";
 import { useFamily } from "@/lib/store";
 import { useFinanceSummary } from "@/lib/finance";
 import ClockWidget from "@/components/ClockWidget";
+import PulseHeader from "@/components/PulseHeader";
+import InsightsCard from "@/components/InsightsCard";
+import SpendBreakdownCard from "@/components/SpendBreakdownCard";
+import TimelineCard from "@/components/TimelineCard";
+import { useReminders, useThresholds } from "@/lib/store";
+import { useReserve } from "@/lib/prefs";
+import { buildForecast } from "@/lib/forecast";
+import { buildInsights } from "@/lib/insights";
+import { currentMonthBreakdown } from "@/lib/breakdown";
 import PeriodTabs from "@/components/PeriodTabs";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -31,6 +40,7 @@ function StatCard({
   iconColor = "var(--primary)",
   footer,
   art,
+  onClick,
 }: {
   title: string;
   value: string;
@@ -38,9 +48,13 @@ function StatCard({
   iconColor?: string;
   footer?: React.ReactNode;
   art?: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
 }) {
   return (
-    <Card className="relative isolate overflow-hidden">
+    <Card
+      className={`relative isolate overflow-hidden ${onClick ? "cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40" : ""}`}
+      onClick={onClick}
+    >
       <CardArt color={iconColor} icon={art} subtle={!art} />
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardDescription>{title}</CardDescription>
@@ -71,6 +85,7 @@ function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolea
   const [offset, setOffset] = useState(0); // 0 = current period; higher = further back
   const data = useMemo(() => cashflowSeries(txns, period, offset), [txns, period, offset]);
   const hasData = data.some((d) => d.earning > 0 || d.spend > 0);
+  const surplus = data.reduce((acc, d) => acc + d.earning - d.spend, 0);
   const tickInterval = period === "day" ? 2 : period === "month" ? 4 : 0;
 
   return (
@@ -79,7 +94,14 @@ function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolea
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle>Cash flow</CardTitle>
-          <CardDescription>Earning vs spend · {periodLabel(period, offset)}</CardDescription>
+          <CardDescription>
+            Earning vs spend · {periodLabel(period, offset)}
+            {hasData && (
+              <span className="ml-2 font-semibold" style={{ color: surplus >= 0 ? "var(--ok)" : "var(--danger)" }}>
+                {surplus >= 0 ? "+" : "−"}{formatINR(Math.abs(surplus))} {surplus >= 0 ? "surplus" : "deficit"}
+              </span>
+            )}
+          </CardDescription>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" className="size-8" aria-label="Previous period" onClick={() => setOffset((o) => o + 1)}>
@@ -222,11 +244,7 @@ function metricsFingerprint(m: ScoreMetrics): string {
 }
 
 /** Every credit card's cycle: unbilled spend, the bill still due and when, last payment, utilisation. */
-function CardsSection() {
-  const [cards, setCards] = useState<CardSummary[]>([]);
-  useEffect(() => {
-    cardSummaries().then(setCards).catch(() => setCards([]));
-  }, []);
+function CardsSection({ cards }: { cards: CardSummary[] }) {
   if (cards.length === 0) return null;
   const fmtDay = (iso: string | null) =>
     iso ? new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "—";
@@ -293,7 +311,15 @@ function CardsSection() {
 }
 
 /** The headline card: an LLM-scored financial-health gauge with a motivating line + tips. */
-function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
+function FinanceScoreCard({
+  metrics,
+  onResult,
+  onLoading,
+}: {
+  metrics: ScoreMetrics;
+  onResult?: (r: FinanceScoreResult) => void;
+  onLoading?: (b: boolean) => void;
+}) {
   const [result, setResult] = useState<FinanceScoreResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -311,6 +337,7 @@ function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
         const cached = JSON.parse(raw) as { fp: string; at: number; result: FinanceScoreResult };
         if (cached.fp === fp && Date.now() - cached.at < SCORE_TTL_MS) {
           setResult(cached.result);
+          onResult?.(cached.result);
           return;
         }
       }
@@ -323,10 +350,12 @@ function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
     // Debounce so we don't score against half-loaded numbers as the dashboard settles.
     const timer = setTimeout(() => {
       setLoading(true);
+      onLoading?.(true);
       financeScore(metrics)
         .then((r) => {
           if (!alive) return;
           setResult(r);
+          onResult?.(r);
           try {
             localStorage.setItem(SCORE_CACHE_KEY, JSON.stringify({ fp, at: Date.now(), result: r }));
           } catch {
@@ -334,7 +363,12 @@ function FinanceScoreCard({ metrics }: { metrics: ScoreMetrics }) {
           }
         })
         .catch(() => alive && setError(true))
-        .finally(() => alive && setLoading(false));
+        .finally(() => {
+          if (alive) {
+            setLoading(false);
+            onLoading?.(false);
+          }
+        });
     }, 700);
 
     return () => {
@@ -520,30 +554,67 @@ export default function Dashboard() {
     };
   }, []);
 
+  // ---- intelligence layer: cards, reminders, budgets, reserve → forecast, insights, breakdown ----
+  const [cards, setCards] = useState<CardSummary[]>([]);
+  useEffect(() => {
+    cardSummaries().then(setCards).catch(() => setCards([]));
+  }, []);
+  const { items: reminders } = useReminders();
+  const { items: thresholds } = useThresholds();
+  const [reserve] = useReserve();
+  const [score, setScore] = useState<FinanceScoreResult | null>(null);
+  const [scoreLoading, setScoreLoading] = useState(false);
+
+  const forecast = useMemo(
+    () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve }),
+    [f.savings, txns, reminders, cards, reserve],
+  );
+  const breakdown = useMemo(() => currentMonthBreakdown(txns), [txns]);
+  const reviewCount = useMemo(
+    () => txns.filter((t) => !t.transfer && !t.settlement && (!t.category || t.category === "Uncategorized" || t.accountId == null)).length,
+    [txns],
+  );
+  const insights = useMemo(
+    () => buildInsights({ cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, savingsRate: f.savingsRate }),
+    [cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, f.savingsRate],
+  );
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const subtitle =
+    activeId === "all"
+      ? "Combined finances across your family."
+      : activeMember.relation === "Self"
+        ? "Your money at a glance."
+        : `Monitoring ${activeMember.name}'s finances.`;
+  // Memoised: the score card keys its effect on this object, and it reports back via setState,
+  // so a fresh object every render would re-run the effect and loop.
+  const metrics = useMemo(
+    () => ({
+      monthlyIncome: f.earning, // last completed month's income
+      monthlySpend: f.lastMonthSpend, // pair with income — a full month, not this month's partial
+      savingsRate: f.savingsRate,
+      cashSavings: f.savings,
+      investments: f.investments,
+      outstandingLoans: f.outstanding,
+      monthlyEmi: f.emiTotal,
+    }),
+    [f.earning, f.lastMonthSpend, f.savingsRate, f.savings, f.investments, f.outstanding, f.emiTotal],
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          {activeId === "all"
-            ? "Combined finances across your family."
-            : activeMember.relation === "Self"
-              ? "Your money at a glance."
-              : `Monitoring ${activeMember.name}'s finances.`}
-        </p>
-      </div>
-
-      <FinanceScoreCard
-        metrics={{
-          monthlyIncome: f.earning, // last completed month's income
-          monthlySpend: f.lastMonthSpend, // pair with income — a full month, not this month's partial
-          savingsRate: f.savingsRate,
-          cashSavings: f.savings,
-          investments: f.investments,
-          outstandingLoans: f.outstanding,
-          monthlyEmi: f.emiTotal,
-        }}
+      <PulseHeader
+        subtitle={subtitle}
+        netWorth={netWorth}
+        forecast={forecast}
+        score={score}
+        scoreLoading={scoreLoading}
+        actionCount={insights.filter((i) => i.severity === "red" || i.severity === "amber").length}
       />
+
+      <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <FinanceScoreCard metrics={metrics} onResult={setScore} onLoading={setScoreLoading} />
+        <InsightsCard insights={insights} />
+      </div>
 
       <ClockWidget />
 
@@ -554,8 +625,9 @@ export default function Dashboard() {
           icon={<Wallet className="size-4" />}
           iconColor="#8b5cf6"
           art={Wallet}
+          onClick={() => navigate("/accounts")}
           footer={
-            <label className="mt-2 flex cursor-pointer items-center justify-between gap-2">
+            <label className="mt-2 flex cursor-pointer items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
               <span className="text-xs text-muted-foreground">
                 Include investments{f.investments > 0 ? ` (${formatINR(f.investments)})` : ""}
               </span>
@@ -563,13 +635,13 @@ export default function Dashboard() {
             </label>
           }
         />
-        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" art={TrendingUp} />
-        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" art={ArrowDownRight} />
-        <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} />
-        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} />
+        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" art={TrendingUp} onClick={() => navigate("/analytics")} />
+        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" art={ArrowDownRight} onClick={() => navigate(`/transactions?month=${monthKey}&type=DEBIT`)} />
+        <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} onClick={() => navigate("/loans")} />
+        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} onClick={() => navigate("/analytics")} />
       </div>
 
-      <CardsSection />
+      <CardsSection cards={cards} />
 
       {!loading && txns.length === 0 ? (
         <Card>
@@ -590,8 +662,14 @@ export default function Dashboard() {
         </Card>
       ) : (
         <>
-          <CashflowChart txns={txns} loading={loading} />
-          <NetWorthTrendCard addInvestments={includeInv ? f.investments : 0} />
+          <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <CashflowChart txns={txns} loading={loading} />
+            <SpendBreakdownCard b={breakdown} />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
+            <TimelineCard f={forecast} />
+            <NetWorthTrendCard addInvestments={includeInv ? f.investments : 0} />
+          </div>
         </>
       )}
     </div>

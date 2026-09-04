@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Check, ShieldCheck, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
+import { useReserve } from "@/lib/prefs";
 import CardArt from "@/components/CardArt";
 import { analyticsByCategory, forgetDevice, listDevices, type ConnectedDevice } from "@/api";
 import { CATEGORIES } from "@/lib/sample";
@@ -53,6 +54,10 @@ export default function Settings() {
     return () => clearInterval(t);
   }, []);
 
+  const [reserve, setReserve] = useReserve();
+  const [reserveDraft, setReserveDraft] = useState<string>(String(reserve));
+  useEffect(() => setReserveDraft(String(reserve)), [reserve]);
+
   const dirty = CATEGORIES.some((name) => (draft[name] ?? 0) !== (items[name] ?? 0));
 
   function update(category: string, value: number) {
@@ -82,6 +87,36 @@ export default function Settings() {
           </Button>
         </div>
       </div>
+
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="#10b981" subtle />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="size-5 text-emerald-500" /> Emergency reserve
+          </CardTitle>
+          <CardDescription>
+            Cash you never want to dip below. "Safe to spend" and the cash-flow warning on the dashboard are computed
+            after this reserve and your known upcoming bills.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex max-w-md items-center gap-2">
+            <span className="text-sm text-muted-foreground">₹</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={reserveDraft}
+              onChange={(e) => setReserveDraft(e.target.value)}
+              onBlur={() => setReserve(Number(reserveDraft) || 0)}
+            />
+            <Button variant="outline" onClick={() => setReserve(Number(reserveDraft) || 0)} disabled={Number(reserveDraft) === reserve}>
+              Save
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Currently {formatINR(reserve)}. Stored in this browser.</p>
+        </CardContent>
+      </Card>
 
       <Card className="relative isolate overflow-hidden">
         <CardArt color="#3b82f6" subtle />

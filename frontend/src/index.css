@@ -130,6 +130,22 @@
     }
 }
 
+/* Semantic colours: green = healthy, blue = information, amber = attention, red = action, purple (primary) = Jarvis. */
+:root {
+  --ok: #10b981;
+  --info: #3b82f6;
+  --warn: #f59e0b;
+  --danger: #f43f5e;
+}
+
+/* Gentle pulse on the Jarvis spark. */
+@keyframes jarvis-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.12); }
+}
+.jarvis-pulse { animation: jarvis-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .jarvis-pulse { animation: none; } }
+
 /* Soft colour wash behind every page (primary top-left, accent top-right, primary bottom). */
 .app-canvas {
   background-image:

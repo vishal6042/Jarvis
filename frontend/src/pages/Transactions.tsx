@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Copy, ListChecks, Pencil, Plus, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ArrowDownRight, ArrowUpRight, Copy, ListChecks, Pencil, Plus, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { applyRules, createRule, deleteRule, listDuplicates, listRules, setTransactionCategory, type CategoryRule } from "@/api";
 import { Switch } from "@/components/ui/switch";
 import CardArt from "@/components/CardArt";
@@ -81,13 +82,14 @@ export default function Transactions() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // filters
-  const [q, setQ] = useState("");
-  const [dir, setDir] = useState<"all" | Direction>("all");
-  const [cat, setCat] = useState<string>("all");
-  const [acct, setAcct] = useState<string>("all");
-  const [month, setMonth] = useState<string>("all"); // "all" | "YYYY-MM"
-  const [review, setReview] = useState(false); // only rows needing attention
+  // filters — seeded from the URL so other pages can deep-link (e.g. ?month=2026-09&category=Food)
+  const [params] = useSearchParams();
+  const [q, setQ] = useState(params.get("q") ?? "");
+  const [dir, setDir] = useState<"all" | Direction>((params.get("type") as Direction | null) ?? "all");
+  const [cat, setCat] = useState<string>(params.get("category") ?? "all");
+  const [acct, setAcct] = useState<string>(params.get("account") ?? "all");
+  const [month, setMonth] = useState<string>(params.get("month") ?? "all"); // "all" | "YYYY-MM"
+  const [review, setReview] = useState(params.get("review") === "1"); // only rows needing attention
   const [dups, setDups] = useState<Transaction[][]>([]);
   const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -216,7 +218,7 @@ export default function Transactions() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
@@ -389,27 +391,7 @@ export default function Transactions() {
         </CardContent>
       </Card>
 
-      {pageCount > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Page {page + 1} of {pageCount}
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" className="size-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              <ChevronLeft className="size-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8"
-              disabled={page >= pageCount - 1}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
 
       {/* Add / edit dialog */}
       <Dialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)}>
@@ -707,6 +689,54 @@ function RulesDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Centred pager: first / prev, a sliding window of five page numbers with ellipses, next / last.
+ * Kept clear of the floating assistant button (the page adds bottom padding).
+ */
+function Pagination({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (p: number) => void }) {
+  const total = pageCount;
+  const current = page + 1; // 1-based for display
+  let start = Math.max(1, current - 2);
+  let end = Math.min(total, start + 4);
+  start = Math.max(1, end - 4);
+  const pages: (number | "…")[] = [];
+  if (start > 1) {
+    pages.push(1);
+    if (start > 2) pages.push("…");
+  }
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total) {
+    if (end < total - 1) pages.push("…");
+    pages.push(total);
+  }
+  const go = (p: number) => onChange(Math.min(total, Math.max(1, p)) - 1);
+  const btn = "inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm transition-colors disabled:opacity-40";
+  return (
+    <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="Pagination">
+      <button type="button" className={btn} onClick={() => go(1)} disabled={current === 1} aria-label="First page">«</button>
+      <button type="button" className={btn} onClick={() => go(current - 1)} disabled={current === 1} aria-label="Previous page">‹</button>
+      {pages.map((p, i) =>
+        p === "…" ? (
+          <span key={`e${i}`} className="px-1 text-sm text-muted-foreground">…</span>
+        ) : (
+          <button
+            key={p}
+            type="button"
+            onClick={() => go(p)}
+            aria-current={p === current ? "page" : undefined}
+            className={`${btn} ${p === current ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent"}`}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button type="button" className={btn} onClick={() => go(current + 1)} disabled={current === total} aria-label="Next page">›</button>
+      <button type="button" className={btn} onClick={() => go(total)} disabled={current === total} aria-label="Last page">»</button>
+      <span className="ml-3 text-xs text-muted-foreground">Page {current} of {total}</span>
+    </nav>
   );
 }
 
