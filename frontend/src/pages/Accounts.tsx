@@ -117,12 +117,85 @@ function toRequest(f: FormState): AccountRequest {
   };
 }
 
+/** Read-only view of an account; the Edit button hands off to the form. */
+function AccountDetailsDialog({
+  account,
+  onClose,
+  onEdit,
+}: {
+  account: Account | null;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  if (!account) return null;
+  const isCard = account.type !== "SAVINGS";
+  const color = isCard ? networkColor(account.network, ACCOUNT_TYPE_COLOR[account.type]) : ACCOUNT_TYPE_COLOR.SAVINGS;
+  return (
+    <Dialog open={!!account} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="size-3 rounded-full" style={{ backgroundColor: color }} />
+            {account.displayName}
+            <Badge
+              variant="secondary"
+              className="border-transparent"
+              style={{ backgroundColor: `${color}22`, color }}
+            >
+              {account.type.replace("_", " ")}
+            </Badge>
+          </DialogTitle>
+          <DialogDescription>
+            {account.bank} •• {account.last4}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          {isCard ? (
+            <>
+              <Row label="Network" value={account.network} />
+              <Row label="Card holder" value={account.cardHolderName} />
+              <Row label="Credit limit" value={account.creditLimit ? formatINR(account.creditLimit) : null} />
+              <Row label="Billing day" value={account.billingCycleDay ? String(account.billingCycleDay) : null} />
+              <Row label="Payment due day" value={account.paymentDueDay ? String(account.paymentDueDay) : null} />
+              <Row
+                label="Expiry"
+                value={
+                  account.expiryMonth && account.expiryYear
+                    ? `${String(account.expiryMonth).padStart(2, "0")}/${account.expiryYear}`
+                    : null
+                }
+              />
+            </>
+          ) : (
+            <>
+              <Row label="IFSC" value={account.ifsc} />
+              <Row label="Branch" value={account.branch} />
+              <Row label="Current balance" value={account.balance != null ? formatINR(account.balance) : null} />
+              <Row label="Currency" value={account.currency} />
+            </>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="gap-1" onClick={onEdit}>
+            <Pencil className="size-3.5" /> Edit
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AccountCard({
   account,
+  onOpen,
   onEdit,
   onDelete,
 }: {
   account: Account;
+  onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -130,16 +203,20 @@ function AccountCard({
   const tint = isCard ? networkColor(account.network, ACCOUNT_TYPE_COLOR[account.type]) : ACCOUNT_TYPE_COLOR.SAVINGS;
   return (
     <Card
-      onClick={onEdit}
+      onClick={onOpen}
       className="group relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
     >
       <CardArt color={tint} icon={isCard ? CreditCard : Landmark} network={isCard ? account.network : null} />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        className="absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100 hover:brightness-110 focus-visible:opacity-100"
       >
         <Pencil className="size-3" /> Edit
-      </span>
+      </button>
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-3">
         <div className="flex items-center gap-3">
           <div
@@ -231,6 +308,7 @@ export default function Accounts() {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"all" | AccountType>("all");
   const [toDelete, setToDelete] = useState<Account | null>(null);
+  const [details, setDetails] = useState<Account | null>(null);
 
   async function refresh() {
     setAccounts(await listAccounts());
@@ -325,12 +403,23 @@ export default function Accounts() {
             <AccountCard
               key={a.id}
               account={a}
+              onOpen={() => setDetails(a)}
               onEdit={() => openEdit(a)}
               onDelete={() => setToDelete(a)}
             />
           ))}
         </div>
       )}
+
+      <AccountDetailsDialog
+        account={details}
+        onClose={() => setDetails(null)}
+        onEdit={() => {
+          const a = details;
+          setDetails(null);
+          if (a) openEdit(a);
+        }}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">

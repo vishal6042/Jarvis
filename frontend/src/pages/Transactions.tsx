@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import {
   createTransaction,
   deleteTransaction,
@@ -236,7 +237,8 @@ export default function Transactions() {
         <FilterSelect value={acct} onChange={setAcct} items={acctItems} width="w-[190px]" />
       </div>
 
-      <Card>
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="var(--primary)" subtle />
         <CardContent className="p-0">
           {loading ? (
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Loading…</div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, PiggyBank, Target, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import {
   contributeGoalApi,
   createGoal,
@@ -176,8 +177,8 @@ export default function Goals() {
             const perMonth = months && remaining > 0 ? Math.ceil(remaining / months) : null;
             const done = pct >= 100;
             return (
-              <Card key={g.id} className="group relative overflow-hidden">
-                <span className="absolute top-0 left-0 h-full w-1.5" style={{ backgroundColor: color }} />
+              <Card key={g.id} className="group relative isolate overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10">
+                <CardArt color={color} icon={Target} />
                 <CardContent className="space-y-3 pt-6">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { analyticsByCategory, forgetDevice, listDevices, type ConnectedDevice } from "@/api";
 import { CATEGORIES } from "@/lib/sample";
 import { useThresholds } from "@/lib/store";
@@ -82,7 +83,8 @@ export default function Settings() {
         </div>
       </div>
 
-      <Card>
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="#3b82f6" subtle />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Smartphone className="size-5 text-primary" /> Connected devices
@@ -155,7 +157,8 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="#8b5cf6" subtle />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <SlidersHorizontal className="size-5 text-primary" /> Category spend thresholds

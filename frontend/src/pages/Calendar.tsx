@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2 } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import {
   occurrencesInMonth,
   REMINDER_META,
@@ -147,7 +148,8 @@ export default function Calendar() {
 
       <div className="space-y-6">
         {/* Month grid */}
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="var(--primary)" subtle />
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>{monthLabel}</CardTitle>
             <div className="flex items-center gap-1">
@@ -249,7 +251,8 @@ export default function Calendar() {
         </Card>
 
         {/* Upcoming list */}
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#8b5cf6" subtle />
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
             <div>
               <CardTitle>Upcoming</CardTitle>

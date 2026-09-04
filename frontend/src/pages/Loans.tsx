@@ -75,14 +75,31 @@ function tintBadge(color: string) {
   return { backgroundColor: `${color}22`, color };
 }
 
+function toForm(l: Loan): FormState {
+  return {
+    kind: l.kind,
+    lender: l.lender,
+    sanctioned: String(l.sanctioned ?? ""),
+    outstanding: String(l.outstanding ?? ""),
+    emi: String(l.emi ?? ""),
+    rate: l.rate != null ? String(l.rate) : "",
+    tenureMonths: l.tenureMonths != null ? String(l.tenureMonths) : "",
+    startDate: l.startDate ?? "",
+    endDate: l.endDate ?? "",
+    notes: l.notes ?? "",
+  };
+}
+
 function LoanCard({
   loan,
   onOpen,
+  onEdit,
   onDelete,
   canDelete,
 }: {
   loan: Loan;
   onOpen: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   canDelete: boolean;
 }) {
@@ -96,12 +113,16 @@ function LoanCard({
       className="group relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
       onClick={onOpen}
     >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        className="absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100 hover:brightness-110 focus-visible:opacity-100"
       >
         <Pencil className="size-3" /> Edit
-      </span>
+      </button>
       <CardArt
         color={color}
         icon={loan.kind === "HOME" ? Home : loan.kind === "CAR" ? Car : loan.kind === "EDUCATION" ? GraduationCap : Banknote}
@@ -161,7 +182,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailsDialog({ loan, onClose }: { loan: Loan | null; onClose: () => void }) {
+function DetailsDialog({ loan, onClose, onEdit }: { loan: Loan | null; onClose: () => void; onEdit: () => void }) {
   if (!loan) return null;
   const hist = loanHistory(loan);
   const color = LOAN_META[loan.kind].color;
@@ -202,6 +223,14 @@ function DetailsDialog({ loan, onClose }: { loan: Loan | null; onClose: () => vo
             </AreaChart>
           </ChartContainer>
         </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="gap-1" onClick={onEdit}>
+            <Pencil className="size-3.5" /> Edit
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -219,14 +248,27 @@ function Detail({ label, value }: { label: string; value: string }) {
 export default function Loans() {
   const { activeMember } = useFamily();
   const isAll = activeMember.id === "all";
-  const { items: all, add, remove } = useLoans(isAll ? "all" : activeMember.id);
+  const { items: all, add, update, remove } = useLoans(isAll ? "all" : activeMember.id);
 
   const [kindFilter, setKindFilter] = useState<string>("all");
   const items = kindFilter === "all" ? all : all.filter((l) => l.kind === kindFilter);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Loan | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [details, setDetails] = useState<Loan | null>(null);
+
+  function openEdit(loan: Loan) {
+    setDetails(null);
+    setEditing(loan);
+    setForm(toForm(loan));
+    setAddOpen(true);
+  }
+  function closeForm() {
+    setAddOpen(false);
+    setEditing(null);
+    setForm(EMPTY);
+  }
   const [toDelete, setToDelete] = useState<Loan | null>(null);
 
   const sanctioned = items.reduce((s, l) => s + l.sanctioned, 0);
@@ -238,7 +280,7 @@ export default function Loans() {
   }
   function submit(e: FormEvent) {
     e.preventDefault();
-    add({
+    const payload = {
       kind: form.kind,
       lender: form.lender.trim(),
       sanctioned: num(form.sanctioned) ?? 0,
@@ -249,9 +291,10 @@ export default function Loans() {
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
       notes: form.notes || undefined,
-    });
-    setForm(EMPTY);
-    setAddOpen(false);
+    };
+    if (editing) update(editing.id, payload);
+    else add(payload);
+    closeForm();
   }
 
   const filterItems = [
@@ -314,6 +357,7 @@ export default function Loans() {
               key={loan.id}
               loan={loan}
               onOpen={() => setDetails(loan)}
+              onEdit={() => openEdit(loan)}
               onDelete={() => setToDelete(loan)}
               canDelete={!isAll}
             />
@@ -321,7 +365,7 @@ export default function Loans() {
         </div>
       )}
 
-      <DetailsDialog loan={details} onClose={() => setDetails(null)} />
+      <DetailsDialog loan={details} onClose={() => setDetails(null)} onEdit={() => details && openEdit(details)} />
 
       <ConfirmDialog
         open={toDelete !== null}
@@ -331,10 +375,10 @@ export default function Loans() {
         onConfirm={() => toDelete && remove(toDelete.id)}
       />
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(o) => (o ? setAddOpen(true) : closeForm())}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add loan</DialogTitle>
+            <DialogTitle>{editing ? "Edit loan" : "Add loan"}</DialogTitle>
             <DialogDescription>Track a home, car, personal or other loan.</DialogDescription>
           </DialogHeader>
           <form id="loan-form" className="grid grid-cols-2 gap-3" onSubmit={submit}>
@@ -390,11 +434,11 @@ export default function Loans() {
             </div>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+            <Button variant="outline" onClick={closeForm}>
               Cancel
             </Button>
             <Button type="submit" form="loan-form">
-              Add
+              {editing ? "Save changes" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -76,14 +76,31 @@ function num(v: string): number | undefined {
   return Number.isNaN(n) ? undefined : n;
 }
 
+function toForm(i: Investment): FormState {
+  return {
+    kind: i.kind,
+    name: i.name,
+    principal: String(i.principal ?? ""),
+    current: String(i.current ?? ""),
+    rate: i.rate != null ? String(i.rate) : "",
+    sip: i.sip != null ? String(i.sip) : "",
+    openingDate: i.openingDate ?? "",
+    commencementDate: i.commencementDate ?? "",
+    maturityDate: i.maturityDate ?? "",
+    notes: i.notes ?? "",
+  };
+}
+
 function InvestmentCard({
   inv,
   onOpen,
+  onEdit,
   onDelete,
   canDelete,
 }: {
   inv: Investment;
   onOpen: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   canDelete: boolean;
 }) {
@@ -96,12 +113,16 @@ function InvestmentCard({
       onClick={onOpen}
     >
       <CardArt color={color} icon={inv.kind === "MF" ? TrendingUp : PiggyBank} />
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100"
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit();
+        }}
+        className="absolute bottom-3 left-4 z-20 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground opacity-0 shadow-md shadow-primary/30 transition-opacity group-hover:opacity-100 hover:brightness-110 focus-visible:opacity-100"
       >
         <Pencil className="size-3" /> Edit
-      </span>
+      </button>
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start gap-2">
           <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
@@ -157,7 +178,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailsDialog({ inv, onClose }: { inv: Investment | null; onClose: () => void }) {
+function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClose: () => void; onEdit: () => void }) {
   if (!inv) return null;
   // Real two-point view: amount invested vs current value (no fabricated monthly history).
   const hist = [
@@ -216,6 +237,14 @@ function DetailsDialog({ inv, onClose }: { inv: Investment | null; onClose: () =
             </AreaChart>
           </ChartContainer>
         </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="gap-1" onClick={onEdit}>
+            <Pencil className="size-3.5" /> Edit
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -233,12 +262,25 @@ function Detail({ label, value }: { label: string; value: string }) {
 export default function Investments() {
   const { activeMember } = useFamily();
   const isAll = activeMember.id === "all";
-  const { items: allItems, add, remove } = useInvestments(isAll ? "all" : activeMember.id);
+  const { items: allItems, add, update, remove } = useInvestments(isAll ? "all" : activeMember.id);
   const [kindFilter, setKindFilter] = useState<string>("all");
   const items = kindFilter === "all" ? allItems : allItems.filter((i) => i.kind === kindFilter);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Investment | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [details, setDetails] = useState<Investment | null>(null);
+
+  function openEdit(inv: Investment) {
+    setDetails(null);
+    setEditing(inv);
+    setForm(toForm(inv));
+    setAddOpen(true);
+  }
+  function closeForm() {
+    setAddOpen(false);
+    setEditing(null);
+    setForm(EMPTY);
+  }
   const [toDelete, setToDelete] = useState<Investment | null>(null);
 
   const invested = items.reduce((s, i) => s + i.principal, 0);
@@ -251,7 +293,7 @@ export default function Investments() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    add({
+    const payload = {
       kind: form.kind,
       name: form.name.trim(),
       principal: num(form.principal) ?? 0,
@@ -262,9 +304,10 @@ export default function Investments() {
       commencementDate: form.commencementDate || undefined,
       maturityDate: form.maturityDate || undefined,
       notes: form.notes || undefined,
-    });
-    setForm(EMPTY);
-    setAddOpen(false);
+    };
+    if (editing) update(editing.id, payload);
+    else add(payload);
+    closeForm();
   }
 
   return (
@@ -332,6 +375,7 @@ export default function Investments() {
               key={inv.id}
               inv={inv}
               onOpen={() => setDetails(inv)}
+              onEdit={() => openEdit(inv)}
               onDelete={() => setToDelete(inv)}
               canDelete={!isAll}
             />
@@ -339,7 +383,7 @@ export default function Investments() {
         </div>
       )}
 
-      <DetailsDialog inv={details} onClose={() => setDetails(null)} />
+      <DetailsDialog inv={details} onClose={() => setDetails(null)} onEdit={() => details && openEdit(details)} />
 
       <ConfirmDialog
         open={toDelete !== null}
@@ -350,10 +394,10 @@ export default function Investments() {
       />
 
       {/* Add dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(o) => (o ? setAddOpen(true) : closeForm())}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add investment</DialogTitle>
+            <DialogTitle>{editing ? "Edit investment" : "Add investment"}</DialogTitle>
             <DialogDescription>FD, RD, PF, PPF, Post Office schemes, or a mutual fund.</DialogDescription>
           </DialogHeader>
           <form id="inv-form" className="grid grid-cols-2 gap-3" onSubmit={submit}>
@@ -409,11 +453,11 @@ export default function Investments() {
             </div>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>
+            <Button variant="outline" onClick={closeForm}>
               Cancel
             </Button>
             <Button type="submit" form="inv-form">
-              Add
+              {editing ? "Save changes" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>

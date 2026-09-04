@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, CalendarRange, CheckCircle2, FileText, Loader2, Sparkles, Upload } from "lucide-react";
+import CardArt from "@/components/CardArt";
 import { confirmStatement, previewStatementStream } from "@/api";
 import type { PreviewTransaction, StatementImportResult } from "@/types";
 import { formatINR, formatDate } from "@/lib/format";
@@ -174,7 +175,8 @@ export default function Import() {
 
       {/* Step 1 — upload + scan */}
       {!started && !result && (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="var(--primary)" subtle />
           <CardHeader>
             <CardTitle>Upload a statement</CardTitle>
             <CardDescription>Any bank or card — the AI figures out the account.</CardDescription>
@@ -219,7 +221,8 @@ export default function Import() {
 
       {/* Step 2 — review (streams in live) + confirm */}
       {started && (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#f59e0b" subtle />
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div>
               <CardTitle>Review before importing</CardTitle>
@@ -410,7 +413,8 @@ export default function Import() {
 
       {/* Result */}
       {result && (
-        <Card>
+        <Card className="relative isolate overflow-hidden">
+          <CardArt color="#10b981" subtle />
           <CardHeader className="flex flex-row items-center gap-3 space-y-0">
             <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500">
               <CheckCircle2 className="size-5" />
