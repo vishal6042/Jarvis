@@ -6,9 +6,10 @@ import {
   REMINDER_META,
   upcomingReminders,
   type Reminder,
+  type ReminderOccurrence,
   type ReminderType,
 } from "@/lib/sample";
-import { useFamily, useInvestments, useLoans, useReminders } from "@/lib/store";
+import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders } from "@/lib/store";
 import { cardSummaries, type CardSummary } from "@/api";
 import { useFinanceSummary } from "@/lib/finance";
 import { useReserve } from "@/lib/prefs";
@@ -18,7 +19,9 @@ import TimelineCard from "@/components/TimelineCard";
 import { ArrowDownRight, ArrowUpRight, CalendarRange } from "lucide-react";
 import { listTransactions } from "@/api";
 import type { Transaction } from "@/types";
-import { PAY_STATE_META, reminderStatus } from "@/lib/reminderStatus";
+import { PAY_STATE_META, reminderKey, reminderStatus } from "@/lib/reminderStatus";
+import MarkPaidDialog from "@/components/MarkPaidDialog";
+import { Check, Undo2 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +68,8 @@ const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amo
 export default function Calendar() {
   const { items, add, update, remove } = useReminders();
   const { activeId } = useFamily();
+  const { paidKeys, markPaid, unmarkPaid } = useReminderPayments();
+  const [payingFor, setPayingFor] = useState<ReminderOccurrence | null>(null);
   const { items: investments } = useInvestments(activeId);
   const { items: loans } = useLoans(activeId);
   const f = useFinanceSummary();
@@ -97,12 +102,12 @@ export default function Calendar() {
     return map;
   }, [view.year, view.month, cards, txns, investments, loans, items]);
   const outflow = useMemo(
-    () => upcomingOutflows(14, { cards, txns, investments, loans, reminders: items }),
-    [cards, txns, investments, loans, items],
+    () => upcomingOutflows(14, { cards, txns, investments, loans, reminders: items, paidKeys }),
+    [cards, txns, investments, loans, items, paidKeys],
   );
   const forecast = useMemo(
-    () => buildForecast({ balance: f.savings, txns, reminders: items, cards, reserve }),
-    [f.savings, txns, items, cards, reserve],
+    () => buildForecast({ balance: f.savings, txns, reminders: items, cards, reserve, paidKeys }),
+    [f.savings, txns, items, cards, reserve, paidKeys],
   );
 
   // Upcoming list filter: "next30" (default) or a specific YYYY-M.
@@ -427,12 +432,13 @@ export default function Calendar() {
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {formatDate(r.occursOn)}
                       {(() => {
-                        const st = reminderStatus(r.occursOn, r.amount, txns);
+                        const st = reminderStatus(r.occursOn, r.amount, txns, new Date(), reminderKey(r.id, r.occursOn), paidKeys);
                         if (st.state === "upcoming") return null;
                         const m = PAY_STATE_META[st.state];
                         return (
                           <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: `${m.color}22`, color: m.color }}>
                             {m.label}
+                            {st.source === "manual" ? " ✓" : ""}
                           </span>
                         );
                       })()}
@@ -446,6 +452,21 @@ export default function Calendar() {
                     {REMINDER_META[r.type].label}
                   </Badge>
                   {r.amount != null && <span className="text-sm font-semibold">{formatINR(r.amount)}</span>}
+                  {paidKeys.has(reminderKey(r.id, r.occursOn)) ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 text-xs text-muted-foreground"
+                      title="Mark as not paid"
+                      onClick={() => unmarkPaid(r.id, r.occursOn)}
+                    >
+                      <Undo2 className="size-3.5" /> Undo
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setPayingFor(r)}>
+                      <Check className="size-3.5" /> Mark paid
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
                     <Pencil className="size-4" />
                   </Button>
@@ -458,6 +479,15 @@ export default function Calendar() {
           </CardContent>
         </Card>
       </div>
+
+      <MarkPaidDialog
+        reminder={payingFor}
+        txns={txns}
+        onClose={() => setPayingFor(null)}
+        onConfirm={async (detail) => {
+          if (payingFor) await markPaid(payingFor.id, payingFor.occursOn, detail);
+        }}
+      />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

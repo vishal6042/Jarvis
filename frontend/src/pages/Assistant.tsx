@@ -6,7 +6,7 @@ import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/a
 import { useFinanceSummary } from "@/lib/finance";
 import { aiChat, aiPlan, cardSummaries, listTransactions, type CardSummary } from "@/api";
 import type { Transaction } from "@/types";
-import { useFamily, useReminders, useThresholds } from "@/lib/store";
+import { useFamily, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { formatINR } from "@/lib/format";
@@ -43,6 +43,7 @@ export default function Assistant() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CardSummary[]>([]);
   const { items: reminders, add: addReminder } = useReminders();
+  const { paidKeys } = useReminderPayments();
   const { items: thresholds, saveAll: saveThresholds } = useThresholds();
   const { reload } = useFamily();
   const [reserve] = useReserve();
@@ -51,7 +52,7 @@ export default function Assistant() {
     cardSummaries().then(setCards).catch(() => setCards([]));
   }, []);
   const contextText = useMemo(() => {
-    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve });
+    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys });
     const lines = [
       `Today: ${fc.today}`,
       `Savings balance (cash): ${formatINR(f.savings)}; investments: ${formatINR(f.investments)}; outstanding loans: ${formatINR(f.outstanding)}`,
@@ -71,7 +72,7 @@ export default function Assistant() {
       ...(cards.length ? ["Cards:", ...cards.map((c) => `  - ${c.displayName}: unbilled ${formatINR(c.unbilled)}, bill due ${formatINR(c.billDue)}${c.dueOn ? " on " + c.dueOn : ""}`)] : []),
     ];
     return lines.join("\n");
-  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve]);
+  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys]);
 
   const [messages, setMessages] = useState<Msg[]>([
     {

@@ -1,7 +1,7 @@
 import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import { upcomingReminders, type Reminder } from "@/lib/sample";
-import { reminderStatus } from "@/lib/reminderStatus";
+import { reminderKey, reminderStatus } from "@/lib/reminderStatus";
 
 const DAY = 86_400_000;
 
@@ -98,6 +98,8 @@ export interface ForecastInput {
   cards: CardSummary[];
   reserve: number;
   horizonDays?: number;
+  /** Occurrences the user closed by hand, from useReminderPayments(). */
+  paidKeys?: ReadonlySet<string>;
 }
 
 /**
@@ -113,6 +115,7 @@ export function buildForecast({
   cards,
   reserve,
   horizonDays = 30,
+  paidKeys,
 }: ForecastInput): Forecast {
   const t0 = startOfDay(today);
   const horizonEnd = new Date(t0.getTime() + horizonDays * DAY);
@@ -123,7 +126,7 @@ export function buildForecast({
 
   // Reminders: every occurrence in the window that isn't already paid.
   for (const r of upcomingReminders(reminders, 100, horizonDays)) {
-    const st = reminderStatus(r.occursOn, r.amount, txns, t0);
+    const st = reminderStatus(r.occursOn, r.amount, txns, t0, reminderKey(r.id, r.occursOn), paidKeys);
     if (st.state === "paid") continue;
     // Card bill reminders without an amount duplicate the card bills below — skip them.
     if (!r.amount && /card/i.test(r.title) && cards.some((c) => c.billDue > 0)) continue;

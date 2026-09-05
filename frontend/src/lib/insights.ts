@@ -2,7 +2,7 @@ import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import type { Reminder } from "@/lib/sample";
 import { upcomingReminders } from "@/lib/sample";
-import { reminderStatus } from "@/lib/reminderStatus";
+import { reminderKey, reminderStatus } from "@/lib/reminderStatus";
 import type { Forecast } from "@/lib/forecast";
 import type { MonthBreakdown } from "@/lib/breakdown";
 import { formatINR } from "@/lib/format";
@@ -35,6 +35,8 @@ export interface InsightInput {
   reviewCount: number;
   savingsRate: number;
   lastSavingsRate?: number | null;
+  /** Reminder occurrences closed by hand, from useReminderPayments(). */
+  paidKeys?: ReadonlySet<string>;
 }
 
 /**
@@ -61,7 +63,7 @@ export function buildInsights(i: InsightInput): Insight[] {
 
   // Reminders: overdue and due today (unpaid).
   for (const r of upcomingReminders(i.reminders, 100, 7)) {
-    const st = reminderStatus(r.occursOn, r.amount, i.txns, today);
+    const st = reminderStatus(r.occursOn, r.amount, i.txns, today, reminderKey(r.id, r.occursOn), i.paidKeys);
     if (st.state === "overdue") {
       out.push({ id: `rem-over-${r.id}-${r.occursOn}`, severity: "red", title: `${r.title} looks unpaid`, detail: `${r.amount ? formatINR(r.amount) + " · " : ""}was due ${fmtDay(r.occursOn)}`, href: "/calendar", cta: "Open calendar" });
     } else if (st.state === "due") {

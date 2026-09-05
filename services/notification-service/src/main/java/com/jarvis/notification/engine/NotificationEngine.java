@@ -77,6 +77,7 @@ public class NotificationEngine {
      */
     private void detectPayments() {
         LocalDate today = LocalDate.now();
+        java.util.Set<String> closed = insight.paidReminderOccurrences();
         for (ReminderInfo r : insight.reminders()) {
             LocalDate due = nextOccurrence(r.date(), r.repeat(), today);
             if (due == null) {
@@ -84,6 +85,10 @@ public class NotificationEngine {
             }
             long days = ChronoUnit.DAYS.between(today, due);
             if (days >= 0 && days <= 7) {
+                // Closed by hand on the Calendar page (the only way for a variable-amount bill).
+                if (closed.contains(r.id() + ":" + due)) {
+                    continue;
+                }
                 // Already paid? A debit of that amount in the week around the due date closes it.
                 if (r.amount() != null && insight.paymentSeen(
                         r.amount(),

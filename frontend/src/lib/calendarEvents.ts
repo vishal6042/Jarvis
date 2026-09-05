@@ -40,6 +40,8 @@ export interface FinEventInput {
   loans: Loan[];
   reminders: Reminder[];
   today?: Date;
+  /** Reminder occurrences the user closed by hand — excluded from what is still due. */
+  paidKeys?: ReadonlySet<string>;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -185,6 +187,8 @@ export function upcomingOutflows(days: number, input: Omit<FinEventInput, "year"
 
   const items: FinEvent[] = [];
   for (const r of upcomingReminders(input.reminders, 200, days)) {
+    // Already paid (marked on the Calendar page) — no longer money going out.
+    if (input.paidKeys?.has(`${r.id}:${r.occursOn}`)) continue;
     items.push({
       id: `rem-${r.id}-${r.occursOn}`,
       on: r.occursOn,

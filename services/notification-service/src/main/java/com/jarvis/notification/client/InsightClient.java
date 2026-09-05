@@ -79,6 +79,27 @@ public class InsightClient {
         }
     }
 
+    /** Reminder occurrences the user closed by hand — never alert on these again. */
+    public java.util.Set<String> paidReminderOccurrences() {
+        try {
+            List<ReminderPaidInfo> rows = finance.get()
+                .uri("/internal/reminder-payments")
+                .header("X-Internal-Key", internalKey)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<ReminderPaidInfo>>() {})
+                .block();
+            java.util.Set<String> out = new java.util.HashSet<>();
+            if (rows != null) {
+                for (ReminderPaidInfo p : rows) {
+                    out.add(p.reminderId() + ":" + p.occurredOn());
+                }
+            }
+            return out;
+        } catch (RuntimeException e) {
+            return java.util.Set.of();
+        }
+    }
+
     /** Calendar reminders (finance-service) — used for upcoming-payment alerts. */
     public List<ReminderInfo> reminders() {
         try {
@@ -119,6 +140,9 @@ public class InsightClient {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record AccountInfo(
         Long id, String bank, String type, String last4, Integer expiryMonth, Integer expiryYear) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record ReminderPaidInfo(Long reminderId, LocalDate occurredOn) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record ReminderInfo(

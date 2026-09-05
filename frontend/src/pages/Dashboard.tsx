@@ -17,7 +17,7 @@ import PulseHeader from "@/components/PulseHeader";
 import InsightsCard from "@/components/InsightsCard";
 import SpendBreakdownCard from "@/components/SpendBreakdownCard";
 import GoalsStrip from "@/components/GoalsStrip";
-import { useReminders, useThresholds } from "@/lib/store";
+import { useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { usePref, useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { buildInsights } from "@/lib/insights";
@@ -486,14 +486,15 @@ export default function Dashboard() {
     cardSummaries().then(setCards).catch(() => setCards([]));
   }, []);
   const { items: reminders } = useReminders();
+  const { paidKeys } = useReminderPayments();
   const { items: thresholds } = useThresholds();
   const [reserve] = useReserve();
   const [score, setScore] = useState<FinanceScoreResult | null>(null);
   const [scoreLoading, setScoreLoading] = useState(false);
 
   const forecast = useMemo(
-    () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve }),
-    [f.savings, txns, reminders, cards, reserve],
+    () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys }),
+    [f.savings, txns, reminders, cards, reserve, paidKeys],
   );
   const breakdown = useMemo(() => currentMonthBreakdown(txns), [txns]);
   const reviewCount = useMemo(
@@ -501,8 +502,8 @@ export default function Dashboard() {
     [txns],
   );
   const insights = useMemo(
-    () => buildInsights({ cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, savingsRate: f.savingsRate }),
-    [cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, f.savingsRate],
+    () => buildInsights({ cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, savingsRate: f.savingsRate, paidKeys }),
+    [cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, f.savingsRate, paidKeys],
   );
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const subtitle =

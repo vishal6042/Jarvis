@@ -97,6 +97,25 @@ export const deleteReminderApi = async (id: number) => {
 };
 
 // ---- Goals ----
+// ---- Reminder payments (an occurrence closed by hand) ----
+export interface ApiReminderPayment {
+  id: number;
+  reminderId: number;
+  occurredOn: string; // which dated occurrence
+  paidOn: string;
+  amount?: number | null;
+  transactionId?: number | null;
+}
+export const getReminderPayments = async () =>
+  (await api.get<ApiReminderPayment[]>("/api/reminders/payments")).data;
+export const markReminderPaidApi = async (
+  reminderId: number,
+  body: { occurredOn: string; paidOn?: string; amount?: number | null; transactionId?: number | null },
+) => (await api.post<ApiReminderPayment>(`/api/reminders/${reminderId}/payments`, body)).data;
+export const unmarkReminderPaidApi = async (reminderId: number, occurredOn: string) => {
+  await api.delete(`/api/reminders/${reminderId}/payments/${occurredOn}`);
+};
+
 export const getGoals = async () => (await api.get<ApiGoal[]>("/api/goals")).data;
 export const createGoal = async (g: GoalPayload) => (await api.post<ApiGoal>("/api/goals", g)).data;
 export const updateGoalApi = async (id: number, g: GoalPayload) =>

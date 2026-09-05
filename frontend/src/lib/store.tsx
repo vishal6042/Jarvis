@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -19,8 +20,11 @@ import {
   getInvestments,
   getLoans,
   getMembers,
+  getReminderPayments,
   getReminders,
   getThresholds,
+  markReminderPaidApi,
+  unmarkReminderPaidApi,
   saveThresholdsApi,
   updateInvestmentApi,
   updateLoanApi,
@@ -29,6 +33,7 @@ import {
   type ApiInvestment,
   type ApiLoan,
   type ApiReminder,
+  type ApiReminderPayment,
 } from "@/lib/api/finance";
 import {
   hashId,
@@ -103,6 +108,7 @@ interface FinanceCtx {
   rawInvestments: ApiInvestment[];
   rawLoans: ApiLoan[];
   rawReminders: ApiReminder[];
+  rawReminderPayments: ApiReminderPayment[];
   thresholds: Record<string, number>;
   // mutations
   addInvestment: (memberId: string, inv: Omit<Investment, "id">) => Promise<void>;
@@ -111,6 +117,12 @@ interface FinanceCtx {
   addLoan: (memberId: string, loan: Omit<Loan, "id">) => Promise<void>;
   updateLoan: (id: string, patch: Partial<Loan>) => Promise<void>;
   removeLoan: (id: string) => Promise<void>;
+  markReminderPaid: (
+    reminderId: string | number,
+    occurredOn: string,
+    detail?: { paidOn?: string; amount?: number | null; transactionId?: number | null },
+  ) => Promise<void>;
+  unmarkReminderPaid: (reminderId: string | number, occurredOn: string) => Promise<void>;
   addReminder: (r: Omit<Reminder, "id">) => Promise<void>;
   updateReminder: (id: string, patch: Partial<Reminder>) => Promise<void>;
   removeReminder: (id: string) => Promise<void>;
@@ -127,6 +139,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [rawInvestments, setRawInvestments] = useState<ApiInvestment[]>([]);
   const [rawLoans, setRawLoans] = useState<ApiLoan[]>([]);
   const [rawReminders, setRawReminders] = useState<ApiReminder[]>([]);
+  const [rawReminderPayments, setRawReminderPayments] = useState<ApiReminderPayment[]>([]);
   const [thresholds, setThresholds] = useState<Record<string, number>>({});
 
   const reload = useCallback(() => {
@@ -137,13 +150,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       getLoans(),
       getReminders(),
       getThresholds(),
-    ]).then(([m, i, l, r, t]) => {
+      getReminderPayments(),
+    ]).then(([m, i, l, r, t, rp]) => {
       if (m.status === "fulfilled")
         setMembers(m.value.map((x) => ({ id: String(x.id), name: x.name, relation: x.relation, email: x.email ?? undefined })));
       if (i.status === "fulfilled") setRawInvestments(i.value);
       if (l.status === "fulfilled") setRawLoans(l.value);
       if (r.status === "fulfilled") setRawReminders(r.value);
       if (t.status === "fulfilled") setThresholds(t.value);
+      if (rp.status === "fulfilled") setRawReminderPayments(rp.value);
       setLoaded(true);
     });
   }, []);
@@ -287,6 +302,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     });
     setRawReminders((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
   };
+  const markReminderPaid = async (
+    reminderId: string | number,
+    occurredOn: string,
+    detail?: { paidOn?: string; amount?: number | null; transactionId?: number | null },
+  ) => {
+    const saved = await markReminderPaidApi(Number(reminderId), { occurredOn, ...detail });
+    setRawReminderPayments((prev) => [...prev.filter((p) => p.id !== saved.id), saved]);
+  };
+  const unmarkReminderPaid = async (reminderId: string | number, occurredOn: string) => {
+    await unmarkReminderPaidApi(Number(reminderId), occurredOn);
+    setRawReminderPayments((prev) =>
+      prev.filter((p) => !(String(p.reminderId) === String(reminderId) && p.occurredOn === occurredOn)),
+    );
+  };
   const removeReminder = async (id: string) => {
     await deleteReminderApi(Number(id));
     setRawReminders((prev) => prev.filter((x) => String(x.id) !== id));
@@ -315,6 +344,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         rawInvestments,
         rawLoans,
         rawReminders,
+        rawReminderPayments,
+        markReminderPaid,
+        unmarkReminderPaid,
         thresholds,
         addInvestment,
         updateInvestment,
@@ -393,6 +425,20 @@ export function useReminders() {
     update: c.updateReminder,
     remove: c.removeReminder,
   };
+}
+
+/**
+ * Occurrences closed by hand. {@code paidKeys} is what {@link reminderStatus} checks; use
+ * {@code reminderKey(id, occursOn)} to build a key.
+ */
+export function useReminderPayments() {
+  const c = useFinance();
+  const items = c.rawReminderPayments;
+  const paidKeys = useMemo(
+    () => new Set(items.map((p) => `${p.reminderId}:${p.occurredOn}`)),
+    [items],
+  );
+  return { items, paidKeys, markPaid: c.markReminderPaid, unmarkPaid: c.unmarkReminderPaid };
 }
 
 export function useThresholds() {

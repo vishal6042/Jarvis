@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { dueLabel, REMINDER_META, upcomingReminders } from "@/lib/sample";
-import { useReminders } from "@/lib/store";
+import { useReminderPayments, useReminders } from "@/lib/store";
 import { formatINR } from "@/lib/format";
 import { analyticsSummary, listTransactions } from "@/api";
 import type { Transaction } from "@/types";
-import { PAY_STATE_META, reminderStatus } from "@/lib/reminderStatus";
+import { PAY_STATE_META, reminderKey, reminderStatus } from "@/lib/reminderStatus";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -106,6 +106,7 @@ export default function ClockWidget() {
   const [todaySpend, setTodaySpend] = useState<number | null>(null);
   const navigate = useNavigate();
   const { items } = useReminders();
+  const { paidKeys } = useReminderPayments();
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -179,7 +180,7 @@ export default function ClockWidget() {
                       <div className="text-xs text-muted-foreground">{dueLabel(r.occursOn)}</div>
                     </div>
                     {(() => {
-                      const st = reminderStatus(r.occursOn, r.amount, txns);
+                      const st = reminderStatus(r.occursOn, r.amount, txns, new Date(), reminderKey(r.id, r.occursOn), paidKeys);
                       if (st.state === "upcoming") return null;
                       const m = PAY_STATE_META[st.state];
                       return (
