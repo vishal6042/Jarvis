@@ -55,7 +55,8 @@ api.interceptors.response.use(
     if (err.response && err.response.status === 401 && getToken()) {
       clearToken();
       if (!window.location.pathname.startsWith("/login")) {
-        window.location.assign("/login");
+        // Without the reason, a dropped session and lost data look identical.
+        window.location.assign("/login?expired=1");
       }
     }
     return Promise.reject(err);

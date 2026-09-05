@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Zap } from "lucide-react";
 import {
   authExists,
@@ -46,6 +46,9 @@ export default function Login() {
   const [forgotQuestion, setForgotQuestion] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  // Arriving from an expired session: explain it rather than showing a bare form.
+  const [params] = useSearchParams();
+  const expired = params.get("expired") === "1";
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const { reload } = useFamily();
@@ -295,6 +298,11 @@ export default function Login() {
               </>
             )}
 
+            {expired && !error && !info && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
+                Your session expired. Sign in again — nothing has been lost.
+              </p>
+            )}
             {error && <p className="text-sm text-destructive">{error}</p>}
             {info && <p className="text-sm text-emerald-500">{info}</p>}
 
