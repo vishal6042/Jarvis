@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Cell, Pie, PieChart } from "recharts";
+import { Cell, Label, Pie, PieChart } from "recharts";
 import { CalendarClock, PieChart as PieIcon, Repeat, TrendingUp } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { KIND_META, type Investment } from "@/lib/sample";
@@ -45,19 +45,36 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
                 : "How your money is spread."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,180px)_1fr]">
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+          <CardContent className="flex flex-col items-center gap-5">
+            <>
+              <ChartContainer config={chartConfig} className="aspect-square h-[220px]">
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent nameKey="label" hideLabel />} />
                   <Pie data={slices} dataKey="value" nameKey="label" innerRadius="58%" outerRadius="88%" strokeWidth={2} isAnimationActive={false}>
                     {slices.map((s) => (
                       <Cell key={s.cls} fill={s.color} stroke="var(--background)" />
                     ))}
+                    {/* The hole is the natural place for the number every slice adds up to. */}
+                    <Label
+                      content={({ viewBox }) => {
+                        if (!viewBox || !("cx" in viewBox)) return null;
+                        const { cx, cy } = viewBox as { cx: number; cy: number };
+                        return (
+                          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={cx} y={cy - 7} className="fill-foreground text-base font-bold">
+                              {formatINR(totals.current)}
+                            </tspan>
+                            <tspan x={cx} y={cy + 13} className="fill-muted-foreground text-[10px]">
+                              total value
+                            </tspan>
+                          </text>
+                        );
+                      }}
+                    />
                   </Pie>
                 </PieChart>
               </ChartContainer>
-              <div className="space-y-2.5">
+              <div className="w-full space-y-2.5">
                 {slices.map((s) => (
                   <div key={s.cls} className="space-y-1">
                     <div className="flex items-center justify-between gap-2 text-sm">
@@ -75,7 +92,7 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
                   </div>
                 ))}
               </div>
-            </div>
+            </>
           </CardContent>
         </Card>
 
