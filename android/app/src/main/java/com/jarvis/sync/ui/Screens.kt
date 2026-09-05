@@ -66,6 +66,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -91,6 +92,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -204,12 +206,14 @@ private fun MainScaffold(
 ) {
     val tabs = listOf(
         Tab("Dashboard", Icons.Filled.Dashboard),
+        Tab("Money", Icons.Filled.ReceiptLong),
+        Tab("Ask", Icons.Filled.AutoAwesome),
         Tab("Inbox", Icons.Filled.Sms),
-        Tab("History", Icons.Filled.History),
         Tab("Settings", Icons.Filled.Settings),
     )
     var selected by remember { mutableIntStateOf(0) }
     var alertsOpen by remember { mutableStateOf(false) }
+    var historyOpen by remember { mutableStateOf(false) }
     var addOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         vm.loadAlerts()
@@ -224,14 +228,24 @@ private fun MainScaffold(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (alertsOpen) "Alerts" else tabs[selected].label) },
+                title = {
+                    Text(
+                        when {
+                            alertsOpen -> "Alerts"
+                            historyOpen -> "Sync history"
+                            else -> tabs[selected].label
+                        }
+                    )
+                },
                 navigationIcon = {
-                    if (alertsOpen) {
-                        IconButton(onClick = { alertsOpen = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    if (alertsOpen || historyOpen) {
+                        IconButton(onClick = { alertsOpen = false; historyOpen = false }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        }
                     }
                 },
                 actions = {
-                    if (!alertsOpen) {
+                    if (!alertsOpen && !historyOpen) {
                         IconButton(onClick = { alertsOpen = true; vm.loadAlerts() }) {
                             BadgedBox(badge = { if (vm.unreadAlerts > 0) Badge { Text(vm.unreadAlerts.toString()) } }) {
                                 Icon(Icons.Filled.Notifications, "Alerts")
@@ -242,7 +256,7 @@ private fun MainScaffold(
             )
         },
         floatingActionButton = {
-            if (!alertsOpen && selected == 0) {
+            if (!alertsOpen && !historyOpen && selected == 0) {
                 FloatingActionButton(onClick = { addOpen = true }) { Icon(Icons.Filled.Add, "Add expense") }
             }
         },
@@ -262,10 +276,12 @@ private fun MainScaffold(
         Box(Modifier.padding(padding).fillMaxSize()) {
             when {
                 alertsOpen -> AlertsScreen(vm)
+                historyOpen -> HistoryScreen(vm)
                 selected == 0 -> DashboardScreen(vm)
-                selected == 1 -> InboxScreen(vm, hasSmsPermission, onRequestPermissions)
-                selected == 2 -> HistoryScreen(vm)
-                else -> SettingsScreen(vm, session, hasSmsPermission, onRequestPermissions)
+                selected == 1 -> MoneyScreen(vm)
+                selected == 2 -> AskScreen(vm)
+                selected == 3 -> InboxScreen(vm, hasSmsPermission, onRequestPermissions)
+                else -> SettingsScreen(vm, session, hasSmsPermission, onRequestPermissions) { historyOpen = true }
             }
         }
     }
@@ -338,7 +354,7 @@ private fun DashboardScreen(vm: AppViewModel) {
                     }
                 }
             }
-            vm.extras(c)?.let { x -> DashboardExtrasSections(x) }
+            vm.extras(c)?.let { x -> DashboardExtrasSections(x, vm) }
 
             Spacer(Modifier.height(8.dp))
             Text(
@@ -429,7 +445,7 @@ private fun ScoreGauge(score: Int, accent: Color) {
 
 /** Upcoming payments, investments, loan, and the latest transactions — all from the cached extras. */
 @Composable
-private fun DashboardExtrasSections(x: DashboardExtras) {
+private fun DashboardExtrasSections(x: DashboardExtras, vm: AppViewModel) {
     if (x.upcoming.isNotEmpty()) {
         Spacer(Modifier.height(20.dp))
         Text("Upcoming · next 30 days", fontWeight = FontWeight.SemiBold)
@@ -444,6 +460,10 @@ private fun DashboardExtrasSections(x: DashboardExtras) {
                                 fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (u.amount != null) Text(money(u.amount), fontWeight = FontWeight.SemiBold)
+                        // A bill paid on the way home should close from the phone, not the laptop.
+                        if (u.reminderId != null) {
+                            TextButton(onClick = { vm.markPaid(u.reminderId, u.on, u.amount) }) { Text("Paid") }
+                        }
                     }
                     if (i < x.upcoming.lastIndex) HorizontalDivider()
                 }
@@ -872,10 +892,26 @@ private fun SettingsScreen(
     session: SessionEntity,
     hasSmsPermission: Boolean,
     onRequestPermissions: () -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("Settings", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
+
+        Card(Modifier.fillMaxWidth().clickable(onClick = onOpenHistory)) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Sync history", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "What each forwarded message became",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(Icons.Filled.History, contentDescription = null)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
 
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {

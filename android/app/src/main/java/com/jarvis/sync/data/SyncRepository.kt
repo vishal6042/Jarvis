@@ -261,6 +261,21 @@ class SyncRepository private constructor(context: Context) {
     suspend fun createManualTransaction(req: CreateTransactionDto): TransactionDto =
         authed { s -> api.createTransaction(s.baseUrl, s.token, req) }
 
+    suspend fun ask(message: String, context: String?): String = authed { s -> api.chat(s.baseUrl, s.token, message, context) }
+
+    suspend fun transactions(size: Int = 300): List<TransactionDto> = authed { s -> api.transactions(s.baseUrl, s.token, size) }
+
+    suspend fun setCategory(id: Long, category: String): TransactionDto =
+        authed { s -> api.setCategory(s.baseUrl, s.token, id, category) }
+
+    suspend fun markReminderPaid(reminderId: Long, occurredOn: String, amount: Double?): ReminderPaymentDto =
+        authed { s ->
+            api.markReminderPaid(
+                s.baseUrl, s.token, reminderId,
+                MarkPaidRequestDto(occurredOn = occurredOn, paidOn = LocalDate.now().toString(), amount = amount),
+            )
+        }
+
     // ---- dashboard (offline-first) ----
     /** Fetch current-month numbers and write the cache. Throws if offline/unreachable (UI shows cache). */
     suspend fun refreshDashboard() = authed { session ->
@@ -286,6 +301,8 @@ class SyncRepository private constructor(context: Context) {
         val investments = runCatching { api.investments(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val loans = runCatching { api.loans(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val recent = runCatching { api.recentTransactions(session.baseUrl, session.token, 10) }.getOrDefault(emptyList())
+        val cards = runCatching { api.cards(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        val paid = runCatching { api.reminderPayments(session.baseUrl, session.token) }.getOrDefault(emptyList())
         // Keep a previously computed score while its inputs are unchanged (the AI call is slow).
         val previous = dashboardDao.get()?.let { parseExtras(it) }
         val metrics = FinanceMetricsDto(
@@ -301,8 +318,9 @@ class SyncRepository private constructor(context: Context) {
         val fresh = previous?.score != null && previous.scoreFingerprint == fp
             && System.currentTimeMillis() - previous.scoreAt < SCORE_TTL_MS
 
+        val paidKeys = paid.map { "${it.reminderId}:${it.occurredOn}" }
         val extras = DashboardExtras(
-            upcoming = upcoming(reminders),
+            upcoming = upcoming(reminders, paidKeys = paidKeys),
             invested = investments.sumOf { it.principal },
             investmentValue = investments.sumOf { it.current },
             loanOutstanding = loans.sumOf { it.outstanding },
@@ -316,6 +334,8 @@ class SyncRepository private constructor(context: Context) {
             score = if (fresh) previous.score else previous?.score, // stale score stays visible until replaced
             scoreFingerprint = if (fresh) previous.scoreFingerprint else previous?.scoreFingerprint,
             scoreAt = if (fresh) previous.scoreAt else (previous?.scoreAt ?: 0L),
+            cards = cards,
+            paidOccurrences = paidKeys,
         )
 
         val cache = DashboardCache(
@@ -343,7 +363,11 @@ class SyncRepository private constructor(context: Context) {
     }
 
     /** Reminders due in the next 30 days, monthly ones rolled forward to their next occurrence. */
-    private fun upcoming(reminders: List<ReminderDto>, days: Long = 30): List<UpcomingItem> {
+    private fun upcoming(
+        reminders: List<ReminderDto>,
+        days: Long = 30,
+        paidKeys: List<String> = emptyList(),
+    ): List<UpcomingItem> {
         val today = LocalDate.now()
         val until = today.plusDays(days)
         return reminders.mapNotNull { r ->
@@ -357,7 +381,11 @@ class SyncRepository private constructor(context: Context) {
                 }
                 if (c.isBefore(base)) base else c
             } else base
-            if (on.isBefore(today) || on.isAfter(until)) null else UpcomingItem(r.title, on.toString(), r.amount, r.type)
+            when {
+                on.isBefore(today) || on.isAfter(until) -> null
+                paidKeys.contains("${r.id}:$on") -> null // already marked paid
+                else -> UpcomingItem(r.title, on.toString(), r.amount, r.type, r.id)
+            }
         }.sortedBy { it.on }.take(5)
     }
 

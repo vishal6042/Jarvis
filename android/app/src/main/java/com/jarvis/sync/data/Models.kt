@@ -72,6 +72,7 @@ data class TransactionDto(
     val currency: String = "INR",
     val direction: String,
     val merchant: String? = null,
+    val merchantNorm: String? = null,
     val category: String? = null,
     val occurredAt: String,
     val source: String? = null,
@@ -177,13 +178,70 @@ data class DashboardExtras(
     val score: FinanceScoreDto? = null,
     val scoreFingerprint: String? = null,
     val scoreAt: Long = 0L,
+    val cards: List<CardSummaryDto> = emptyList(),
+    val paidOccurrences: List<String> = emptyList(),
 )
 
 @Serializable
-data class UpcomingItem(val title: String, val on: String, val amount: Double? = null, val type: String? = null)
+data class UpcomingItem(
+    val title: String,
+    val on: String,
+    val amount: Double? = null,
+    val type: String? = null,
+    /** The reminder this came from, so it can be marked paid from the phone. */
+    val reminderId: Long? = null,
+)
 
 @Serializable
 data class CategorySpendDto(
     val category: String,
     val total: Double,
+)
+
+// ---- Ask Jarvis ----
+@Serializable
+data class ChatRequestDto(val message: String, val context: String? = null)
+
+@Serializable
+data class ChatReplyDto(val answer: String)
+
+/** One credit card's cycle, from expense-service /api/analytics/cards. */
+@Serializable
+data class CardSummaryDto(
+    val accountId: Long,
+    val displayName: String,
+    val bank: String? = null,
+    val last4: String? = null,
+    val network: String? = null,
+    val creditLimit: Double? = null,
+    val dueOn: String? = null,
+    val nextStatementOn: String? = null,
+    val unbilled: Double = 0.0,
+    val billed: Double = 0.0,
+    val paid: Double = 0.0,
+    val billDue: Double = 0.0,
+    val lastPaidOn: String? = null,
+    val lastPaidAmount: Double? = null,
+    val utilisationPct: Int? = null,
+    /** Set when this card shares one consolidated statement with others. */
+    val billingGroup: String? = null,
+)
+
+/** A reminder occurrence the user marked paid. */
+@Serializable
+data class ReminderPaymentDto(
+    val id: Long? = null,
+    val reminderId: Long,
+    val occurredOn: String,
+    val paidOn: String? = null,
+    val amount: Double? = null,
+    val transactionId: Long? = null,
+)
+
+@Serializable
+data class MarkPaidRequestDto(
+    val occurredOn: String,
+    val paidOn: String? = null,
+    val amount: Double? = null,
+    val transactionId: Long? = null,
 )

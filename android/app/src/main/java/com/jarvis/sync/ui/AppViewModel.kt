@@ -24,6 +24,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jarvis.sync.data.ApiException
 import com.jarvis.sync.data.CategorySpendDto
+import com.jarvis.sync.data.TransactionDto
 import com.jarvis.sync.data.SyncRepository
 import com.jarvis.sync.sms.InboxSms
 import com.jarvis.sync.data.db.DashboardCache
@@ -177,9 +178,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (alertStream?.isActive == true) return
         alertStream = viewModelScope.launch {
             while (isActive) {
-                repo.streamNotifications { n ->
-                    alerts = listOf(n) + alerts.filter { it.id != n.id }
-                    AlertNotifier.notifyNew(getApplication(), listOf(n))
+                // A dropped socket is normal (screen off, network switch, server restart). Swallow it
+                // and let the delay below reconnect; letting it escape here crashed the whole app.
+                runCatching {
+                    repo.streamNotifications { n ->
+                        alerts = listOf(n) + alerts.filter { it.id != n.id }
+                        AlertNotifier.notifyNew(getApplication(), listOf(n))
+                    }
                 }
                 delay(15_000)
             }
@@ -228,6 +233,81 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun topCategories(cache: DashboardCache): List<CategorySpendDto> = repo.parseTopCategories(cache)
+
+    // ---- Ask Jarvis ----
+    data class ChatMessage(val fromUser: Boolean, val text: String)
+
+    var chat by mutableStateOf(
+        listOf(
+            ChatMessage(
+                false,
+                "Ask me about your spending, bills, loans or investments. I answer from your own figures.",
+            )
+        )
+    )
+        private set
+    var chatBusy by mutableStateOf(false)
+        private set
+
+    fun ask(question: String) {
+        val q = question.trim()
+        if (q.isEmpty() || chatBusy) return
+        chat = chat + ChatMessage(true, q)
+        chatBusy = true
+        viewModelScope.launch {
+            val answer = runCatching { repo.ask(q, null) }
+                .getOrElse { "I could not reach Jarvis just now. " + friendly(it as? Exception ?: Exception(it)) }
+            chat = chat + ChatMessage(false, answer)
+            chatBusy = false
+        }
+    }
+
+    // ---- Transactions ----
+    var txns by mutableStateOf<List<TransactionDto>>(emptyList())
+        private set
+    var txnsBusy by mutableStateOf(false)
+        private set
+    var txnQuery by mutableStateOf("")
+    var txnMonth by mutableStateOf(java.time.YearMonth.now().toString()) // "yyyy-MM", or "all"
+
+    fun loadTransactions() {
+        if (txnsBusy) return
+        txnsBusy = true
+        viewModelScope.launch {
+            txns = runCatching { repo.transactions() }.getOrDefault(txns)
+            txnsBusy = false
+        }
+    }
+
+    /** Newest first, filtered by the month picker and the search box. */
+    fun visibleTransactions(): List<TransactionDto> {
+        val needle = txnQuery.trim().lowercase()
+        return txns.filter { t ->
+            (txnMonth == "all" || t.occurredAt.startsWith(txnMonth)) &&
+                (needle.isEmpty() ||
+                    listOfNotNull(t.merchant, t.category, t.accountName, t.note)
+                        .any { it.lowercase().contains(needle) })
+        }
+    }
+
+    fun months(): List<String> =
+        (listOf(java.time.YearMonth.now().toString()) + txns.map { it.occurredAt.take(7) })
+            .distinct().sortedDescending()
+
+    fun setCategory(id: Long, category: String) {
+        viewModelScope.launch {
+            runCatching { repo.setCategory(id, category) }.onSuccess { saved ->
+                txns = txns.map { if (it.id == saved.id) saved else it }
+            }
+        }
+    }
+
+    fun markPaid(reminderId: Long, occurredOn: String, amount: Double?) {
+        viewModelScope.launch {
+            runCatching { repo.markReminderPaid(reminderId, occurredOn, amount) }
+                .onSuccess { refreshDashboard() }
+        }
+    }
 
     private fun friendly(e: Exception): String = when {
         e is ApiException.Http && e.code == 401 -> "Invalid username or password."

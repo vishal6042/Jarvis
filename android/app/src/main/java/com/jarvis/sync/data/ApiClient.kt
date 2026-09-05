@@ -34,6 +34,9 @@ class ApiClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /** The local model can think for a couple of minutes; only the agent calls use this. */
+    private val slowClient = client.newBuilder().readTimeout(4, TimeUnit.MINUTES).build()
+
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
@@ -77,6 +80,26 @@ class ApiClient {
 
     suspend fun recentTransactions(baseUrl: String, token: String, size: Int = 10): List<TransactionDto> =
         getJson(baseUrl, token, "/api/transactions", mapOf("page" to "0", "size" to size.toString()))
+
+    /** Ask the local agent a question; it can take a while, so this call has its own long timeout. */
+    suspend fun chat(baseUrl: String, token: String, message: String, context: String?): String =
+        postJson<ChatReplyDto>(baseUrl, token, "/api/ai/chat", json.encodeToString(ChatRequestDto(message, context)), longCall = true).answer
+
+    suspend fun cards(baseUrl: String, token: String): List<CardSummaryDto> =
+        getJson(baseUrl, token, "/api/analytics/cards", emptyMap())
+
+    suspend fun transactions(baseUrl: String, token: String, size: Int): List<TransactionDto> =
+        getJson(baseUrl, token, "/api/transactions", mapOf("page" to "0", "size" to size.toString()))
+
+    /** Inline category change from the phone. */
+    suspend fun setCategory(baseUrl: String, token: String, id: Long, category: String): TransactionDto =
+        patchJson(baseUrl, token, "/api/transactions/$id/category", "{\"category\":\"" + category.replace("\"", "") + "\"}")
+
+    suspend fun reminderPayments(baseUrl: String, token: String): List<ReminderPaymentDto> =
+        getJson(baseUrl, token, "/api/reminders/payments", emptyMap())
+
+    suspend fun markReminderPaid(baseUrl: String, token: String, reminderId: Long, req: MarkPaidRequestDto): ReminderPaymentDto =
+        postJson(baseUrl, token, "/api/reminders/$reminderId/payments", json.encodeToString(req))
 
     suspend fun reminders(baseUrl: String, token: String): List<ReminderDto> =
         getJson(baseUrl, token, "/api/reminders", emptyMap())
@@ -168,19 +191,41 @@ class ApiClient {
         }
     }
 
+    private suspend inline fun <reified T> patchJson(
+        baseUrl: String,
+        token: String,
+        path: String,
+        bodyText: String,
+    ): T = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(url(baseUrl, path))
+            .header("Authorization", "Bearer $token")
+            .patch(bodyText.toRequestBody(jsonMedia))
+            .build()
+        client.newCall(request).execute().use { resp ->
+            val text = resp.body?.string().orEmpty()
+            when {
+                resp.isSuccessful -> json.decodeFromString<T>(text)
+                resp.code == 401 -> throw ApiException.Unauthorized
+                else -> throw ApiException.Http(resp.code)
+            }
+        }
+    }
+
     private suspend inline fun <reified T> postJson(
         baseUrl: String,
         token: String,
         path: String,
         bodyText: String,
         decode: Boolean = true,
+        longCall: Boolean = false,
     ): T = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(url(baseUrl, path))
             .header("Authorization", "Bearer $token")
             .post(bodyText.toRequestBody(jsonMedia))
             .build()
-        client.newCall(request).execute().use { resp ->
+        (if (longCall) slowClient else client).newCall(request).execute().use { resp ->
             val text = resp.body?.string().orEmpty()
             when {
                 resp.isSuccessful && decode -> json.decodeFromString<T>(text)
