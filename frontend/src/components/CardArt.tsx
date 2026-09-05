@@ -16,6 +16,7 @@ export default function CardArt({
   subtle = false,
   wave = true,
   markTop = "58%",
+  markOpacity = 1,
 }: {
   color: string;
   icon?: ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -29,6 +30,11 @@ export default function CardArt({
    * right-aligned values fall, so the caller picks the band that is actually free.
    */
   markTop?: string;
+  /**
+   * Multiplies the mark's own opacity. Dense cards whose every row carries a right-aligned value
+   * have no free band, so there the mark has to read as texture rather than as text.
+   */
+  markOpacity?: number;
 }) {
   const key = (network ?? "").toUpperCase();
   const hasMark = key === "MASTERCARD" || key === "VISA" || key === "AMEX" || key === "RUPAY";
@@ -77,7 +83,7 @@ export default function CardArt({
       {/* kept translucent: the card's right-aligned values render on top of it */}
       <div
         className="absolute right-4 -translate-y-1/2 select-none"
-        style={{ color, top: hasMark ? markTop : "58%" }}
+        style={{ color, top: hasMark ? markTop : "58%", opacity: markOpacity }}
       >
         {key === "MASTERCARD" ? (
           <div className="flex items-center opacity-45">

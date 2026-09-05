@@ -217,7 +217,12 @@ function AccountCard({
       onClick={onOpen}
       className="group relative isolate flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
     >
-      <CardArt color={tint} icon={isCard ? CreditCard : Landmark} network={isCard ? account.network : null} />
+      <CardArt
+        color={tint}
+        icon={isCard ? CreditCard : Landmark}
+        network={isCard ? account.network : null}
+        markOpacity={0.3}
+      />
       <button
         type="button"
         onClick={(e) => {
