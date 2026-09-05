@@ -26,6 +26,8 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
 
   if (investments.length === 0) return null;
 
+  // Every holding still sits at what was put in (fresh deposits, endowments before maturity).
+  const nothingValued = investments.every((i) => i.current === i.principal);
   const chartConfig: ChartConfig = Object.fromEntries(slices.map((s) => [s.cls, { label: s.label, color: s.color }]));
   const concentration = slices[0];
 
@@ -114,14 +116,15 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
               <Metric
                 label="Gain"
                 value={formatINR(Math.round(totals.gain))}
-                sub={pctText(totals.gainPct)}
+                sub={nothingValued ? "interest paid at maturity" : pctText(totals.gainPct)}
                 accent={totals.gain >= 0 ? "var(--ok)" : "var(--danger)"}
               />
               <Metric
                 label="Annualised"
-                value={totals.annualised != null ? `${totals.annualised.toFixed(1)}%` : "—"}
-                sub={totals.annualised != null ? "across all holdings" : "needs dates"}
-                accent={totals.annualised != null && totals.annualised >= 0 ? "var(--ok)" : undefined}
+                // Nothing has been revalued yet, so there is no return to report — not a zero one.
+                value={nothingValued || totals.annualised == null ? "—" : `${totals.annualised.toFixed(1)}%`}
+                sub={nothingValued ? "not valued yet" : totals.annualised != null ? "across all holdings" : "needs dates"}
+                accent={!nothingValued && totals.annualised != null && totals.annualised >= 0 ? "var(--ok)" : undefined}
               />
             </div>
             <div className="space-y-1.5">
