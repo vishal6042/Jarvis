@@ -446,3 +446,54 @@ export async function setTransactionTags(id: number, tags: string[]): Promise<Tr
 export async function bulkSetCategory(ids: number[], category: string): Promise<number> {
   return (await api.post<{ updated: number }>("/api/transactions/bulk-category", { ids, category })).data.updated;
 }
+
+// ---- Merchant identity: raw alert text → a clean name (+ the category it belongs in) ----
+export interface MerchantSummary {
+  raw: string;
+  canonical: string | null;
+  category: string | null;
+  count: number;
+  total: number;
+  uncategorised: number;
+  source: string | null;
+}
+export interface MerchantAliasRequest {
+  raw: string;
+  canonical: string;
+  category?: string | null;
+  source?: string;
+}
+export interface AliasApplyResult {
+  aliases: number;
+  renamed: number;
+  categorised: number;
+}
+export async function listMerchants(): Promise<MerchantSummary[]> {
+  return (await api.get<MerchantSummary[]>("/api/merchants")).data;
+}
+export async function saveMerchantAliases(aliases: MerchantAliasRequest[]): Promise<AliasApplyResult> {
+  return (await api.post<AliasApplyResult>("/api/merchants/aliases", aliases)).data;
+}
+export async function applyMerchantAliases(): Promise<AliasApplyResult> {
+  return (await api.post<AliasApplyResult>("/api/merchants/aliases/apply")).data;
+}
+export async function deleteMerchantAlias(raw: string): Promise<void> {
+  await api.delete("/api/merchants/aliases", { params: { raw } });
+}
+
+export interface EnrichedMerchant {
+  raw: string;
+  merchant: string;
+  category: string | null;
+  confidence: number | null;
+}
+/** Ask the local model to clean a batch of raw merchant strings. Send a handful at a time. */
+export async function aiEnrichMerchants(
+  merchants: string[],
+  categories: string[],
+  examples: string[],
+): Promise<EnrichedMerchant[]> {
+  return (
+    await api.post<EnrichedMerchant[]>("/api/ai/merchants", { merchants, categories, examples }, { timeout: 300000 })
+  ).data;
+}

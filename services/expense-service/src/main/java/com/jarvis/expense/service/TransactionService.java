@@ -11,10 +11,12 @@ import java.math.BigDecimal;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Account;
 import com.jarvis.expense.domain.Category;
+import com.jarvis.expense.domain.MerchantAlias;
 import com.jarvis.expense.domain.MessageSource;
 import com.jarvis.expense.domain.Transaction;
 import com.jarvis.expense.repo.AccountRepository;
 import com.jarvis.expense.repo.CategoryRepository;
+import com.jarvis.expense.repo.MerchantAliasRepository;
 import com.jarvis.expense.repo.TransactionRepository;
 import com.jarvis.expense.web.dto.CreateTransactionRequest;
 import com.jarvis.expense.web.dto.InternalTransactionRequest;
@@ -37,6 +39,7 @@ public class TransactionService {
     private final DedupHasher dedupHasher;
     private final TransferService transfers;
     private final RuleService rules;
+    private final MerchantAliasRepository aliases;
 
     public TransactionService(
         TransactionRepository transactions,
@@ -44,13 +47,15 @@ public class TransactionService {
         CategoryRepository categories,
         DedupHasher dedupHasher,
         TransferService transfers,
-        RuleService rules) {
+        RuleService rules,
+        MerchantAliasRepository aliases) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
         this.dedupHasher = dedupHasher;
         this.transfers = transfers;
         this.rules = rules;
+        this.aliases = aliases;
     }
 
     @Transactional(readOnly = true)
@@ -254,8 +259,14 @@ public class TransactionService {
         } else if (req.last4() != null && !req.last4().isBlank()) {
             matchAccount(req.last4().trim(), req.bank()).ifPresent(t::setAccount);
         }
-        // A user rule for this merchant beats the parser's guess.
-        String category = rules.categoryFor(req.merchant()).orElse(req.category());
+        // A user rule beats an accepted alias, which beats the parser's guess.
+        MerchantAlias alias = req.merchant() == null ? null : aliases.findByRaw(req.merchant()).orElse(null);
+        if (alias != null) {
+            t.setMerchantNorm(alias.getCanonical());
+        }
+        String category = rules
+            .categoryFor(req.merchant())
+            .orElse(alias != null && alias.getCategory() != null ? alias.getCategory() : req.category());
         if (category != null && !category.isBlank()) {
             t.setCategory(findOrCreateCategory(category.trim()));
         }

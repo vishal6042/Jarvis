@@ -83,7 +83,7 @@ export function merchantTotals(txns: Transaction[], limit = 8): { merchant: stri
   const m = new Map<string, { total: number; count: number }>();
   for (const t of txns) {
     if (t.direction !== "DEBIT" || !isRealFlow(t)) continue;
-    const k = (t.merchant ?? "").trim() || "Unknown merchant";
+    const k = (t.merchantNorm ?? t.merchant ?? "").trim() || "Unknown merchant";
     const cur = m.get(k) ?? { total: 0, count: 0 };
     cur.total += t.amount;
     cur.count += 1;

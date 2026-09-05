@@ -17,7 +17,7 @@ spring:
             - id: expense-service
               uri: lb://expense-service
               predicates:
-                - Path=/api/accounts/**,/api/transactions/**,/api/analytics/**,/api/recurring/**,/api/rules/**
+                - Path=/api/accounts/**,/api/transactions/**,/api/analytics/**,/api/recurring/**,/api/rules/**,/api/merchants/**
             - id: ingestion-service
               uri: lb://ingestion-service
               predicates:

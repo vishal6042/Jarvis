@@ -46,6 +46,10 @@ public class Transaction {
     @Column(length = 256)
     private String merchant;
 
+    /** The merchant's clean name, copied from {@link MerchantAlias} when one matches the raw text. */
+    @Column(name = "merchant_norm", length = 128)
+    private String merchantNorm;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;

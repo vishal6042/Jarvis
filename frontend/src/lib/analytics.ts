@@ -261,7 +261,7 @@ export function detectAnomalies(txns: Transaction[], today = new Date()): Anomal
   const firstSeen = new Map<string, Transaction>();
   const seenCount = new Map<string, number>();
   for (const t of [...spend].sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1))) {
-    const m = (t.merchant ?? "").trim().toLowerCase();
+    const m = (t.merchantNorm ?? t.merchant ?? "").trim().toLowerCase();
     if (!m) continue;
     if (!firstSeen.has(m)) firstSeen.set(m, t);
     seenCount.set(m, (seenCount.get(m) ?? 0) + 1);
@@ -271,7 +271,7 @@ export function detectAnomalies(txns: Transaction[], today = new Date()): Anomal
     out.push({
       id: `new-${t.id}`,
       kind: "new-merchant",
-      title: `First payment to ${t.merchant}`,
+      title: `First payment to ${t.merchantNorm ?? t.merchant}`,
       detail: `${t.category ?? "Uncategorized"} · ${t.accountName ?? "unknown account"}`,
       amount: t.amount,
       severity: "amber",
@@ -377,7 +377,7 @@ export function recurringIntelligence(
     if (!merchant) continue;
     const needle = merchant.toLowerCase();
     const mine = spend
-      .filter((t) => (t.merchant ?? "").trim().toLowerCase() === needle)
+      .filter((t) => (t.merchantNorm ?? t.merchant ?? "").trim().toLowerCase() === needle)
       .sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1));
     const firstAmount = mine.length > 1 ? mine[0].amount : null;
     const latest = mine.length > 0 ? mine[mine.length - 1].amount : r.amount;

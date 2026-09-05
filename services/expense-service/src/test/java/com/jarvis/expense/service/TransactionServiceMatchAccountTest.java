@@ -10,6 +10,7 @@ import com.jarvis.expense.domain.Account;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.repo.AccountRepository;
 import com.jarvis.expense.repo.CategoryRepository;
+import com.jarvis.expense.repo.MerchantAliasRepository;
 import com.jarvis.expense.repo.TransactionRepository;
 import java.util.List;
 import java.util.Optional;
@@ -31,7 +32,7 @@ class TransactionServiceMatchAccountTest {
         when(accounts.findByLast4(anyString())).thenReturn(List.of());
         service = new TransactionService(
             mock(TransactionRepository.class), accounts, mock(CategoryRepository.class), mock(DedupHasher.class),
-            mock(TransferService.class), mock(RuleService.class));
+            mock(TransferService.class), mock(RuleService.class), mock(MerchantAliasRepository.class));
     }
 
     @Test

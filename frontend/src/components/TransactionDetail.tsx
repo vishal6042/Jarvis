@@ -111,7 +111,7 @@ export function TransactionDetailDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between gap-3">
-            <span className="truncate">{txn.merchant ?? "Transaction"}</span>
+            <span className="truncate">{txn.merchantNorm ?? txn.merchant ?? "Transaction"}</span>
             <span className={`inline-flex shrink-0 items-center gap-1 text-lg font-semibold tabular-nums ${income ? "text-[color:var(--ok)]" : ""}`}>
               {income ? <ArrowUpRight className="size-4" /> : <ArrowDownRight className="size-4" />}
               {formatINR(txn.amount)}
@@ -139,6 +139,11 @@ export function TransactionDetailDialog({
             )}
           </Field>
           <Field label="Source">{txn.source}</Field>
+          {txn.merchantNorm && txn.merchantNorm !== txn.merchant && (
+            <Field label="From the alert">
+              <span className="font-mono text-xs break-all">{txn.merchant}</span>
+            </Field>
+          )}
           <Field label="Direction">{txn.direction === "CREDIT" ? "Credit (money in)" : "Debit (money out)"}</Field>
           {txn.note && (
             <div className="col-span-2">

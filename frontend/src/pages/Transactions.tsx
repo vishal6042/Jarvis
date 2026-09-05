@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Copy, ListChecks, Pencil, Plus, Search, S
 import { applyRules, createRule, deleteRule, listDuplicates, listRules, setTransactionCategory, type CategoryRule } from "@/api";
 import { Switch } from "@/components/ui/switch";
 import { BulkCategoryDialog, TransactionDetailDialog } from "@/components/TransactionDetail";
+import MerchantCleanupDialog from "@/components/MerchantCleanupDialog";
 import CardArt from "@/components/CardArt";
 import {
   createTransaction,
@@ -104,6 +105,7 @@ export default function Transactions() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [detail, setDetail] = useState<Transaction | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
 
   // dialogs
   const [editing, setEditing] = useState<Draft | null>(null);
@@ -149,7 +151,7 @@ export default function Transactions() {
       if (cat !== "all" && (t.category ?? "") !== cat) return false;
       if (acct !== "all" && String(t.accountId ?? "") !== acct) return false;
       if (needle) {
-        const hay = `${t.merchant ?? ""} ${t.category ?? ""} ${t.note ?? ""} ${t.accountName ?? ""}`.toLowerCase();
+        const hay = `${t.merchantNorm ?? ""} ${t.merchant ?? ""} ${t.category ?? ""} ${t.note ?? ""} ${t.accountName ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
@@ -266,6 +268,9 @@ export default function Transactions() {
           >
             <ListChecks className="size-4" /> Review{reviewCount + dups.length > 0 ? ` (${reviewCount + dups.length})` : ""}
           </Button>
+          <Button variant="outline" onClick={() => setCleanupOpen(true)} className="gap-2">
+            <Sparkles className="size-4" /> Clean up merchants
+          </Button>
           <Button variant="outline" onClick={() => setRulesOpen(true)} className="gap-2">
             <Wand2 className="size-4" /> Rules
           </Button>
@@ -282,6 +287,7 @@ export default function Transactions() {
         onSaved={reload}
       />
       <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} categories={categories} onApplied={reload} />
+      <MerchantCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} onApplied={reload} />
       <TransactionDetailDialog
         txn={detail}
         accounts={accounts}
@@ -404,8 +410,13 @@ export default function Transactions() {
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.occurredAt)}</TableCell>
                         <TableCell className="font-medium">
-                          <button type="button" onClick={() => setDetail(t)} className="text-left hover:underline" title="Open details">
-                            {t.merchant ?? "—"}
+                          <button
+                            type="button"
+                            onClick={() => setDetail(t)}
+                            className="text-left hover:underline"
+                            title={t.merchantNorm && t.merchantNorm !== t.merchant ? `Alert text: ${t.merchant}` : "Open details"}
+                          >
+                            {t.merchantNorm ?? t.merchant ?? "—"}
                           </button>
                           {t.tags && t.tags.length > 0 && (
                             <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">

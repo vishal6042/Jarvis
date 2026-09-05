@@ -2,6 +2,7 @@ package com.jarvis.ai.web;
 
 import com.jarvis.ai.agent.ActionPlanner;
 import com.jarvis.ai.agent.FinanceScore;
+import com.jarvis.ai.agent.MerchantEnricher;
 import com.jarvis.ai.agent.FinanceScoreAgent;
 import com.jarvis.ai.agent.ParsedTransaction;
 import com.jarvis.ai.agent.QueryAgent;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import java.util.List;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,6 +32,7 @@ public class AiController {
     private final QueryAgent queryAgent;
     private final FinanceScoreAgent scoreAgent;
     private final ActionPlanner planner;
+    private final MerchantEnricher enricher;
     private final String internalKey;
 
     public AiController(
@@ -38,12 +41,14 @@ public class AiController {
         QueryAgent queryAgent,
         FinanceScoreAgent scoreAgent,
         ActionPlanner planner,
+        MerchantEnricher enricher,
         @Value("${jarvis.internal.key}") String internalKey) {
         this.parser = parser;
         this.statementParser = statementParser;
         this.queryAgent = queryAgent;
         this.scoreAgent = scoreAgent;
         this.planner = planner;
+        this.enricher = enricher;
         this.internalKey = internalKey;
     }
 
@@ -84,6 +89,25 @@ public class AiController {
     }
 
     public record PlanRequest(@NotBlank String message) {}
+
+    /**
+     * Clean a batch of raw merchant strings into readable names plus a category. Send a dozen or
+     * so at a time; the caller decides what to accept.
+     */
+    @PostMapping("/api/ai/merchants")
+    public List<MerchantEnricher.EnrichedMerchant> merchants(@RequestBody EnrichRequest req) {
+        return enricher.enrich(
+            req.merchants() == null ? List.of() : req.merchants(),
+            req.categories() == null || req.categories().isEmpty() ? DEFAULT_CATEGORIES : req.categories(),
+            req.examples() == null ? List.of() : req.examples());
+    }
+
+    private static final List<String> DEFAULT_CATEGORIES = List.of(
+        "Food", "Groceries", "Shopping", "Transport", "Bills & Utilities", "Entertainment",
+        "Health", "Travel", "Education", "Rent", "Investments", "Loan EMI", "Card Payment",
+        "Transfers", "Income", "Miscellaneous");
+
+    public record EnrichRequest(List<String> merchants, List<String> categories, List<String> examples) {}
 
     /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
     @PostMapping("/api/ai/finance-score")

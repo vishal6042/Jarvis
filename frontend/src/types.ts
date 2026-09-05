@@ -59,6 +59,8 @@ export interface Transaction {
   currency: string;
   direction: Direction;
   merchant: string | null;
+  /** The clean merchant name once an alias has been accepted for the raw text. */
+  merchantNorm?: string | null;
   category: string | null;
   occurredAt: string;
   source: TxnSource;

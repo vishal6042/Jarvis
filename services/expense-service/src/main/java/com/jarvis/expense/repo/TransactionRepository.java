@@ -17,6 +17,16 @@ import org.springframework.data.repository.query.Param;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
+    /** Every distinct raw merchant string with how often it appears and how much is uncategorised. */
+    @Query(
+        "select t.merchant, count(t), sum(t.amount), "
+            + "sum(case when t.category is null or t.category.name = 'Uncategorized' then 1 else 0 end) "
+            + "from Transaction t where t.merchant is not null and t.merchant <> '' "
+            + "group by t.merchant order by count(t) desc")
+    List<Object[]> merchantGroups();
+
+    List<Transaction> findByMerchant(String merchant);
+
     boolean existsByDedupHash(String dedupHash);
 
     /** Would this hash collide with a *different* transaction? Guards the unique index on edit. */
