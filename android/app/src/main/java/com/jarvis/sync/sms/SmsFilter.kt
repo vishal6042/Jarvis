@@ -13,6 +13,8 @@ object SmsFilter {
         "debited", "credited", "debit", "credit", "spent", "withdrawn", "received",
         "paid", "payment", "txn", "transaction", "purchase", "upi", "a/c", "acct",
         "account", "avl bal", "avbl bal", "balance",
+        // EPFO passbook alerts carry the PF balance and the month contribution.
+        "passbook", "contribution",
     )
 
     private val skipKeywords = listOf(

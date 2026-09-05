@@ -120,10 +120,17 @@ export function flowsFor(inv: Investment, today = new Date()): CashFlow[] {
   const sip = inv.sip ?? 0;
 
   if (sip > 0) {
-    // One instalment a month, but never more than the amount actually invested.
-    const cap = Math.max(1, Math.round(inv.principal / sip));
+    const monthsElapsed = Math.max(
+      1,
+      (today.getFullYear() - from.getFullYear()) * 12 + (today.getMonth() - from.getMonth()) + 1,
+    );
+    // Instalments cannot exceed what was actually put in; anything above them is money that was
+    // already there when tracking began (a transferred-in EPF balance, say) and counts at the start.
+    const instalments = Math.max(1, Math.min(monthsElapsed, Math.round(inv.principal / sip)));
+    const opening = Math.max(0, inv.principal - sip * instalments);
+    if (opening > 0) flows.push({ on: from, amount: -opening });
     let d = new Date(from);
-    for (let n = 0; n < cap && d <= today; n++) {
+    for (let n = 0; n < instalments && d <= today; n++) {
       flows.push({ on: new Date(d), amount: -sip });
       d = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());
     }

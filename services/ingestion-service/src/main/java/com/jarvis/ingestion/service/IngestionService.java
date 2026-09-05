@@ -93,6 +93,27 @@ public class IngestionService {
     /** Parse → persist → record the outcome, for a raw message that is already stored. */
     private Outcome process(RawMessage msg) {
         try {
+            // EPFO passbook alerts state the balance outright, so they update the PF investment
+            // directly. They are caught before the noise gate, which rejects "passbook balance".
+            AlertHints.EpfAlert epf = AlertHints.epfAlert(msg.getPayload());
+            if (epf != null) {
+                var pf = finance.findByLast4(epf.last4());
+                if (pf.isEmpty()) {
+                    return new Outcome(
+                        finish(msg, ParseStatus.IGNORED, null,
+                            "EPF passbook update for account ending " + epf.last4() + " — no investment linked to it."),
+                        null);
+                }
+                var res = finance.contribute(
+                    pf.get().accountLast4(),
+                    epf.contribution(),
+                    epf.balance(),
+                    epf.dueMonth() != null ? epf.dueMonth() : msg.getReceivedAt().atZone(ZoneOffset.UTC).toLocalDate());
+                String detail = "EPF update for " + res.name()
+                    + (res.applied() ? "" : " (already counted)") + " · balance ₹" + res.current().toPlainString();
+                return new Outcome(finish(msg, ParseStatus.INVESTMENT, null, detail), null);
+            }
+
             if (AlertHints.isNotATransaction(msg.getPayload())) {
                 return new Outcome(
                     finish(msg, ParseStatus.IGNORED, null, "Not a bank transaction alert (wallet / statement / notice)."),

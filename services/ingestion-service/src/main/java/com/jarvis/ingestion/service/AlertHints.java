@@ -58,6 +58,67 @@ public final class AlertHints {
     /** Bare masked numbers without a keyword, e.g. "XXXXXXXX1507 CREDIT" — lower confidence, so tried last. */
     private static final Pattern BARE_MASKED = Pattern.compile("[xX*]{4,}(\\d{3,})\\b");
 
+    /**
+     * EPFO passbook alerts, e.g. "your passbook balance against BGBNG**************9425 is
+     * Rs. 35,97,720/-. Contribution of Rs. 53,994/- for due month Jun-26 has been received."
+     * The format is fixed, so this is read directly rather than sent to the model: the generic
+     * account matcher would pick up the UAN in "Dear XXXXXXXX8133" instead of the PF account.
+     */
+    private static final Pattern EPF_PASSBOOK = Pattern.compile(
+        "(?i)passbook\\s+balance\\s+against\\s+\\S*?(\\d{3,})\\s+is\\s+(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)");
+
+    private static final Pattern EPF_CONTRIBUTION = Pattern.compile(
+        "(?i)contribution\\s+of\\s+(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)");
+
+    /** "for due month Jun-26" — the month the contribution belongs to, not when the SMS arrived. */
+    private static final Pattern EPF_DUE_MONTH = Pattern.compile(
+        "(?i)due\\s+month\\s+([A-Za-z]{3})-(\\d{2})");
+
+    /**
+     * @param last4        the PF account's trailing digits
+     * @param balance      the passbook balance stated in the alert
+     * @param contribution the month's contribution, null when the alert states none
+     * @param dueMonth     first day of the month the contribution is for
+     */
+    public record EpfAlert(
+        String last4,
+        java.math.BigDecimal balance,
+        java.math.BigDecimal contribution,
+        java.time.LocalDate dueMonth) {}
+
+    /** The EPF figures in this alert, or null when it is not an EPFO passbook message. */
+    public static EpfAlert epfAlert(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher m = EPF_PASSBOOK.matcher(text);
+        if (!m.find()) {
+            return null;
+        }
+        java.math.BigDecimal balance = toAmount(m.group(2));
+        if (balance == null) {
+            return null;
+        }
+        Matcher c = EPF_CONTRIBUTION.matcher(text);
+        java.math.BigDecimal contribution = c.find() ? toAmount(c.group(1)) : null;
+
+        java.time.LocalDate dueMonth = null;
+        Matcher d = EPF_DUE_MONTH.matcher(text);
+        if (d.find()) {
+            try {
+                java.time.Month month = java.time.Month.valueOf(d.group(1).toUpperCase().substring(0, 3)
+                    .replace("JAN", "JANUARY").replace("FEB", "FEBRUARY").replace("MAR", "MARCH")
+                    .replace("APR", "APRIL").replace("MAY", "MAY").replace("JUN", "JUNE")
+                    .replace("JUL", "JULY").replace("AUG", "AUGUST").replace("SEP", "SEPTEMBER")
+                    .replace("OCT", "OCTOBER").replace("NOV", "NOVEMBER").replace("DEC", "DECEMBER"));
+                dueMonth = java.time.LocalDate.of(2000 + Integer.parseInt(d.group(2)), month, 1);
+            } catch (RuntimeException ignored) {
+                dueMonth = null;
+            }
+        }
+        return new EpfAlert(trailingDigits(m.group(1)), balance, contribution, dueMonth);
+    }
+
     /** True when the text is a wallet / passbook / merchant notice that must not become a transaction. */
     public static boolean isNotATransaction(String text) {
         if (text == null) {
