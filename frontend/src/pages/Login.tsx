@@ -65,7 +65,9 @@ export default function Login() {
     setInfo("");
     setForgotQuestion(null);
     setMode("forgot");
-    getSecurityQuestion()
+    // With more than one account the question depends on whose it is, so send whatever
+    // username has been typed; without one the server answers for the administrator.
+    getSecurityQuestion(username.trim() || undefined)
       .then((q) => setForgotQuestion(q))
       .catch(() => setForgotQuestion(null));
   }
@@ -107,7 +109,7 @@ export default function Login() {
         setSecurityAnswer("");
         setInfo("Account created — please sign in.");
       } else if (mode === "forgot") {
-        await resetPassword(securityAnswer.trim(), password);
+        await resetPassword(securityAnswer.trim(), password, username.trim() || undefined);
         setMode("signin");
         setPassword("");
         setConfirm("");

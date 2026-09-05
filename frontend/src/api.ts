@@ -7,9 +7,12 @@ import type {
   ChatReply,
   ConfirmStatementRequest,
   CreateTransactionRequest,
+  CreateUserPayload,
   FinanceMetrics,
   FinanceScoreResult,
+  HouseholdUser,
   LoginResponse,
+  Me,
   NetWorthPoint,
   RecurringPayment,
   PeriodSummary,
@@ -102,13 +105,45 @@ export async function register(payload: RegisterPayload): Promise<void> {
 export async function authExists(): Promise<boolean> {
   return (await api.get<{ exists: boolean }>("/api/auth/exists")).data.exists;
 }
-/** The security question to show on the "forgot password" screen (null if none set). */
-export async function getSecurityQuestion(): Promise<string | null> {
-  return (await api.get<{ question: string | null }>("/api/auth/security-question")).data.question;
+/** Who is signed in and what they are allowed to see. */
+export async function me(): Promise<Me> {
+  return (await api.get<Me>("/api/auth/me")).data;
+}
+/**
+ * The security question for the "forgot password" screen (null if none set). With more than one
+ * account the username says whose; without it the server answers for the administrator.
+ */
+export async function getSecurityQuestion(username?: string): Promise<string | null> {
+  const { data } = await api.get<{ question: string | null }>("/api/auth/security-question", {
+    params: username ? { username } : undefined,
+  });
+  return data.question;
 }
 /** Recover access: answer the security question and set a new password. */
-export async function resetPassword(answer: string, newPassword: string): Promise<void> {
-  await api.post("/api/auth/reset-password", { answer, newPassword });
+export async function resetPassword(
+  answer: string,
+  newPassword: string,
+  username?: string
+): Promise<void> {
+  await api.post("/api/auth/reset-password", { answer, newPassword, username });
+}
+
+// ---- Household accounts (administrator only) ----
+
+export async function listUsers(): Promise<HouseholdUser[]> {
+  return (await api.get<HouseholdUser[]>("/api/users")).data;
+}
+export async function createUser(payload: CreateUserPayload): Promise<HouseholdUser> {
+  return (await api.post<HouseholdUser>("/api/users", payload)).data;
+}
+export async function updateUser(
+  id: number,
+  patch: { password?: string; memberId?: number; admin?: boolean }
+): Promise<HouseholdUser> {
+  return (await api.patch<HouseholdUser>("/api/users/" + id, patch)).data;
+}
+export async function deleteUser(id: number): Promise<void> {
+  await api.delete("/api/users/" + id);
 }
 /** Change the password while signed in (current password required). */
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

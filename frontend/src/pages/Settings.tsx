@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Check, ShieldCheck, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useReserve } from "@/lib/prefs";
 import CardArt from "@/components/CardArt";
+import HouseholdAccounts from "@/components/HouseholdAccounts";
+import { useSession } from "@/lib/session";
 import { analyticsByCategory, forgetDevice, listDevices, type ConnectedDevice } from "@/api";
 import { CATEGORIES } from "@/lib/sample";
 import { useThresholds } from "@/lib/store";
@@ -24,6 +26,9 @@ function relative(iso: string | null | undefined): string {
 const CAT_COLORS = ["#10b981", "#8b5cf6", "#3b82f6", "#f59e0b", "#ec4899", "#14b8a6", "#ef4444", "#a855f7"];
 
 export default function Settings() {
+  const { me } = useSession();
+  // Thresholds are a household budget, so only the administrator can move them.
+  const admin = me?.admin ?? false;
   const { items, saveAll } = useThresholds();
   const [draft, setDraft] = useState<Record<string, number>>(items);
   const [spent, setSpent] = useState<Record<string, number>>({});
@@ -82,7 +87,7 @@ export default function Settings() {
               <Check className="size-4" /> Saved
             </span>
           )}
-          <Button onClick={save} disabled={!dirty}>
+          <Button onClick={save} disabled={!dirty || !admin}>
             Save changes
           </Button>
         </div>
@@ -191,6 +196,8 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+
+      <HouseholdAccounts />
 
       <Card className="relative isolate overflow-hidden">
         <CardArt color="#8b5cf6" subtle />

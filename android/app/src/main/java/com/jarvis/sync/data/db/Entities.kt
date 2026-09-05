@@ -16,6 +16,12 @@ data class SessionEntity(
     val token: String,
     val tokenSavedAt: Long = System.currentTimeMillis(),
     val forwardingEnabled: Boolean = true,
+    /**
+     * What this sign-in is allowed to see. The server already scopes every answer; these are kept
+     * so the app can stop offering choices that would come back empty.
+     */
+    val admin: Boolean = true,
+    val memberId: Long? = null,
 )
 
 /** A captured SMS awaiting delivery. Durable — survives app kill / reboot until it reaches the server. */

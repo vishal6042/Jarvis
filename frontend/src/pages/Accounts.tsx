@@ -5,6 +5,7 @@ import { CreditCard, Landmark, Pencil, Plus, Trash2, Wallet } from "lucide-react
 import { createAccount, deleteAccount, listAccounts, updateAccount } from "@/api";
 import type { Account, AccountRequest, AccountType } from "@/types";
 import { formatINR } from "@/lib/format";
+import { useSession } from "@/lib/session";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import CardArt, { networkColor } from "@/components/CardArt";
 import BestCardCard from "@/components/BestCardCard";
@@ -131,10 +132,12 @@ function AccountDetailsDialog({
   account,
   onClose,
   onEdit,
+  canEdit,
 }: {
   account: Account | null;
   onClose: () => void;
   onEdit: () => void;
+  canEdit: boolean;
 }) {
   if (!account) return null;
   const isCard = account.type !== "SAVINGS";
@@ -190,9 +193,11 @@ function AccountDetailsDialog({
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          <Button className="gap-1" onClick={onEdit}>
-            <Pencil className="size-3.5" /> Edit
-          </Button>
+          {canEdit && (
+            <Button className="gap-1" onClick={onEdit}>
+              <Pencil className="size-3.5" /> Edit
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -204,11 +209,14 @@ function AccountCard({
   onOpen,
   onEdit,
   onDelete,
+  canEdit,
 }: {
   account: Account;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** Accounts belong to the household, so only the administrator may change them. */
+  canEdit: boolean;
 }) {
   const isCard = account.type !== "SAVINGS";
   const tint = isCard ? networkColor(account.network, ACCOUNT_TYPE_COLOR[account.type]) : ACCOUNT_TYPE_COLOR.SAVINGS;
@@ -225,6 +233,7 @@ function AccountCard({
       />
       <button
         type="button"
+        hidden={!canEdit}
         onClick={(e) => {
           e.stopPropagation();
           onEdit();
@@ -289,7 +298,7 @@ function AccountCard({
             <Row label="Current balance" value={account.balance != null ? formatINR(account.balance) : null} />
           </>
         )}
-        <div className="mt-auto flex items-center justify-end pt-3">
+        <div className="mt-auto flex items-center justify-end pt-3" hidden={!canEdit}>
           <Button
             variant="ghost"
             size="sm"
@@ -319,6 +328,7 @@ function Row({ label, value }: { label: string; value?: string | null }) {
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [open, setOpen] = useState(false);
+  const admin = useSession().me?.admin ?? false;
   const [editing, setEditing] = useState<Account | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -393,9 +403,11 @@ export default function Accounts() {
               <TabsTrigger value="cards">Cards</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={openAdd} className="gap-2">
-            <Plus className="size-4" /> Add
-          </Button>
+          {admin && (
+            <Button onClick={openAdd} className="gap-2">
+              <Plus className="size-4" /> Add
+            </Button>
+          )}
         </div>
       </div>
 
@@ -428,6 +440,7 @@ export default function Accounts() {
               onOpen={() => setDetails(a)}
               onEdit={() => openEdit(a)}
               onDelete={() => setToDelete(a)}
+              canEdit={admin}
             />
           ))}
         </div>
@@ -443,6 +456,7 @@ export default function Accounts() {
           setDetails(null);
           if (a) openEdit(a);
         }}
+        canEdit={admin}
       />
 
       <Dialog open={open} onOpenChange={setOpen}>

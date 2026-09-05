@@ -87,6 +87,8 @@ class SyncRepository private constructor(context: Context) {
                 token = resp.token,
                 tokenSavedAt = System.currentTimeMillis(),
                 forwardingEnabled = true,
+                admin = resp.admin,
+                memberId = resp.memberId,
             )
         )
     }

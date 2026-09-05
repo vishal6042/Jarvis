@@ -916,6 +916,19 @@ private fun SettingsScreen(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Signed in as ${session.username}", fontWeight = FontWeight.SemiBold)
+                // Say plainly whose money this sign-in shows, so nobody has to guess whether a
+                // number on screen is theirs or the whole household's.
+                val scope = if (session.admin) {
+                    "Sees the whole household"
+                } else {
+                    val name = vm.dashboard.value
+                        ?.let { vm.extras(it) }
+                        ?.members
+                        ?.firstOrNull { it.id == session.memberId }
+                        ?.name
+                    if (name != null) "Sees $name only" else "Sees one person only"
+                }
+                Text(scope, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(session.baseUrl, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

@@ -53,6 +53,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val dashboard = repo.dashboardFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /**
+     * Whether this sign-in has authority over the whole household. The server decides what comes
+     * back either way; this only stops the app offering a choice that would answer nothing.
+     */
+    val isAdmin = session
+        .map { it !is SessionUi.LoggedIn || it.session.admin }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val pendingCount = repo.pendingCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 

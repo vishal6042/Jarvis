@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SessionEntity::class, PendingMessage::class, SyncLogEntry::class, DashboardCache::class, ImportedSms::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +20,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun importedSmsDao(): ImportedSmsDao
 
     companion object {
+        /** v4: the session remembers whether it is the administrator, and whose money it sees. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE session ADD COLUMN admin INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE session ADD COLUMN memberId INTEGER")
+            }
+        }
+
         /** v3: extra dashboard sections cached as one JSON blob. */
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -45,7 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "jarvis-sync.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).fallbackToDestructiveMigration().build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

@@ -22,6 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { logout } from "@/api";
+import { clearSession } from "@/lib/session";
 import { useTheme } from "@/theme";
 import { useFamily } from "@/lib/store";
 import { useNotifications } from "@/lib/notifications";
@@ -210,6 +211,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const signOut = () => {
     logout();
+    // Forget who was signed in, so the next person does not inherit their permissions.
+    clearSession();
     navigate("/login");
   };
   const showFab = location.pathname !== "/assistant";

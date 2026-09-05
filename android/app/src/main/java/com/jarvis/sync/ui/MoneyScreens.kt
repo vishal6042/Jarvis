@@ -101,7 +101,10 @@ fun MoneyScreen(vm: AppViewModel) {
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
-        val members = extras?.members.orEmpty()
+        // Someone confined to one person has nothing to choose between: everything they can see is
+        // already theirs, so the chips would only offer empty answers.
+        val admin by vm.isAdmin.collectAsState()
+        val members = if (admin) extras?.members.orEmpty() else emptyList()
         if (members.size > 1) {
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),

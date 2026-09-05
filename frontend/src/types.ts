@@ -45,6 +45,36 @@ export interface LoginResponse {
   tokenType: string;
   expiresInMinutes: number;
   username: string;
+  /** Whether this account has authority over the whole household. */
+  admin: boolean;
+  /** The household member this account speaks for; null for an administrator. */
+  memberId: number | null;
+}
+
+/** Who is signed in, as the server sees them. */
+export interface Me {
+  username: string;
+  admin: boolean;
+  memberId: number | null;
+}
+
+/** A household account, as the administrator manages it. */
+export interface HouseholdUser {
+  id: number;
+  username: string;
+  admin: boolean;
+  memberId: number | null;
+  canRecover: boolean;
+  createdAt: string;
+}
+
+export interface CreateUserPayload {
+  username: string;
+  password: string;
+  memberId: number;
+  admin: boolean;
+  securityQuestion?: string;
+  securityAnswer?: string;
 }
 
 // ---- Transactions / analytics (expense-service) ----

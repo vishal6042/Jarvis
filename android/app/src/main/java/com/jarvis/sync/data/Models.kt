@@ -13,6 +13,10 @@ data class LoginResponse(
     val token: String,
     val username: String? = null,
     val expiresInMinutes: Int = 0,
+    /** Whether this account has authority over the whole household. */
+    val admin: Boolean = true,
+    /** The household member it speaks for; null for an administrator. */
+    val memberId: Long? = null,
 )
 
 @Serializable
