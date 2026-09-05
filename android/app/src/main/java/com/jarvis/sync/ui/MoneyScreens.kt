@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jarvis.sync.data.CardSummaryDto
+import com.jarvis.sync.data.InvestmentDto
 import com.jarvis.sync.data.TransactionDto
 import java.time.LocalDate
 import java.time.YearMonth
@@ -130,6 +131,24 @@ fun MoneyScreen(vm: AppViewModel) {
                 items(cards, key = { it.accountId }) { CardBillRow(it) }
                 item { Spacer(Modifier.height(8.dp)) }
             }
+            val holdings = extras?.holdings.orEmpty()
+            if (holdings.isNotEmpty()) {
+                item {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Investments", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(
+                            inr(holdings.sumOf { it.current }),
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF10B981),
+                        )
+                    }
+                }
+                items(holdings, key = { "inv-" + it.id }) { HoldingRow(it) }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
@@ -181,6 +200,37 @@ private fun CardBillRow(c: CardSummaryDto) {
             c.utilisationPct?.let {
                 Text(it.toString() + "% used", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        }
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun HoldingRow(i: InvestmentDto) {
+    val gain = i.current - i.principal
+    val pct = if (i.principal > 0) gain / i.principal * 100 else 0.0
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(i.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(inr(i.current), fontWeight = FontWeight.Bold)
+        }
+        Row {
+            Text(
+                buildString {
+                    append(i.kind)
+                    append(" · ").append(inr(i.principal)).append(" in")
+                    val sip = i.sip ?: 0.0
+                    if (sip > 0) append(" · ").append(inr(sip)).append("/mo")
+                },
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                (if (gain >= 0) "+" else "") + inr(gain) + " (" + String.format(java.util.Locale.US, "%.1f", pct) + "%)",
+                fontSize = 12.sp,
+                color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E),
+            )
         }
     }
     HorizontalDivider()

@@ -179,6 +179,8 @@ data class DashboardExtras(
     val scoreFingerprint: String? = null,
     val scoreAt: Long = 0L,
     val cards: List<CardSummaryDto> = emptyList(),
+    /** Each investment, so the phone can show EPF, NPS and the deposits separately. */
+    val holdings: List<InvestmentDto> = emptyList(),
     val paidOccurrences: List<String> = emptyList(),
 )
 

@@ -335,6 +335,7 @@ class SyncRepository private constructor(context: Context) {
             scoreFingerprint = if (fresh) previous.scoreFingerprint else previous?.scoreFingerprint,
             scoreAt = if (fresh) previous.scoreAt else (previous?.scoreAt ?: 0L),
             cards = cards,
+            holdings = investments,
             paidOccurrences = paidKeys,
         )
 
