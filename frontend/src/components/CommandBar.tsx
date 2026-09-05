@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -75,7 +75,7 @@ export default function CommandBar({ open, onOpenChange }: { open: boolean; onOp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[18%] translate-y-0 gap-0 p-0 sm:max-w-xl">
+      <DialogContent showCloseButton={false} className="top-[18%] translate-y-0 gap-0 p-0 sm:max-w-xl">
         <DialogTitle className="sr-only">Ask Jarvis or jump to a page</DialogTitle>
         <div className="flex items-center gap-2 border-b px-3">
           <Sparkles className="size-4 shrink-0 text-primary jarvis-pulse" />
@@ -104,25 +104,27 @@ export default function CommandBar({ open, onOpenChange }: { open: boolean; onOp
           <kbd className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">Esc</kbd>
         </div>
         <div className="max-h-[50vh] overflow-y-auto p-2">
-          {pages.length > 0 && <p className="px-2 pt-1 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Go to</p>}
           {items.map((it, i) => (
-            <button
-              key={`${it.kind}-${it.label}`}
-              type="button"
-              onMouseEnter={() => setCursor(i)}
-              onClick={() => run(it)}
-              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${i === cursor ? "bg-primary/12 text-foreground" : "text-muted-foreground hover:bg-accent"}`}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                {it.kind === "ask" && <Sparkles className="size-3.5 shrink-0 text-primary" />}
-                <span className="truncate">{it.kind === "ask" ? `Ask Jarvis: “${it.label}”` : it.label}</span>
-              </span>
-              <ArrowRight className="size-3.5 shrink-0 opacity-60" />
-            </button>
+            <Fragment key={`${it.kind}-${it.label}`}>
+              {(i === 0 || items[i - 1].kind !== it.kind) && (
+                <p className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase first:pt-1">
+                  {it.kind === "page" ? "Go to" : "Ask Jarvis"}
+                </p>
+              )}
+              <button
+                type="button"
+                onMouseEnter={() => setCursor(i)}
+                onClick={() => run(it)}
+                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${i === cursor ? "bg-primary/12 text-foreground" : "text-muted-foreground hover:bg-accent"}`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {it.kind === "ask" && <Sparkles className="size-3.5 shrink-0 text-primary" />}
+                  <span className="truncate">{it.kind === "ask" ? `Ask Jarvis: “${it.label}”` : it.label}</span>
+                </span>
+                <ArrowRight className="size-3.5 shrink-0 opacity-60" />
+              </button>
+            </Fragment>
           ))}
-          {items.findIndex((x) => x.kind === "ask") === pages.length && pages.length > 0 && (
-            <p className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Ask Jarvis</p>
-          )}
         </div>
       </DialogContent>
     </Dialog>
