@@ -267,7 +267,7 @@ function CardsSection({ cards }: { cards: CardSummary[] }) {
           const util = c.utilisationPct ?? 0;
           const dueSoon = c.dueOn ? (new Date(`${c.dueOn}T00:00:00`).getTime() - Date.now()) / 86_400_000 <= 5 : false;
           return (
-            <Card key={c.accountId} className="relative isolate overflow-hidden">
+            <Card key={c.accountId} className="relative isolate flex h-full flex-col overflow-hidden">
               <CardArt color={tint} icon={CreditCard} network={c.network} wave={false} />
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center justify-between">
@@ -282,7 +282,7 @@ function CardsSection({ cards }: { cards: CardSummary[] }) {
                 )}
                 <p className="text-xs text-muted-foreground">unbilled{c.nextStatementOn ? ` · statement ${fmtDay(c.nextStatementOn)}` : ""}</p>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
+              <CardContent className="mt-auto space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">
                     Bill due
