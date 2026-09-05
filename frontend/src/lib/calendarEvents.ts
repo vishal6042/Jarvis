@@ -126,6 +126,9 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
     const start = inv.commencementDate ?? inv.openingDate;
     if (!start) continue;
     if (inv.maturityDate && monthOf(inv.maturityDate) < target) continue;
+    const yearly = inv.contributionFrequency === "yearly";
+    // A yearly premium is only due in its anniversary month.
+    if (yearly && Number(start.slice(5, 7)) - 1 !== m) continue;
     const on = inMonth(start, y, m);
     if (!on) continue;
     const covered = remindersInMonth.some((r) => (r.type === "INVESTMENT" || r.type === "SIP") && r.amount != null && near(r.amount, sip));
@@ -136,7 +139,13 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
       kind: "sip",
       title: `${inv.name} · ${KIND_META[inv.kind].label}`,
       // A payslip deduction never leaves the bank account: the salary arrives net of it.
-      detail: inv.salaryDeducted ? "Deducted from salary" : inv.kind === "RD" ? "Monthly deposit" : "SIP instalment",
+      detail: inv.salaryDeducted
+        ? "Deducted from salary"
+        : yearly
+          ? "Annual premium"
+          : inv.kind === "RD"
+            ? "Monthly deposit"
+            : "SIP instalment",
       amount: sip,
       direction: inv.salaryDeducted ? "info" : "out",
       color: KIND_META[inv.kind].color,

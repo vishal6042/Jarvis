@@ -22,6 +22,8 @@ export interface ApiInvestment {
   notes?: string | null;
   /** True for payslip deductions (EPF, corporate NPS): never money still to pay. */
   salaryDeducted?: boolean;
+  /** "monthly" (default) or "yearly". */
+  contributionFrequency?: "monthly" | "yearly";
 }
 export interface ApiLoan {
   id: number;

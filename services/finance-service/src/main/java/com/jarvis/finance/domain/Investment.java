@@ -66,6 +66,10 @@ public class Investment {
     @Column(name = "salary_deducted", nullable = false)
     private boolean salaryDeducted = false;
 
+    /** How often {@link #sip} is paid: "monthly" (RD, SIP, EPF) or "yearly" (LIC premiums). */
+    @Column(name = "contribution_frequency", nullable = false, length = 10)
+    private String contributionFrequency = "monthly";
+
     /** Date of the alert that last set {@link #current}, so an older alert never overwrites a newer value. */
     @Column(name = "value_as_of")
     private LocalDate valueAsOf;

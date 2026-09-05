@@ -108,25 +108,37 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
               />
             </div>
             <div className="space-y-1.5">
-              {returns.map((r) => (
-                <div key={r.inv.id} className="flex items-center gap-2.5 rounded-lg border p-2 text-sm">
-                  <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: KIND_META[r.inv.kind].color }} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{r.inv.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatINR(r.inv.principal)} in
-                      {r.years != null ? ` over ${humanYears(r.years)}` : ""}
+              {returns.map((r) => {
+                // No revaluation yet (an endowment pays only at maturity): a return of 0% would
+                // read as a bad investment rather than as an unknown.
+                const unvalued = r.inv.current === r.inv.principal;
+                const rate = r.annualised == null || Math.abs(r.annualised) < 0.05 ? 0 : r.annualised;
+                return (
+                  <div key={r.inv.id} className="flex items-center gap-2.5 rounded-lg border p-2 text-sm">
+                    <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: KIND_META[r.inv.kind].color }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{r.inv.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatINR(r.inv.principal)} in
+                        {r.years != null ? ` over ${humanYears(r.years)}` : ""}
+                      </div>
                     </div>
+                    {unvalued ? (
+                      <span className="shrink-0 text-xs text-muted-foreground">not valued yet</span>
+                    ) : (
+                      <>
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{pctText(r.gainPct)}</span>
+                        <span
+                          className="w-16 shrink-0 text-right font-semibold tabular-nums"
+                          style={{ color: rate >= 0 ? "var(--ok)" : "var(--danger)" }}
+                        >
+                          {r.annualised != null ? `${rate.toFixed(1)}%` : "—"}
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{pctText(r.gainPct)}</span>
-                  <span
-                    className="w-16 shrink-0 text-right font-semibold tabular-nums"
-                    style={{ color: (r.annualised ?? 0) >= 0 ? "var(--ok)" : "var(--danger)" }}
-                  >
-                    {r.annualised != null ? `${r.annualised.toFixed(1)}%` : "—"}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -140,21 +152,33 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
             <CardTitle className="flex items-center gap-2">
               <Repeat className="size-4 text-primary" /> Monthly commitment
             </CardTitle>
-            <CardDescription>What leaves your account for investments every month.</CardDescription>
+            <CardDescription>
+            What leaves your account for investments every month. Yearly premiums are shown spread across the year.
+          </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-3xl font-bold tracking-tight tabular-nums">{formatINR(totals.monthlyCommitment)}</p>
             {investments
               .filter((i) => (i.sip ?? 0) > 0)
-              .map((i) => (
-                <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: KIND_META[i.kind].color }} />
-                    <span className="truncate text-muted-foreground">{i.name}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums">{formatINR(i.sip ?? 0)}</span>
-                </div>
-              ))}
+              .map((i) => {
+                const yearly = i.contributionFrequency === "yearly";
+                return (
+                  <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: KIND_META[i.kind].color }} />
+                      <span className="truncate text-muted-foreground">{i.name}</span>
+                    </span>
+                    <span className="shrink-0 text-right tabular-nums">
+                      {formatINR(Math.round((i.sip ?? 0) / (yearly ? 12 : 1)))}
+                      {yearly && (
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          ({formatINR(i.sip ?? 0)}/yr)
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             {totals.monthlyCommitment === 0 && (
               <p className="text-sm text-muted-foreground">No recurring instalments recorded.</p>
             )}

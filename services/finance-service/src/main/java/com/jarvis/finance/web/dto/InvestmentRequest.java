@@ -22,4 +22,6 @@ public record InvestmentRequest(
     LocalDate valueAsOf,
     LocalDate lastContributionOn,
     /** True for payslip deductions (EPF, corporate NPS): never money still to pay. */
-    Boolean salaryDeducted) {}
+    Boolean salaryDeducted,
+    /** "monthly" (default) or "yearly" — how often the instalment falls due. */
+    String contributionFrequency) {}

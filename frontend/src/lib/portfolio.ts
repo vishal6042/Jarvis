@@ -6,12 +6,17 @@ import type { Investment, InvestmentKind } from "@/lib/sample";
  */
 
 /** How an Indian household actually thinks about these buckets. */
-export type AssetClass = "MARKET" | "DEPOSITS" | "SMALL_SAVINGS";
+export type AssetClass = "MARKET" | "DEPOSITS" | "SMALL_SAVINGS" | "INSURANCE";
 
 export const ASSET_CLASS_META: Record<AssetClass, { label: string; color: string; note: string }> = {
   MARKET: { label: "Market-linked", color: "#6366f1", note: "Mutual funds, SIPs and NPS — returns move with the market" },
   DEPOSITS: { label: "Bank deposits", color: "#10b981", note: "Fixed and recurring deposits at a contracted rate" },
   SMALL_SAVINGS: { label: "Small savings", color: "#f59e0b", note: "PPF, EPF, NSC, KVP and Sukanya Samriddhi" },
+  INSURANCE: {
+    label: "Insurance-linked",
+    color: "#d946ef",
+    note: "Endowment policies: a guaranteed sum assured plus bonuses declared each year",
+  },
 };
 
 const CLASS_OF: Record<InvestmentKind, AssetClass> = {
@@ -24,6 +29,7 @@ const CLASS_OF: Record<InvestmentKind, AssetClass> = {
   NSC: "SMALL_SAVINGS",
   KVP: "SMALL_SAVINGS",
   SSY: "SMALL_SAVINGS",
+  LIC: "INSURANCE",
 };
 
 export const assetClassOf = (kind: InvestmentKind): AssetClass => CLASS_OF[kind];
@@ -121,19 +127,20 @@ export function flowsFor(inv: Investment, today = new Date()): CashFlow[] {
   const sip = inv.sip ?? 0;
 
   if (sip > 0) {
-    const monthsElapsed = Math.max(
-      1,
-      (today.getFullYear() - from.getFullYear()) * 12 + (today.getMonth() - from.getMonth()) + 1,
-    );
+    // A yearly premium (LIC) steps twelve months at a time; everything else is monthly.
+    const step = inv.contributionFrequency === "yearly" ? 12 : 1;
+    const monthsElapsed =
+      (today.getFullYear() - from.getFullYear()) * 12 + (today.getMonth() - from.getMonth()) + 1;
+    const periodsElapsed = Math.max(1, Math.floor(monthsElapsed / step));
     // Instalments cannot exceed what was actually put in; anything above them is money that was
     // already there when tracking began (a transferred-in EPF balance, say) and counts at the start.
-    const instalments = Math.max(1, Math.min(monthsElapsed, Math.round(inv.principal / sip)));
+    const instalments = Math.max(1, Math.min(periodsElapsed, Math.round(inv.principal / sip)));
     const opening = Math.max(0, inv.principal - sip * instalments);
     if (opening > 0) flows.push({ on: from, amount: -opening });
     let d = new Date(from);
     for (let n = 0; n < instalments && d <= today; n++) {
       flows.push({ on: new Date(d), amount: -sip });
-      d = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate());
+      d = new Date(d.getFullYear(), d.getMonth() + step, d.getDate());
     }
     if (flows.length === 0) return [];
   } else {
@@ -185,7 +192,11 @@ export function portfolioReturn(investments: Investment[], today = new Date()): 
     gain: current - invested,
     gainPct: invested > 0 ? ((current - invested) / invested) * 100 : 0,
     annualised: rate != null ? rate * 100 : null,
-    monthlyCommitment: investments.reduce((s, i) => s + (i.sip ?? 0), 0),
+    // A yearly premium is shown as its monthly equivalent so the total means one month of money.
+    monthlyCommitment: investments.reduce(
+      (s, i) => s + (i.sip ?? 0) / (i.contributionFrequency === "yearly" ? 12 : 1),
+      0,
+    ),
   };
 }
 

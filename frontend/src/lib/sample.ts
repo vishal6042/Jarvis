@@ -163,6 +163,7 @@ export type InvestmentKind =
   | "KVP"
   | "SSY"
   | "NPS"
+  | "LIC"
   | "MF";
 
 export const KIND_META: Record<
@@ -177,6 +178,7 @@ export const KIND_META: Record<
   KVP: { label: "Kisan Vikas Patra", color: "#f97316" },
   SSY: { label: "Sukanya Samriddhi", color: "#ec4899" },
   NPS: { label: "National Pension System", color: "#0ea5e9" },
+  LIC: { label: "LIC Policy", color: "#d946ef" },
   MF: { label: "Mutual Fund / SIP", color: "#6366f1" },
 };
 
@@ -194,6 +196,8 @@ export interface Investment {
   notes?: string;
   /** Taken out of the payslip (EPF, corporate NPS), so the salary already arrives net of it. */
   salaryDeducted?: boolean;
+  /** How often {@link sip} falls due. LIC premiums are yearly; everything else is monthly. */
+  contributionFrequency?: "monthly" | "yearly";
 }
 
 export function seedInvestments(): Investment[] {

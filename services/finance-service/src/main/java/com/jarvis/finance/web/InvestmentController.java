@@ -63,6 +63,9 @@ public class InvestmentController {
         if (req.salaryDeducted() != null) {
             i.setSalaryDeducted(req.salaryDeducted());
         }
+        if (req.contributionFrequency() != null && !req.contributionFrequency().isBlank()) {
+            i.setContributionFrequency("yearly".equalsIgnoreCase(req.contributionFrequency()) ? "yearly" : "monthly");
+        }
         // Link fields are optional and mostly maintained by ingestion — only overwrite when sent,
         // so an edit from the web form (which doesn't know them) doesn't unlink the account.
         if (req.accountLast4() != null) {
