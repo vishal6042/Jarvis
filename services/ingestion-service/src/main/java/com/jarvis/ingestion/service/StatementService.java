@@ -9,6 +9,7 @@ import com.jarvis.ingestion.domain.RawMessage;
 import com.jarvis.ingestion.repo.RawMessageRepository;
 import com.jarvis.ingestion.web.dto.ConfirmStatementRequest;
 import com.jarvis.ingestion.web.dto.PreviewTransaction;
+import com.jarvis.common.security.CallerContext;
 import com.jarvis.ingestion.web.dto.StatementImportResult;
 import com.jarvis.ingestion.web.dto.StatementPreview;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -355,6 +356,9 @@ public class StatementService {
 
     /** Phase 2 — persist the reviewed rows (deduped), creating the account if it's new. */
     public StatementImportResult confirm(ConfirmStatementRequest req) {
+        // A statement names its account outright, so the same rule applies as for an SMS: someone
+        // confined to one member can only import onto that member's accounts.
+        Long importer = CallerContext.restrictedTo();
         String fileName = req.fileName() == null ? "statement" : req.fileName();
 
         String bank = req.bank();
@@ -391,6 +395,7 @@ public class StatementService {
             }
 
             var createReq = new ExpenseClient.CreateTransactionRequest(
+                importer,
                 accountId,
                 last4,
                 p.amount(),

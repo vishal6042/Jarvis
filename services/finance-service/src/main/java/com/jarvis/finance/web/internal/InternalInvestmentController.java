@@ -35,12 +35,19 @@ public class InternalInvestmentController {
         this.internalKey = internalKey;
     }
 
-    /** Investments that have an account number linked. */
+    /**
+     * Investments that have an account number linked.
+     *
+     * @param memberId when set, only this member's — an alert forwarded by someone confined to one
+     *     person must not be able to reach another person's deposit.
+     */
     @GetMapping("/linked")
     public List<LinkedInvestment> linked(
-        @RequestHeader(value = "X-Internal-Key", required = false) String key) {
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(required = false) Long memberId) {
         requireKey(key);
         return investments.findByAccountLast4IsNotNull().stream()
+            .filter(i -> memberId == null || memberId.equals(i.getMemberId()))
             .map(i -> new LinkedInvestment(i.getId(), i.getName(), i.getAccountLast4()))
             .toList();
     }
@@ -57,6 +64,7 @@ public class InternalInvestmentController {
         @RequestBody ContributionRequest req) {
         requireKey(key);
         Investment i = investments.findFirstByAccountLast4(req.last4())
+            .filter(x -> req.memberId() == null || req.memberId().equals(x.getMemberId()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No investment linked to " + req.last4()));
         LocalDate on = req.date() == null ? LocalDate.now() : req.date();
 
@@ -91,7 +99,9 @@ public class InternalInvestmentController {
 
     public record LinkedInvestment(Long id, String name, String accountLast4) {}
 
-    public record ContributionRequest(String last4, BigDecimal amount, BigDecimal balance, LocalDate date) {}
+    /** @param memberId the forwarder, when confined to one member; null means no restriction. */
+    public record ContributionRequest(
+        String last4, BigDecimal amount, BigDecimal balance, LocalDate date, Long memberId) {}
 
     public record ContributionResult(Long investmentId, String name, BigDecimal current, boolean applied) {}
 }

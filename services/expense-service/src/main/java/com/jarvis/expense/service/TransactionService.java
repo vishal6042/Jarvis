@@ -268,10 +268,13 @@ public class TransactionService {
         t.setSourceRef(req.sourceRef());
 
         // Prefer an explicit account (statement import); else match by last-4 when unambiguous.
+        // Either way the account has to be one the forwarder is allowed to post to.
         if (req.accountId() != null) {
-            accounts.findById(req.accountId()).ifPresent(t::setAccount);
+            accounts.findById(req.accountId())
+                .filter(a -> req.memberId() == null || req.memberId().equals(a.getMemberId()))
+                .ifPresent(t::setAccount);
         } else if (req.last4() != null && !req.last4().isBlank()) {
-            matchAccount(req.last4().trim(), req.bank()).ifPresent(t::setAccount);
+            matchAccount(req.last4().trim(), req.bank(), req.memberId()).ifPresent(t::setAccount);
         }
         // A user rule beats an accepted alias, which beats the parser's guess.
         MerchantAlias alias = req.merchant() == null ? null : aliases.findByRaw(req.merchant()).orElse(null);
@@ -300,11 +303,22 @@ public class TransactionService {
      * last-4 ends with them, using the bank name to break ties. Ambiguous → no account.
      */
     Optional<Account> matchAccount(String digits, String bank) {
+        return matchAccount(digits, bank, null);
+    }
+
+    /**
+     * @param memberId when set, only this member's accounts are candidates — the digits in an alert
+     *     say which account, but they must not be able to name one the forwarder does not own.
+     */
+    Optional<Account> matchAccount(String digits, String bank, Long memberId) {
         List<Account> matches = accounts.findByLast4(digits);
         if (matches.isEmpty() && digits.length() < 4 && digits.chars().allMatch(Character::isDigit)) {
             matches = accounts.findAll().stream()
                 .filter(a -> a.getLast4() != null && a.getLast4().endsWith(digits))
                 .toList();
+        }
+        if (memberId != null) {
+            matches = matches.stream().filter(a -> memberId.equals(a.getMemberId())).toList();
         }
         if (matches.size() > 1 && bank != null && !bank.isBlank()) {
             String b = bank.trim().toLowerCase();

@@ -112,6 +112,8 @@ public class ExpenseClient {
     public record AccountBrief(String last4, String type) {}
 
     public record CreateTransactionRequest(
+        /** Who forwarded the alert, when confined to one member; null means the whole household. */
+        Long memberId,
         Long accountId,
         String last4,
         String bank,
@@ -127,9 +129,9 @@ public class ExpenseClient {
 
         /** Statement-import shape: explicit account, no bank hint or balance. */
         public CreateTransactionRequest(
-            Long accountId, String last4, BigDecimal amount, String currency, String direction,
+            Long memberId, Long accountId, String last4, BigDecimal amount, String currency, String direction,
             String merchant, String category, Instant occurredAt, String source, String sourceRef) {
-            this(accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null);
+            this(memberId, accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null);
         }
     }
 

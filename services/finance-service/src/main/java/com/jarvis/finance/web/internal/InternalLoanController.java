@@ -30,11 +30,18 @@ public class InternalLoanController {
         this.internalKey = internalKey;
     }
 
-    /** Loans that can be matched from alerts (either link field set). */
+    /**
+     * Loans that can be matched from alerts (either link field set).
+     *
+     * @param memberId when set, only this member's — see the investment endpoint.
+     */
     @GetMapping("/linked")
-    public List<LinkedLoan> linked(@RequestHeader(value = "X-Internal-Key", required = false) String key) {
+    public List<LinkedLoan> linked(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(required = false) Long memberId) {
         requireKey(key);
         return loans.findAll().stream()
+            .filter(l -> memberId == null || memberId.equals(l.getMemberId()))
             .filter(l -> l.getLoanAccountLast4() != null || l.getEmiFromLast4() != null)
             .map(l -> new LinkedLoan(l.getId(), l.getLender(), l.getKind(), l.getEmi(), l.getLoanAccountLast4(), l.getEmiFromLast4()))
             .toList();
@@ -52,6 +59,7 @@ public class InternalLoanController {
         @RequestBody PaymentRequest req) {
         requireKey(key);
         Loan l = loans.findById(req.loanId())
+            .filter(x -> req.memberId() == null || req.memberId().equals(x.getMemberId()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found"));
         LocalDate on = req.date() == null ? LocalDate.now() : req.date();
         if (l.getLastPaymentOn() != null && !on.isAfter(l.getLastPaymentOn())) {
@@ -78,7 +86,8 @@ public class InternalLoanController {
     public record LinkedLoan(
         Long id, String lender, String kind, BigDecimal emi, String loanAccountLast4, String emiFromLast4) {}
 
-    public record PaymentRequest(Long loanId, BigDecimal amount, LocalDate date) {}
+    /** @param memberId the forwarder, when confined to one member; null means no restriction. */
+    public record PaymentRequest(Long loanId, BigDecimal amount, LocalDate date, Long memberId) {}
 
     public record PaymentResult(Long loanId, String lender, BigDecimal outstanding, boolean applied) {}
 }

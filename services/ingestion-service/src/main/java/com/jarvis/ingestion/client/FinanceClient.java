@@ -29,14 +29,25 @@ public class FinanceClient {
         this.internalKey = internalKey;
     }
 
-    /** The investment linked to these account digits, if any. Failures (finance down) → empty. */
-    public Optional<LinkedInvestment> findByLast4(String last4) {
+    /**
+     * The investment linked to these account digits, if any. Failures (finance down) → empty.
+     *
+     * @param memberId the person who forwarded the alert, when they are confined to one; only
+     *     their deposits are candidates.
+     */
+    public Optional<LinkedInvestment> findByLast4(String last4, Long memberId) {
         if (last4 == null || last4.isBlank()) {
             return Optional.empty();
         }
         try {
             List<LinkedInvestment> linked = web.get()
-                .uri("/internal/investments/linked")
+                .uri(uri -> {
+                    var b = uri.path("/internal/investments/linked");
+                    if (memberId != null) {
+                        b.queryParam("memberId", memberId);
+                    }
+                    return b.build();
+                })
                 .header("X-Internal-Key", internalKey)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<LinkedInvestment>>() {})
@@ -58,10 +69,16 @@ public class FinanceClient {
      * The loan an EMI debit pays: by the loan account digits named in the alert, else by an
      * EMI-sized amount (within 2%) leaving the account the loan is linked to. Failures → empty.
      */
-    public Optional<LinkedLoan> findLoan(String loanDigits, String fromLast4, BigDecimal amount) {
+    public Optional<LinkedLoan> findLoan(String loanDigits, String fromLast4, BigDecimal amount, Long memberId) {
         try {
             List<LinkedLoan> linked = web.get()
-                .uri("/internal/loans/linked")
+                .uri(uri -> {
+                    var b = uri.path("/internal/loans/linked");
+                    if (memberId != null) {
+                        b.queryParam("memberId", memberId);
+                    }
+                    return b.build();
+                })
                 .header("X-Internal-Key", internalKey)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<List<LinkedLoan>>() {})
@@ -91,21 +108,22 @@ public class FinanceClient {
         }
     }
 
-    public LoanPaymentResult recordLoanPayment(Long loanId, BigDecimal amount, LocalDate date) {
+    public LoanPaymentResult recordLoanPayment(Long loanId, BigDecimal amount, LocalDate date, Long memberId) {
         return web.post()
             .uri("/internal/loans/payment")
             .header("X-Internal-Key", internalKey)
-            .bodyValue(new LoanPaymentRequest(loanId, amount, date))
+            .bodyValue(new LoanPaymentRequest(loanId, amount, date, memberId))
             .retrieve()
             .bodyToMono(LoanPaymentResult.class)
             .block();
     }
 
-    public ContributionResult contribute(String last4, BigDecimal amount, BigDecimal balance, LocalDate date) {
+    public ContributionResult contribute(
+        String last4, BigDecimal amount, BigDecimal balance, LocalDate date, Long memberId) {
         return web.post()
             .uri("/internal/investments/contribution")
             .header("X-Internal-Key", internalKey)
-            .bodyValue(new ContributionRequest(last4, amount, balance, date))
+            .bodyValue(new ContributionRequest(last4, amount, balance, date, memberId))
             .retrieve()
             .bodyToMono(ContributionResult.class)
             .block();
@@ -113,14 +131,15 @@ public class FinanceClient {
 
     public record LinkedInvestment(Long id, String name, String accountLast4) {}
 
-    public record ContributionRequest(String last4, BigDecimal amount, BigDecimal balance, LocalDate date) {}
+    public record ContributionRequest(
+        String last4, BigDecimal amount, BigDecimal balance, LocalDate date, Long memberId) {}
 
     public record ContributionResult(Long investmentId, String name, BigDecimal current, boolean applied) {}
 
     public record LinkedLoan(
         Long id, String lender, String kind, BigDecimal emi, String loanAccountLast4, String emiFromLast4) {}
 
-    public record LoanPaymentRequest(Long loanId, BigDecimal amount, LocalDate date) {}
+    public record LoanPaymentRequest(Long loanId, BigDecimal amount, LocalDate date, Long memberId) {}
 
     public record LoanPaymentResult(Long loanId, String lender, BigDecimal outstanding, boolean applied) {}
 }

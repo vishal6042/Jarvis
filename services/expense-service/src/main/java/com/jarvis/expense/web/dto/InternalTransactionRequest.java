@@ -12,6 +12,12 @@ import java.time.Instant;
  * The account is matched here by {@code last4}; dedup is enforced on save.
  */
 public record InternalTransactionRequest(
+    /**
+     * The household member who forwarded the alert, when they are confined to one. The account is
+     * then matched only among theirs, so an alert naming someone else's card is left unlinked
+     * rather than quietly filed under them. Null means the whole household is in scope.
+     */
+    Long memberId,
     Long accountId, // when set (e.g. statement import), link this account directly
     String last4,
     String bank, // issuer short name from the alert; breaks ties when last4 is a short suffix
