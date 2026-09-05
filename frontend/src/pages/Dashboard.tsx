@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Link2, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
 import CardArt from "@/components/CardArt";
-import { cardSummaries, financeScore, listTransactions, type CardSummary } from "@/api";
+import { analyticsSummary, cardSummaries, financeScore, listTransactions, type CardSummary } from "@/api";
 import { networkColor } from "@/components/CardArt";
 import { CreditCard } from "lucide-react";
 import type { FinanceScoreResult, Transaction } from "@/types";
@@ -12,7 +12,6 @@ import { type Period } from "@/lib/sample";
 import { cashflowSeries, periodLabel } from "@/lib/txnseries";
 import { useFamily } from "@/lib/store";
 import { useFinanceSummary } from "@/lib/finance";
-import ClockWidget from "@/components/ClockWidget";
 import PulseHeader from "@/components/PulseHeader";
 import InsightsCard from "@/components/InsightsCard";
 import SpendBreakdownCard from "@/components/SpendBreakdownCard";
@@ -490,6 +489,16 @@ export default function Dashboard() {
   const { paidKeys } = useReminderPayments();
   const { items: investments } = useInvestments(activeId);
   const { items: loans } = useLoans(activeId);
+
+  // What has gone out today, for the spend card's footer.
+  const [todaySpend, setTodaySpend] = useState<number | null>(null);
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    analyticsSummary(from.toISOString(), to.toISOString())
+      .then((s) => setTodaySpend(Number(s.spend)))
+      .catch(() => setTodaySpend(null));
+  }, []);
   const { items: thresholds } = useThresholds();
   const [reserve] = useReserve();
   const [score, setScore] = useState<FinanceScoreResult | null>(null);
@@ -555,8 +564,6 @@ export default function Dashboard() {
         paidKeys={paidKeys}
       />
 
-      <ClockWidget />
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Net worth"
@@ -575,7 +582,21 @@ export default function Dashboard() {
           }
         />
         <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" art={TrendingUp} onClick={() => navigate("/analytics")} />
-        <StatCard title={`Spend · ${thisMonth}`} value={formatINR(f.spend)} icon={<ArrowDownRight className="size-4" />} iconColor="#f43f5e" art={ArrowDownRight} onClick={() => navigate(`/transactions?month=${monthKey}&type=DEBIT`)} />
+        <StatCard
+          title={`Spend · ${thisMonth}`}
+          value={formatINR(f.spend)}
+          icon={<ArrowDownRight className="size-4" />}
+          iconColor="#f43f5e"
+          art={ArrowDownRight}
+          onClick={() => navigate(`/transactions?month=${monthKey}&type=DEBIT`)}
+          footer={
+            todaySpend != null ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {todaySpend > 0 ? `${formatINR(todaySpend)} today` : "Nothing spent today"}
+              </p>
+            ) : undefined
+          }
+        />
         <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} onClick={() => navigate("/loans")} />
         <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} onClick={() => navigate("/analytics")} />
       </div>
