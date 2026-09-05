@@ -1,41 +1,12 @@
-import type { Investment, InvestmentKind } from "@/lib/sample";
+import { KIND_META, type Investment, type InvestmentKind } from "@/lib/sample";
 
 /**
  * Portfolio analytics over the holdings the user has entered. Everything here is derived from
  * the amount invested, the current value and the dates — no market data and no invented history.
  */
 
-/** How an Indian household actually thinks about these buckets. */
-export type AssetClass = "MARKET" | "DEPOSITS" | "SMALL_SAVINGS" | "INSURANCE";
-
-export const ASSET_CLASS_META: Record<AssetClass, { label: string; color: string; note: string }> = {
-  MARKET: { label: "Market-linked", color: "#6366f1", note: "Mutual funds, SIPs and NPS — returns move with the market" },
-  DEPOSITS: { label: "Bank deposits", color: "#10b981", note: "Fixed and recurring deposits at a contracted rate" },
-  SMALL_SAVINGS: { label: "Small savings", color: "#f59e0b", note: "PPF, EPF, NSC, KVP and Sukanya Samriddhi" },
-  INSURANCE: {
-    label: "Insurance-linked",
-    color: "#d946ef",
-    note: "Endowment policies: a guaranteed sum assured plus bonuses declared each year",
-  },
-};
-
-const CLASS_OF: Record<InvestmentKind, AssetClass> = {
-  MF: "MARKET",
-  NPS: "MARKET",
-  FD: "DEPOSITS",
-  RD: "DEPOSITS",
-  PPF: "SMALL_SAVINGS",
-  PF: "SMALL_SAVINGS",
-  NSC: "SMALL_SAVINGS",
-  KVP: "SMALL_SAVINGS",
-  SSY: "SMALL_SAVINGS",
-  LIC: "INSURANCE",
-};
-
-export const assetClassOf = (kind: InvestmentKind): AssetClass => CLASS_OF[kind];
-
-export interface AllocationSlice {
-  cls: AssetClass;
+export interface KindSlice {
+  kind: InvestmentKind;
   label: string;
   color: string;
   value: number; // current value
@@ -44,16 +15,20 @@ export interface AllocationSlice {
   count: number;
 }
 
-/** Current value split by asset class, largest first. */
-export function allocation(investments: Investment[]): AllocationSlice[] {
+/**
+ * Current value split by the actual product — fixed deposits, LIC, EPF — largest first.
+ *
+ * The broad classes above answer "how exposed am I to the market"; this answers "what do I
+ * actually hold", which is the question someone looking at their own portfolio is usually asking.
+ */
+export function allocationByKind(investments: Investment[]): KindSlice[] {
   const total = investments.reduce((s, i) => s + i.current, 0);
-  const map = new Map<AssetClass, AllocationSlice>();
+  const map = new Map<InvestmentKind, KindSlice>();
   for (const inv of investments) {
-    const cls = assetClassOf(inv.kind);
-    const slice = map.get(cls) ?? {
-      cls,
-      label: ASSET_CLASS_META[cls].label,
-      color: ASSET_CLASS_META[cls].color,
+    const slice = map.get(inv.kind) ?? {
+      kind: inv.kind,
+      label: KIND_META[inv.kind].label,
+      color: KIND_META[inv.kind].color,
       value: 0,
       invested: 0,
       pct: 0,
@@ -62,7 +37,7 @@ export function allocation(investments: Investment[]): AllocationSlice[] {
     slice.value += inv.current;
     slice.invested += inv.principal;
     slice.count++;
-    map.set(cls, slice);
+    map.set(inv.kind, slice);
   }
   return [...map.values()]
     .map((s) => ({ ...s, pct: total > 0 ? (s.value / total) * 100 : 0 }))

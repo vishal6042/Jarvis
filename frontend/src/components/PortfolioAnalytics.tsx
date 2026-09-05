@@ -3,7 +3,7 @@ import { Cell, Label, Pie, PieChart } from "recharts";
 import { CalendarClock, PieChart as PieIcon, Repeat, TrendingUp } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { KIND_META, type Investment } from "@/lib/sample";
-import { allocation, holdingReturn, maturityLadder, portfolioReturn } from "@/lib/portfolio";
+import { allocationByKind, holdingReturn, maturityLadder, portfolioReturn } from "@/lib/portfolio";
 import { formatINR, formatDate } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -16,7 +16,7 @@ const humanYears = (y: number) => (y < 1 ? `${Math.max(1, Math.round(y * 12))} m
  * when each holding matures. All of it derived from the holdings themselves.
  */
 export default function PortfolioAnalytics({ investments }: { investments: Investment[] }) {
-  const slices = useMemo(() => allocation(investments), [investments]);
+  const slices = useMemo(() => allocationByKind(investments), [investments]);
   const totals = useMemo(() => portfolioReturn(investments), [investments]);
   const returns = useMemo(
     () => investments.map((i) => holdingReturn(i)).sort((a, b) => (b.annualised ?? -99) - (a.annualised ?? -99)),
@@ -28,7 +28,7 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
 
   // Every holding still sits at what was put in (fresh deposits, endowments before maturity).
   const nothingValued = investments.every((i) => i.current === i.principal);
-  const chartConfig: ChartConfig = Object.fromEntries(slices.map((s) => [s.cls, { label: s.label, color: s.color }]));
+  const chartConfig: ChartConfig = Object.fromEntries(slices.map((s) => [s.kind, { label: s.label, color: s.color }]));
   const concentration = slices[0];
 
   return (
@@ -43,18 +43,18 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
             </CardTitle>
             <CardDescription>
               {concentration
-                ? `${Math.round(concentration.pct)}% of your portfolio sits in ${concentration.label.toLowerCase()}.`
+                ? `${concentration.label} is your largest holding, at ${Math.round(concentration.pct)}%.`
                 : "How your money is spread."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5">
             <>
-              <ChartContainer config={chartConfig} className="aspect-square h-[220px]">
+              <ChartContainer config={chartConfig} className="aspect-square h-[260px] sm:h-[300px] lg:h-[340px]">
                 <PieChart>
                   <ChartTooltip content={<ChartTooltipContent nameKey="label" hideLabel />} />
                   <Pie data={slices} dataKey="value" nameKey="label" innerRadius="58%" outerRadius="88%" strokeWidth={2} isAnimationActive={false}>
                     {slices.map((s) => (
-                      <Cell key={s.cls} fill={s.color} stroke="var(--background)" />
+                      <Cell key={s.kind} fill={s.color} stroke="var(--background)" />
                     ))}
                     {/* The hole is the natural place for the number every slice adds up to. */}
                     <Label
@@ -63,10 +63,10 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
                         const { cx, cy } = viewBox as { cx: number; cy: number };
                         return (
                           <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={cx} y={cy - 7} className="fill-foreground text-base font-bold">
+                            <tspan x={cx} y={cy - 9} className="fill-foreground text-xl font-bold">
                               {formatINR(totals.current)}
                             </tspan>
-                            <tspan x={cx} y={cy + 13} className="fill-muted-foreground text-[10px]">
+                            <tspan x={cx} y={cy + 16} className="fill-muted-foreground text-[11px]">
                               total value
                             </tspan>
                           </text>
@@ -76,13 +76,16 @@ export default function PortfolioAnalytics({ investments }: { investments: Inves
                   </Pie>
                 </PieChart>
               </ChartContainer>
-              <div className="w-full space-y-2.5">
+              <div className="w-full space-y-3">
                 {slices.map((s) => (
-                  <div key={s.cls} className="space-y-1">
+                  <div key={s.kind} className="space-y-1">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
                         <span className="truncate font-medium">{s.label}</span>
+                        {s.count > 1 && (
+                          <span className="shrink-0 text-xs text-muted-foreground">×{s.count}</span>
+                        )}
                       </span>
                       <span className="shrink-0 tabular-nums">
                         {formatINR(s.value)} · {Math.round(s.pct)}%
