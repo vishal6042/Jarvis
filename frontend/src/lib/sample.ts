@@ -162,6 +162,7 @@ export type InvestmentKind =
   | "NSC"
   | "KVP"
   | "SSY"
+  | "NPS"
   | "MF";
 
 export const KIND_META: Record<
@@ -175,6 +176,7 @@ export const KIND_META: Record<
   NSC: { label: "National Savings Certificate", color: "#f59e0b" },
   KVP: { label: "Kisan Vikas Patra", color: "#f97316" },
   SSY: { label: "Sukanya Samriddhi", color: "#ec4899" },
+  NPS: { label: "National Pension System", color: "#0ea5e9" },
   MF: { label: "Mutual Fund / SIP", color: "#6366f1" },
 };
 

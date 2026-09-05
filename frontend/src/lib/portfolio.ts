@@ -9,13 +9,14 @@ import type { Investment, InvestmentKind } from "@/lib/sample";
 export type AssetClass = "MARKET" | "DEPOSITS" | "SMALL_SAVINGS";
 
 export const ASSET_CLASS_META: Record<AssetClass, { label: string; color: string; note: string }> = {
-  MARKET: { label: "Market-linked", color: "#6366f1", note: "Mutual funds and SIPs — returns move with the market" },
+  MARKET: { label: "Market-linked", color: "#6366f1", note: "Mutual funds, SIPs and NPS — returns move with the market" },
   DEPOSITS: { label: "Bank deposits", color: "#10b981", note: "Fixed and recurring deposits at a contracted rate" },
   SMALL_SAVINGS: { label: "Small savings", color: "#f59e0b", note: "PPF, EPF, NSC, KVP and Sukanya Samriddhi" },
 };
 
 const CLASS_OF: Record<InvestmentKind, AssetClass> = {
   MF: "MARKET",
+  NPS: "MARKET",
   FD: "DEPOSITS",
   RD: "DEPOSITS",
   PPF: "SMALL_SAVINGS",

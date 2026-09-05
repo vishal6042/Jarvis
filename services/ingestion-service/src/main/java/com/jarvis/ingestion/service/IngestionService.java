@@ -114,6 +114,24 @@ public class IngestionService {
                 return new Outcome(finish(msg, ParseStatus.INVESTMENT, null, detail), null);
             }
 
+            // NPS alerts either credit a monthly contribution or state the quarter's value. Both go
+            // to the linked investment: the contribution adds to it, the valuation replaces it.
+            AlertHints.NpsAlert nps = AlertHints.npsAlert(msg.getPayload());
+            if (nps != null) {
+                var pran = finance.findByLast4(nps.last4());
+                if (pran.isEmpty()) {
+                    return new Outcome(
+                        finish(msg, ParseStatus.IGNORED, null,
+                            "NPS alert for PRAN ending " + nps.last4() + " — no investment linked to it."),
+                        null);
+                }
+                var res = finance.contribute(pran.get().accountLast4(), nps.contribution(), nps.value(), nps.on());
+                String detail = (nps.value() != null ? "NPS valuation for " : "NPS contribution to ") + res.name()
+                    + (res.applied() || nps.value() != null ? "" : " (already counted)")
+                    + " · value ₹" + res.current().toPlainString();
+                return new Outcome(finish(msg, ParseStatus.INVESTMENT, null, detail), null);
+            }
+
             if (AlertHints.isNotATransaction(msg.getPayload())) {
                 return new Outcome(
                     finish(msg, ParseStatus.IGNORED, null, "Not a bank transaction alert (wallet / statement / notice)."),

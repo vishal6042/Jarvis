@@ -119,6 +119,75 @@ public final class AlertHints {
         return new EpfAlert(trailingDigits(m.group(1)), balance, contribution, dueMonth);
     }
 
+    /**
+     * NPS alerts from Protean/NSDL come in two shapes, both naming the PRAN:
+     * a contribution credit — "PRAN XX0671: Units for (JUL-2026) contribution of Rs.6906.00
+     * credited with NAV of 10/08/26", or the older "Units against Contribution (JUN-2023)-Rs.4,678.60
+     * credited to PRAN XX0671, NAV of 12/07/23" — and a quarterly valuation, "Investment value in
+     * Tier I (PRANXX0671) as on 30.06.2026 is Rs 3,06,445.19".
+     */
+    private static final Pattern NPS_PRAN = Pattern.compile("(?i)PRAN[\\s:\\-]*[xX*]*(\\d{3,})");
+
+    private static final Pattern NPS_CONTRIBUTION_NEW = Pattern.compile(
+        "(?i)contribution of Rs\\.?\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s*credited with NAV of\\s*(\\d{2})[/-](\\d{2})[/-](\\d{2,4})");
+
+    private static final Pattern NPS_CONTRIBUTION_OLD = Pattern.compile(
+        "(?i)Units against .{0,40}?Rs\\.?\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\s*credited to PRAN.{0,40}?NAV[\\s\\-]*(?:of\\s*)?(\\d{2})[/-](\\d{2})[/-](\\d{2,4})");
+
+    private static final Pattern NPS_VALUATION = Pattern.compile(
+        "(?i)Investment value in .{0,30}?as on\\s*(\\d{2})\\.(\\d{2})\\.(\\d{2,4})\\s*is Rs\\.?\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)");
+
+    /**
+     * @param last4        the PRAN's trailing digits
+     * @param contribution the amount credited, null on a valuation message
+     * @param value        the stated portfolio value, null on a contribution message
+     * @param on           the NAV date of the credit, or the date the valuation is stated as of
+     */
+    public record NpsAlert(
+        String last4,
+        java.math.BigDecimal contribution,
+        java.math.BigDecimal value,
+        java.time.LocalDate on) {}
+
+    /** The NPS figures in this alert, or null when it is not an NPS contribution or valuation. */
+    public static NpsAlert npsAlert(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher pran = NPS_PRAN.matcher(text);
+        if (!pran.find()) {
+            return null;
+        }
+        String last4 = trailingDigits(pran.group(1));
+
+        Matcher v = NPS_VALUATION.matcher(text);
+        if (v.find()) {
+            java.time.LocalDate on = date(v.group(3), v.group(2), v.group(1));
+            java.math.BigDecimal value = toAmount(v.group(4));
+            return on == null || value == null ? null : new NpsAlert(last4, null, value, on);
+        }
+        Matcher c = NPS_CONTRIBUTION_NEW.matcher(text);
+        if (!c.find()) {
+            c = NPS_CONTRIBUTION_OLD.matcher(text);
+            if (!c.find()) {
+                return null;
+            }
+        }
+        java.time.LocalDate on = date(c.group(4), c.group(3), c.group(2));
+        java.math.BigDecimal amount = toAmount(c.group(1));
+        return on == null || amount == null ? null : new NpsAlert(last4, amount, null, on);
+    }
+
+    /** Two-digit years in these alerts are always this century. */
+    private static java.time.LocalDate date(String year, String month, String day) {
+        try {
+            int y = Integer.parseInt(year);
+            return java.time.LocalDate.of(y < 100 ? 2000 + y : y, Integer.parseInt(month), Integer.parseInt(day));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     /** True when the text is a wallet / passbook / merchant notice that must not become a transaction. */
     public static boolean isNotATransaction(String text) {
         if (text == null) {

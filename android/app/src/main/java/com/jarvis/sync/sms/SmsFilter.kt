@@ -15,6 +15,8 @@ object SmsFilter {
         "account", "avl bal", "avbl bal", "balance",
         // EPFO passbook alerts carry the PF balance and the month contribution.
         "passbook", "contribution",
+        // NPS valuation alerts name the PRAN but no transaction word at all.
+        "pran", "investment value",
     )
 
     private val skipKeywords = listOf(
