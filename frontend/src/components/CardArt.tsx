@@ -15,6 +15,7 @@ export default function CardArt({
   network,
   subtle = false,
   wave = true,
+  markTop = "58%",
 }: {
   color: string;
   icon?: ComponentType<{ className?: string; style?: React.CSSProperties }>;
@@ -23,8 +24,14 @@ export default function CardArt({
   subtle?: boolean;
   /** Set false on wide cards where the wave would run behind body text (the mark still shows). */
   wave?: boolean;
+  /**
+   * Where the network mark sits vertically. Cards differ in how tall they are and where their
+   * right-aligned values fall, so the caller picks the band that is actually free.
+   */
+  markTop?: string;
 }) {
   const key = (network ?? "").toUpperCase();
+  const hasMark = key === "MASTERCARD" || key === "VISA" || key === "AMEX" || key === "RUPAY";
   return (
     <div
       aria-hidden
@@ -68,7 +75,10 @@ export default function CardArt({
       )}
       {/* network wordmark or big icon */}
       {/* kept translucent: the card's right-aligned values render on top of it */}
-      <div className="absolute top-[58%] right-4 -translate-y-1/2 select-none" style={{ color }}>
+      <div
+        className="absolute right-4 -translate-y-1/2 select-none"
+        style={{ color, top: hasMark ? markTop : "58%" }}
+      >
         {key === "MASTERCARD" ? (
           <div className="flex items-center opacity-45">
             <span className="size-10 rounded-full bg-[#eb001b]" />

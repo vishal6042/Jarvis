@@ -268,7 +268,7 @@ function CardsSection({ cards }: { cards: CardSummary[] }) {
           const dueSoon = c.dueOn ? (new Date(`${c.dueOn}T00:00:00`).getTime() - Date.now()) / 86_400_000 <= 5 : false;
           return (
             <Card key={c.accountId} className="relative isolate flex h-full flex-col overflow-hidden">
-              <CardArt color={tint} icon={CreditCard} network={c.network} wave={false} />
+              <CardArt color={tint} icon={CreditCard} network={c.network} wave={false} markTop="30%" />
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center justify-between">
                   <span className="truncate">{c.displayName}</span>
