@@ -283,3 +283,129 @@ export function detectAnomalies(txns: Transaction[], today = new Date()): Anomal
   const rank = { red: 0, amber: 1 };
   return out.sort((a, b) => rank[a.severity] - rank[b.severity] || b.amount - a.amount).slice(0, 8);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Monthly series (spending / income / cash flow over time)
+// ---------------------------------------------------------------------------------------------
+export interface MonthPoint {
+  month: string; // yyyy-MM
+  label: string; // "Sep"
+  spend: number;
+  income: number;
+  net: number; // income − spend
+}
+
+/** Is this a credit into a savings account (real income, not a card refund or a shuffle)? */
+const isIncome = (t: Transaction) =>
+  t.direction === "CREDIT" && !t.transfer && !t.settlement && t.accountName != null && !/card/i.test(t.accountName);
+
+/** The last `months` calendar months of real spend, income and the difference. */
+export function monthlySeries(txns: Transaction[], months = 12, today = new Date()): MonthPoint[] {
+  const out: MonthPoint[] = [];
+  const index = new Map<string, MonthPoint>();
+  for (let back = months - 1; back >= 0; back--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - back, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const point: MonthPoint = { month: key, label: d.toLocaleString("en-IN", { month: "short" }), spend: 0, income: 0, net: 0 };
+    out.push(point);
+    index.set(key, point);
+  }
+  for (const t of txns) {
+    const point = index.get(t.occurredAt.slice(0, 7));
+    if (!point) continue;
+    if (isRealSpend(t)) point.spend += t.amount;
+    else if (isIncome(t)) point.income += t.amount;
+  }
+  for (const p of out) {
+    p.spend = Math.round(p.spend);
+    p.income = Math.round(p.income);
+    p.net = p.income - p.spend;
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Recurring intelligence
+// ---------------------------------------------------------------------------------------------
+export interface RecurringInsight {
+  merchant: string;
+  category: string | null;
+  cadence: string;
+  amount: number; // latest amount
+  monthlyEstimate: number;
+  yearlyCost: number;
+  nextExpected: string;
+  occurrences: number;
+  /** Earliest observed amount, when there is more than one charge to compare. */
+  firstAmount: number | null;
+  changePct: number | null; // latest vs earliest
+  /** Days past the expected date; positive means it has not arrived when it should have. */
+  overdueDays: number;
+}
+
+export interface RecurringSummary {
+  items: RecurringInsight[];
+  monthlyTotal: number;
+  yearlyTotal: number;
+  increased: RecurringInsight[];
+  stale: RecurringInsight[];
+}
+
+interface RecurringLike {
+  merchant: string | null;
+  category: string | null;
+  amount: number;
+  cadence: string;
+  nextExpected: string;
+  occurrences: number;
+  monthlyEstimate: number;
+}
+
+/**
+ * Enrich detected recurring payments with what the transaction history says about them: has the
+ * price moved, what does it cost a year, and has a charge stopped arriving.
+ */
+export function recurringIntelligence(
+  recurring: RecurringLike[],
+  txns: Transaction[],
+  today = new Date(),
+): RecurringSummary {
+  const spend = txns.filter(isRealSpend);
+  const items: RecurringInsight[] = [];
+  for (const r of recurring) {
+    const merchant = (r.merchant ?? "").trim();
+    if (!merchant) continue;
+    const needle = merchant.toLowerCase();
+    const mine = spend
+      .filter((t) => (t.merchant ?? "").trim().toLowerCase() === needle)
+      .sort((a, b) => (a.occurredAt < b.occurredAt ? -1 : 1));
+    const firstAmount = mine.length > 1 ? mine[0].amount : null;
+    const latest = mine.length > 0 ? mine[mine.length - 1].amount : r.amount;
+    const changePct = firstAmount && firstAmount > 0 ? Math.round(((latest - firstAmount) / firstAmount) * 100) : null;
+    const due = new Date(`${r.nextExpected}T00:00:00`);
+    const overdueDays = Math.floor((today.getTime() - due.getTime()) / 86_400_000);
+    items.push({
+      merchant,
+      category: r.category,
+      cadence: r.cadence,
+      amount: latest,
+      monthlyEstimate: r.monthlyEstimate,
+      yearlyCost: Math.round(r.monthlyEstimate * 12),
+      nextExpected: r.nextExpected,
+      occurrences: r.occurrences,
+      firstAmount,
+      changePct,
+      overdueDays,
+    });
+  }
+  items.sort((a, b) => b.monthlyEstimate - a.monthlyEstimate);
+  return {
+    items,
+    monthlyTotal: Math.round(items.reduce((s, i) => s + i.monthlyEstimate, 0)),
+    yearlyTotal: Math.round(items.reduce((s, i) => s + i.yearlyCost, 0)),
+    // A rise of more than 5% is worth knowing about; rounding noise is not.
+    increased: items.filter((i) => i.changePct != null && i.changePct > 5),
+    // Nothing for more than a fortnight past the expected date: cancelled, or a charge that failed.
+    stale: items.filter((i) => i.overdueDays > 14),
+  };
+}

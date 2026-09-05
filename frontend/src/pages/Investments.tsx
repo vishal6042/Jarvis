@@ -9,6 +9,7 @@ import {
 } from "@/lib/sample";
 import { useFamily, useInvestments } from "@/lib/store";
 import { maturityProjection } from "@/lib/rdMath";
+import PortfolioAnalytics from "@/components/PortfolioAnalytics";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -392,6 +393,8 @@ export default function Investments() {
         <Stat title="Current value" value={formatINR(current)} icon={<PiggyBank className="size-4" />} iconColor="#10b981" />
         <Stat title="Gains" value={formatINR(gain)} accent icon={<TrendingUp className="size-4" />} iconColor="#3b82f6" />
       </div>
+
+      <PortfolioAnalytics investments={items} />
 
       <Separator />
 

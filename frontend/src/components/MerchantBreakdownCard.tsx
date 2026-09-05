@@ -10,7 +10,7 @@ import { periodLabel, periodWindow } from "@/lib/txnseries";
 import type { Period } from "@/lib/sample";
 import type { Transaction } from "@/types";
 
-type View = "merchant" | "method" | "category";
+type View = "merchant" | "method" | "account" | "category";
 type Row = { key: string; label: string; sub: string; total: number; q: string | null; category?: string };
 
 /** "Where your money actually goes": top merchants, payment method split, or category — for the selected period. */
@@ -28,6 +28,19 @@ export default function MerchantBreakdownCard({ txns, period, offset }: { txns: 
   const rows = useMemo<Row[]>(() => {
     if (view === "merchant") return merchantTotals(inPeriod, 8).map((r) => ({ key: r.merchant, label: r.merchant, sub: `${r.count} txn${r.count === 1 ? "" : "s"}`, total: r.total, q: r.merchant }));
     if (view === "method") return paymentMethodTotals(inPeriod).map((r) => ({ key: r.method, label: r.method, sub: "", total: r.total, q: null }));
+    if (view === "account") {
+      const map = new Map<string, { total: number; count: number }>();
+      for (const t of inPeriod) {
+        const name = t.accountName ?? "Not linked";
+        const row = map.get(name) ?? { total: 0, count: 0 };
+        row.total += t.amount;
+        row.count++;
+        map.set(name, row);
+      }
+      return [...map.entries()]
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([name, r]) => ({ key: name, label: name, sub: `${r.count} txn${r.count === 1 ? "" : "s"}`, total: r.total, q: null }));
+    }
     const m = new Map<string, number>();
     inPeriod.filter((t) => t.direction === "DEBIT" && isRealFlow(t)).forEach((t) => m.set(t.category ?? "Uncategorized", (m.get(t.category ?? "Uncategorized") ?? 0) + t.amount));
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => ({ key: k, label: k, sub: "", total: v, q: null, category: k }));
@@ -46,7 +59,7 @@ export default function MerchantBreakdownCard({ txns, period, offset }: { txns: 
           <CardDescription>{periodLabel(period, offset)} · click a row to see its transactions</CardDescription>
         </div>
         <div className="inline-flex rounded-lg border p-0.5 text-xs">
-          {(["merchant", "method", "category"] as View[]).map((v) => (
+          {(["merchant", "method", "account", "category"] as View[]).map((v) => (
             <button
               key={v}
               type="button"

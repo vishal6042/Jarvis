@@ -6,7 +6,10 @@ import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/a
 import { useFinanceSummary } from "@/lib/finance";
 import { aiChat, aiPlan, cardSummaries, listTransactions, type CardSummary } from "@/api";
 import type { Transaction } from "@/types";
-import { useFamily, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
+import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
+import { getGoals, type ApiGoal } from "@/lib/api/finance";
+import { amortise } from "@/lib/amortisation";
+import { portfolioReturn } from "@/lib/portfolio";
 import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { formatINR } from "@/lib/format";
@@ -44,6 +47,13 @@ export default function Assistant() {
   const [cards, setCards] = useState<CardSummary[]>([]);
   const { items: reminders, add: addReminder } = useReminders();
   const { paidKeys } = useReminderPayments();
+  const { activeId } = useFamily();
+  const { items: investments } = useInvestments(activeId);
+  const { items: loans } = useLoans(activeId);
+  const [goals, setGoals] = useState<ApiGoal[]>([]);
+  useEffect(() => {
+    getGoals().then(setGoals).catch(() => setGoals([]));
+  }, []);
   const { items: thresholds, saveAll: saveThresholds } = useThresholds();
   const { reload } = useFamily();
   const [reserve] = useReserve();
@@ -53,6 +63,7 @@ export default function Assistant() {
   }, []);
   const contextText = useMemo(() => {
     const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys });
+    const pf = portfolioReturn(investments);
     const lines = [
       `Today: ${fc.today}`,
       `Savings balance (cash): ${formatINR(f.savings)}; investments: ${formatINR(f.investments)}; outstanding loans: ${formatINR(f.outstanding)}`,
@@ -70,9 +81,28 @@ export default function Assistant() {
         .slice(0, 12)
         .map((e) => `  - ${e.on} ${e.label}: ${e.unknownAmount ? "amount not set" : (e.amount > 0 ? "+" : "-") + formatINR(Math.abs(e.amount))}`),
       ...(cards.length ? ["Cards:", ...cards.map((c) => `  - ${c.displayName}: unbilled ${formatINR(c.unbilled)}, bill due ${formatINR(c.billDue)}${c.dueOn ? " on " + c.dueOn : ""}`)] : []),
+      ...(investments.length
+        ? [
+            `Investments: ${formatINR(pf.current)} now from ${formatINR(pf.invested)} invested${pf.annualised != null ? `, ${pf.annualised.toFixed(1)}% a year` : ""}; ${formatINR(pf.monthlyCommitment)}/month committed`,
+            ...investments.map((i) => `  - ${i.name} (${i.kind}): ${formatINR(i.current)}${i.maturityDate ? `, matures ${i.maturityDate}` : ""}`),
+          ]
+        : []),
+      ...(loans.length
+        ? [
+            "Loans:",
+            ...loans.map((l) => {
+              const a = amortise(l.outstanding, l.rate, l.emi);
+              const free = a ? `debt-free ${a.debtFreeOn.toISOString().slice(0, 7)} at the current EMI` : "EMI does not cover the interest";
+              return `  - ${l.lender}: ${formatINR(l.outstanding)} outstanding at ${l.rate}%, EMI ${formatINR(l.emi)}; ${free}`;
+            }),
+          ]
+        : []),
+      ...(goals.length
+        ? ["Goals:", ...goals.map((g) => `  - ${g.name}: ${formatINR(g.savedAmount)} of ${formatINR(g.targetAmount)}${g.targetDate ? ` by ${g.targetDate}` : ""}`)]
+        : []),
     ];
     return lines.join("\n");
-  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys]);
+  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys, investments, loans, goals]);
 
   const [messages, setMessages] = useState<Msg[]>([
     {

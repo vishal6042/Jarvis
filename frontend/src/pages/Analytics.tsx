@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, RadialBar, RadialBarChart, XAxis, YAxis } from "recharts";
 import { analyticsByCategory, analyticsIncomeBySource, listRecurring, listTransactions } from "@/api";
 import type { CategorySpend, RecurringPayment, Transaction } from "@/types";
-import { ChevronLeft, ChevronRight, Layers, Repeat, TrendingUp, Trophy, Wallet, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Layers, TrendingUp, Trophy, Wallet, X } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import MerchantBreakdownCard from "@/components/MerchantBreakdownCard";
 import { AnomaliesCard, BehaviourCard, BudgetVsActualCard, PeriodComparisonCard } from "@/components/AnalyticsDepth";
+import TrendsCard from "@/components/TrendsCard";
+import RecurringIntelligenceCard from "@/components/RecurringIntelligenceCard";
 import { useThresholds } from "@/lib/store";
 import { PERIOD_LABEL, type Period } from "@/lib/sample";
 import { categorySeries, categorySpend, periodLabel, periodWindow } from "@/lib/txnseries";
@@ -100,7 +102,6 @@ export default function Analytics() {
       alive = false;
     };
   }, []);
-  const recurringMonthly = recurring.reduce((s, r) => s + r.monthlyEstimate, 0);
 
   const data = useMemo(
     () => remote.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
@@ -195,6 +196,7 @@ export default function Analytics() {
             <PeriodComparisonCard now={data} prev={prevData} period={period} offset={offset} />
             <BudgetVsActualCard budgets={budgets} actual={data} period={period} />
           </div>
+          <TrendsCard txns={txns} />
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
             <BehaviourCard txns={txns} period={period} offset={offset} />
             <AnomaliesCard txns={txns} />
@@ -459,62 +461,7 @@ export default function Analytics() {
         </Card>
       )}
 
-      {recurring.length > 0 && (
-        <Card className="relative isolate overflow-hidden">
-          <CardArt color="#8b5cf6" subtle />
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Repeat className="size-4 text-violet-500" />
-              <CardTitle>Recurring payments</CardTitle>
-            </div>
-            <CardDescription>
-              {recurring.length} subscription{recurring.length > 1 ? "s" : ""} detected · ~{formatINR(recurringMonthly)}/mo
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table className="min-w-[640px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Merchant</TableHead>
-                    <TableHead>Cadence</TableHead>
-                    <TableHead>Next due</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">~ / month</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recurring.map((r, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium">
-                        {r.merchant ?? "—"}
-                        {r.category && (
-                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {r.category}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-400">
-                          {r.cadence}
-                        </span>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {new Date(`${r.nextExpected}T00:00:00`).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(r.amount)}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">{formatINR(r.monthlyEstimate)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <RecurringIntelligenceCard recurring={recurring} txns={txns} />
     </div>
   );
 }
