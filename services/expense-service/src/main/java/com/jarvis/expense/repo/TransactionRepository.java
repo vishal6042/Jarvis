@@ -59,9 +59,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      * payin to one's own fixed deposit, say) only a human can know, and clearing it would silently
      * turn their answer back into spending.
      */
-    @Query("update Transaction t set t.transfer = false, t.settlement = false "
-        + "where (t.transfer = true or t.settlement = true) and t.source <> com.jarvis.expense.domain.MessageSource.MANUAL")
+    @Query("update Transaction t set t.transfer = false, t.settlement = false where t.transfer = true or t.settlement = true")
     int clearTransferFlags();
+
+    /** Re-apply the transfers a person declared, which pairing cannot derive. */
+    @Modifying
+    @Query("update Transaction t set t.transfer = true where t.transferDeclared = true and t.transfer = false")
+    int applyDeclaredTransfers();
 
     /** Every account-linked row not yet marked as a transfer — scanned by the backfill. */
     @Query("select t from Transaction t where t.account is not null and t.transfer = false and t.settlement = false order by t.occurredAt asc")

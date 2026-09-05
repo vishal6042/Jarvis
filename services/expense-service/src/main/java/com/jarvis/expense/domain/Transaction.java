@@ -84,6 +84,14 @@ public class Transaction {
     private boolean transfer = false;
 
     /**
+     * Set when a person declared this a transfer rather than pairing deriving it — a payin to
+     * one's own fixed deposit, say, whose other side is not a tracked account. Survives the
+     * pairing pass, which clears and recomputes {@link #transfer} from scratch.
+     */
+    @Column(name = "transfer_declared", nullable = false)
+    private boolean transferDeclared = false;
+
+    /**
      * One side of a credit-card bill payment (savings DEBIT ↔ card CREDIT of the same amount).
      * Excluded from earning / spend — the card's own purchases are the spend — but the savings
      * side still counts as cash leaving the account for the net-worth trend.

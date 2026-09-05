@@ -80,6 +80,9 @@ public class TransferService {
                 pairs++;
             }
         }
+        // Pairing runs first so a declared row can still be matched to its other side; the
+        // declarations that found no pair are restored afterwards.
+        transactions.applyDeclaredTransfers();
         return pairs;
     }
 

@@ -172,6 +172,7 @@ public class TransactionService {
         t.setSource(MessageSource.MANUAL);
         t.setNote(req.note());
         t.setTransfer(Boolean.TRUE.equals(req.transfer()));
+        t.setTransferDeclared(Boolean.TRUE.equals(req.transfer()));
 
         if (req.accountId() != null) {
             Account account = accounts
@@ -223,6 +224,7 @@ public class TransactionService {
         // Only when the caller says so: an edit that omits the field must not undo a pairing.
         if (req.transfer() != null) {
             t.setTransfer(req.transfer());
+            t.setTransferDeclared(req.transfer());
         }
 
         // Recompute the dedup hash so future imports still dedupe against the edited values — but
