@@ -69,8 +69,11 @@ dependencies {
     // Encrypted store for the password (silent re-login on token expiry)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Fingerprint / face / device-PIN gate in front of the app
+    // Fingerprint / face / device-PIN gate in front of the app. It drags in an old
+    // androidx.fragment whose FragmentActivity rejects request codes above 16 bits, which is
+    // exactly what Compose's permission launcher generates — so pin a current fragment.
     implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
