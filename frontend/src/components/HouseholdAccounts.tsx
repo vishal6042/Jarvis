@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /** Turn whatever the server refused with into something worth reading. */
 function reason(e: unknown, fallback: string): string {
@@ -207,19 +214,22 @@ export default function HouseholdAccounts() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="hh-member">Sees</Label>
-            <select
-              id="hh-member"
-              className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+            <Select
+              items={people.map((p) => ({ value: p.id, label: p.name }))}
               value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
+              onValueChange={(v) => setMemberId(v ?? "")}
             >
-              <option value="">Choose a person…</option>
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="hh-member" className="w-full">
+                <SelectValue placeholder="Choose a person…" />
+              </SelectTrigger>
+              <SelectContent>
+                {people.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="sm:col-span-3">
             <Button
