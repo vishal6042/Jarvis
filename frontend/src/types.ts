@@ -63,6 +63,7 @@ export interface Transaction {
   note: string | null;
   transfer?: boolean;
   settlement?: boolean;
+  tags?: string[];
 }
 
 export interface CreateTransactionRequest {

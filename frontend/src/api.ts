@@ -431,3 +431,11 @@ export async function putPreference(key: string, value: unknown): Promise<void> 
 export async function deletePreference(key: string): Promise<void> {
   await api.delete(`/api/preferences/${encodeURIComponent(key)}`);
 }
+
+// ---- Tags + bulk categorise ----
+export async function setTransactionTags(id: number, tags: string[]): Promise<Transaction> {
+  return (await api.patch<Transaction>(`/api/transactions/${id}/tags`, { tags })).data;
+}
+export async function bulkSetCategory(ids: number[], category: string): Promise<number> {
+  return (await api.post<{ updated: number }>("/api/transactions/bulk-category", { ids, category })).data.updated;
+}

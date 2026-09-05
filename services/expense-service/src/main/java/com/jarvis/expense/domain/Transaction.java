@@ -68,6 +68,10 @@ public class Transaction {
     @Column(columnDefinition = "text")
     private String note;
 
+    /** Free-form tags chosen by the user ("trip-goa,reimbursable"), comma-separated. */
+    @Column(length = 512)
+    private String tags;
+
     /**
      * One side of a transfer between two of the user's own accounts (paired by amount and date
      * with the opposite-direction row on another account). Excluded from earning / spend.

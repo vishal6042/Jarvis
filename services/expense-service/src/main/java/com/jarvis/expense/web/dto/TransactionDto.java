@@ -5,6 +5,8 @@ import com.jarvis.expense.domain.MessageSource;
 import com.jarvis.expense.domain.Transaction;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 
 public record TransactionDto(
     Long id,
@@ -19,7 +21,8 @@ public record TransactionDto(
     MessageSource source,
     String note,
     boolean transfer,
-    boolean settlement) {
+    boolean settlement,
+    List<String> tags) {
 
     public static TransactionDto from(Transaction t) {
         return new TransactionDto(
@@ -35,6 +38,15 @@ public record TransactionDto(
             t.getSource(),
             t.getNote(),
             t.isTransfer(),
-            t.isSettlement());
+            t.isSettlement(),
+            splitTags(t.getTags()));
+    }
+
+    /** "a,b" -> [a, b]; null/blank -> []. */
+    public static List<String> splitTags(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
 }

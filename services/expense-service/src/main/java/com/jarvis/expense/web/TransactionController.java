@@ -43,6 +43,20 @@ public class TransactionController {
         return service.setCategory(id, body.get("category"));
     }
 
+    /** Replace the tag list. Body: {"tags": ["trip-goa", "reimbursable"]}. */
+    @PatchMapping("/{id}/tags")
+    public TransactionDto setTags(@PathVariable Long id, @RequestBody Map<String, List<String>> body) {
+        return service.setTags(id, body.getOrDefault("tags", List.of()));
+    }
+
+    /** Categorise many rows at once. Body: {"ids": [1, 2, 3], "category": "Food"}. */
+    @PostMapping("/bulk-category")
+    public Map<String, Object> bulkCategory(@RequestBody BulkCategoryRequest req) {
+        return Map.of("updated", service.bulkSetCategory(req.ids(), req.category()));
+    }
+
+    public record BulkCategoryRequest(List<Long> ids, String category) {}
+
     /** Probable duplicates (same day / amount / direction on one account, or one side unlinked). */
     @GetMapping("/duplicates")
     public List<List<TransactionDto>> duplicates() {

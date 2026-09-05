@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, Copy, ListChecks, Pencil, Plus, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { applyRules, createRule, deleteRule, listDuplicates, listRules, setTransactionCategory, type CategoryRule } from "@/api";
 import { Switch } from "@/components/ui/switch";
+import { BulkCategoryDialog, TransactionDetailDialog } from "@/components/TransactionDetail";
 import CardArt from "@/components/CardArt";
 import {
   createTransaction,
@@ -94,6 +95,9 @@ export default function Transactions() {
   const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
   const [rulesOpen, setRulesOpen] = useState(false);
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [detail, setDetail] = useState<Transaction | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   // dialogs
   const [editing, setEditing] = useState<Draft | null>(null);
@@ -147,10 +151,30 @@ export default function Transactions() {
   const reviewCount = useMemo(() => txns.filter(needsReview).length, [txns]);
 
   // reset to first page whenever the filter set changes
-  useEffect(() => setPage(0), [q, dir, cat, acct, month, review]);
+  useEffect(() => {
+    setPage(0);
+    setSelected(new Set());
+  }, [q, dir, cat, acct, month, review]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const allOnPage = pageRows.length > 0 && pageRows.every((t) => selected.has(t.id));
+  function toggleOne(id: number) {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function togglePage() {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (allOnPage) pageRows.forEach((t) => n.delete(t.id));
+      else pageRows.forEach((t) => n.add(t.id));
+      return n;
+    });
+  }
 
   const dirItems = [
     { value: "all", label: "All types" },
@@ -251,6 +275,35 @@ export default function Transactions() {
         onSaved={reload}
       />
       <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} categories={categories} onApplied={reload} />
+      <TransactionDetailDialog
+        txn={detail}
+        accounts={accounts}
+        onClose={() => setDetail(null)}
+        onEdit={(t) => {
+          setDetail(null);
+          openEdit(t);
+        }}
+        onDelete={(t) => {
+          setDetail(null);
+          setToDelete(t);
+        }}
+        onCategory={(t) => {
+          setDetail(null);
+          setQuick(t);
+        }}
+        onChanged={reload}
+      />
+      <BulkCategoryDialog
+        open={bulkOpen}
+        ids={[...selected]}
+        categories={categories}
+        onClose={() => setBulkOpen(false)}
+        onDone={() => {
+          setBulkOpen(false);
+          setSelected(new Set());
+          reload();
+        }}
+      />
 
       {review && dups.length > 0 && (
         <Card className="relative isolate overflow-hidden">
@@ -323,6 +376,9 @@ export default function Transactions() {
               <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[36px]">
+                      <input type="checkbox" className="size-4 accent-primary" checked={allOnPage} onChange={togglePage} aria-label="Select all on this page" />
+                    </TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Merchant</TableHead>
                     <TableHead>Category</TableHead>
@@ -335,9 +391,26 @@ export default function Transactions() {
                   {pageRows.map((t) => {
                     const income = t.direction === "CREDIT";
                     return (
-                      <TableRow key={t.id} className="group">
+                      <TableRow key={t.id} className={`group ${selected.has(t.id) ? "bg-primary/5" : ""}`}>
+                        <TableCell>
+                          <input type="checkbox" className="size-4 accent-primary" checked={selected.has(t.id)} onChange={() => toggleOne(t.id)} aria-label="Select row" />
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.occurredAt)}</TableCell>
-                        <TableCell className="font-medium">{t.merchant ?? "—"}</TableCell>
+                        <TableCell className="font-medium">
+                          <button type="button" onClick={() => setDetail(t)} className="text-left hover:underline" title="Open details">
+                            {t.merchant ?? "—"}
+                          </button>
+                          {t.tags && t.tags.length > 0 && (
+                            <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+                              {t.tags.slice(0, 3).map((tag) => (
+                                <span key={tag} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                                  {tag}
+                                </span>
+                              ))}
+                              {t.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{t.tags.length - 3}</span>}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <button
                             type="button"
@@ -392,6 +465,20 @@ export default function Transactions() {
       </Card>
 
       {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
+
+      {selected.size > 0 && (
+        <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full border bg-card/95 px-4 py-2 shadow-lg shadow-primary/10 ring-1 ring-primary/20 backdrop-blur">
+            <span className="text-sm font-medium">{selected.size} selected</span>
+            <Button size="sm" className="gap-1" onClick={() => setBulkOpen(true)}>
+              <Sparkles className="size-3.5" /> Categorise
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+              Clear
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Add / edit dialog */}
       <Dialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)}>

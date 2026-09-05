@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import AccountActivity from "@/components/AccountActivity";
 import { CreditCard, Landmark, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { createAccount, deleteAccount, listAccounts, updateAccount } from "@/api";
 import type { Account, AccountRequest, AccountType } from "@/types";
@@ -119,6 +121,8 @@ function toRequest(f: FormState): AccountRequest {
 }
 
 /** Read-only view of an account; the Edit button hands off to the form. */
+type Tab = "all" | "bank" | "cards";
+
 function AccountDetailsDialog({
   account,
   onClose,
@@ -133,7 +137,7 @@ function AccountDetailsDialog({
   const color = isCard ? networkColor(account.network, ACCOUNT_TYPE_COLOR[account.type]) : ACCOUNT_TYPE_COLOR.SAVINGS;
   return (
     <Dialog open={!!account} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <span className="size-3 rounded-full" style={{ backgroundColor: color }} />
@@ -176,6 +180,7 @@ function AccountDetailsDialog({
             </>
           )}
         </div>
+        <AccountActivity account={account} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Close
@@ -307,7 +312,13 @@ export default function Accounts() {
   const [editing, setEditing] = useState<Account | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState<"all" | AccountType>("all");
+  const [params, setParams] = useSearchParams();
+  const tabParam = params.get("tab");
+  const [filter, setFilterState] = useState<Tab>(tabParam === "bank" || tabParam === "cards" ? tabParam : "all");
+  const setFilter = (t: Tab) => {
+    setFilterState(t);
+    setParams(t === "all" ? {} : { tab: t }, { replace: true });
+  };
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [details, setDetails] = useState<Account | null>(null);
 
@@ -353,7 +364,8 @@ export default function Accounts() {
   }
 
   const isCard = form.type !== "SAVINGS";
-  const visible = filter === "all" ? accounts : accounts.filter((a) => a.type === filter);
+  const visible =
+    filter === "all" ? accounts : filter === "bank" ? accounts.filter((a) => a.type === "SAVINGS") : accounts.filter((a) => a.type !== "SAVINGS");
   const countOf = (t: AccountType) => accounts.filter((a) => a.type === t).length;
 
   return (
@@ -364,12 +376,11 @@ export default function Accounts() {
           <p className="text-muted-foreground">Your banks, savings, and cards.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as "all" | AccountType)}>
+          <Tabs value={filter} onValueChange={(v) => setFilter(v as Tab)}>
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="SAVINGS">Savings</TabsTrigger>
-              <TabsTrigger value="CREDIT_CARD">Credit</TabsTrigger>
-              <TabsTrigger value="DEBIT_CARD">Debit</TabsTrigger>
+              <TabsTrigger value="bank">Bank accounts</TabsTrigger>
+              <TabsTrigger value="cards">Cards</TabsTrigger>
             </TabsList>
           </Tabs>
           <Button onClick={openAdd} className="gap-2">

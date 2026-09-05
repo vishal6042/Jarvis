@@ -58,6 +58,38 @@ public class TransactionService {
         return transactions.findByAmountBetweenInWindow(direction, min, max, from, to).stream().map(TransactionDto::from).toList();
     }
 
+    /** Replace the tag list (trimmed, de-duplicated, at most 20, stored comma-separated). */
+    @Transactional
+    public TransactionDto setTags(Long id, List<String> tags) {
+        Transaction t = transactions
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        List<String> clean = tags == null
+            ? List.of()
+            : tags.stream()
+                .filter(s -> s != null)
+                .map(s -> s.trim().replace(",", " "))
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .limit(20)
+                .toList();
+        t.setTags(clean.isEmpty() ? null : String.join(",", clean));
+        return TransactionDto.from(transactions.save(t));
+    }
+
+    /** Set one category on many rows at once (bulk action from the Transactions page). */
+    @Transactional
+    public int bulkSetCategory(List<Long> ids, String category) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        Category c = category == null || category.isBlank() ? null : findOrCreateCategory(category.trim());
+        List<Transaction> rows = transactions.findAllById(ids);
+        rows.forEach(t -> t.setCategory(c));
+        transactions.saveAll(rows);
+        return rows.size();
+    }
+
     /** Set just the category (inline edit from the Transactions page). */
     @Transactional
     public TransactionDto setCategory(Long id, String category) {
