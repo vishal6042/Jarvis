@@ -171,6 +171,7 @@ public class TransactionService {
         t.setOccurredAt(req.occurredAt() == null ? Instant.now() : req.occurredAt());
         t.setSource(MessageSource.MANUAL);
         t.setNote(req.note());
+        t.setTransfer(Boolean.TRUE.equals(req.transfer()));
 
         if (req.accountId() != null) {
             Account account = accounts
@@ -219,6 +220,10 @@ public class TransactionService {
             req.category() != null && !req.category().isBlank()
                 ? findOrCreateCategory(req.category().trim())
                 : null);
+        // Only when the caller says so: an edit that omits the field must not undo a pairing.
+        if (req.transfer() != null) {
+            t.setTransfer(req.transfer());
+        }
 
         // Recompute the dedup hash so future imports still dedupe against the edited values — but
         // drop it if that would collide with a different row (the column is uniquely indexed).

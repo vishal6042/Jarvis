@@ -53,7 +53,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     /** Reset every transfer flag (the backfill recomputes pairs from scratch). */
     @Modifying
-    @Query("update Transaction t set t.transfer = false, t.settlement = false where t.transfer = true or t.settlement = true")
+    /**
+     * Reset before a fresh pairing pass — but never on manual or imported rows. Pairing re-derives
+     * a flag from the opposite side of the transaction; when that side is not a tracked account (a
+     * payin to one's own fixed deposit, say) only a human can know, and clearing it would silently
+     * turn their answer back into spending.
+     */
+    @Query("update Transaction t set t.transfer = false, t.settlement = false "
+        + "where (t.transfer = true or t.settlement = true) and t.source <> com.jarvis.expense.domain.MessageSource.MANUAL")
     int clearTransferFlags();
 
     /** Every account-linked row not yet marked as a transfer — scanned by the backfill. */

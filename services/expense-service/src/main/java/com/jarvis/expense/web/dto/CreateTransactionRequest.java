@@ -15,4 +15,9 @@ public record CreateTransactionRequest(
     String merchant,
     String category,
     Instant occurredAt,
-    String note) {}
+    String note,
+    /**
+     * Money moved between the user's own accounts (a savings-to-fixed-deposit payin, say), which
+     * pairing cannot detect because the other side is not a tracked account. Excluded from spend.
+     */
+    Boolean transfer) {}
