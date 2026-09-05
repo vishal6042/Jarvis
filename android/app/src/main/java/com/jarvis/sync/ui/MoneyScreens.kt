@@ -209,6 +209,10 @@ private fun CardBillRow(c: CardSummaryDto) {
 private fun HoldingRow(i: InvestmentDto) {
     val gain = i.current - i.principal
     val pct = if (i.principal > 0) gain / i.principal * 100 else 0.0
+    // An endowment pays only at maturity, so its value is still just what went in. Showing 0%
+    // there would read as a bad investment rather than as an unknown.
+    val unvalued = i.current == i.principal
+    val yearly = i.contributionFrequency == "yearly"
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(i.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
@@ -220,17 +224,24 @@ private fun HoldingRow(i: InvestmentDto) {
                     append(i.kind)
                     append(" · ").append(inr(i.principal)).append(" in")
                     val sip = i.sip ?: 0.0
-                    if (sip > 0) append(" · ").append(inr(sip)).append("/mo")
+                    if (sip > 0) {
+                        append(" · ").append(inr(sip)).append(if (yearly) "/yr" else "/mo")
+                        if (i.salaryDeducted) append(" from salary")
+                    }
                 },
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                (if (gain >= 0) "+" else "") + inr(gain) + " (" + String.format(java.util.Locale.US, "%.1f", pct) + "%)",
-                fontSize = 12.sp,
-                color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E),
-            )
+            if (unvalued) {
+                Text("not valued yet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(
+                    (if (gain >= 0) "+" else "") + inr(gain) + " (" + String.format(java.util.Locale.US, "%.1f", pct) + "%)",
+                    fontSize = 12.sp,
+                    color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E),
+                )
+            }
         }
     }
     HorizontalDivider()

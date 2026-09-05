@@ -112,6 +112,10 @@ data class InvestmentDto(
     val principal: Double = 0.0,
     val current: Double = 0.0,
     val sip: Double? = null,
+    /** "monthly" (RD, SIP, EPF) or "yearly" (LIC premiums). */
+    val contributionFrequency: String = "monthly",
+    /** True for payslip deductions: the salary already arrives net of them. */
+    val salaryDeducted: Boolean = false,
 )
 
 @Serializable
