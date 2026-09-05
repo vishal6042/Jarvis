@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { AlertCircle, Bot, Check, Send, Sparkles, Wand2, X } from "lucide-react";
+import { ACTION_LABEL, describeAction, executeAction, isImperative, validateAction, type PlannedAction } from "@/lib/actions";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
-import { aiChat, cardSummaries, listTransactions, type CardSummary } from "@/api";
+import { aiChat, aiPlan, cardSummaries, listTransactions, type CardSummary } from "@/api";
 import type { Transaction } from "@/types";
-import { useReminders } from "@/lib/store";
+import { useFamily, useReminders, useThresholds } from "@/lib/store";
 import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { formatINR } from "@/lib/format";
@@ -14,9 +15,15 @@ import { Input } from "@/components/ui/input";
 import Markdown from "@/components/Markdown";
 import CardArt from "@/components/CardArt";
 
+type ActionStatus = "pending" | "done" | "cancelled" | "failed";
+
 interface Msg {
   role: "user" | "assistant";
   text: string;
+  /** A proposed action awaiting the user's explicit confirmation. */
+  action?: PlannedAction;
+  status?: ActionStatus;
+  result?: string;
 }
 
 export default function Assistant() {
@@ -35,7 +42,9 @@ export default function Assistant() {
   // Live snapshot for the agent: the same forecast the dashboard shows, as plain text.
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [cards, setCards] = useState<CardSummary[]>([]);
-  const { items: reminders } = useReminders();
+  const { items: reminders, add: addReminder } = useReminders();
+  const { items: thresholds, saveAll: saveThresholds } = useThresholds();
+  const { reload } = useFamily();
   const [reserve] = useReserve();
   useEffect(() => {
     listTransactions(0, 500).then(setTxns).catch(() => setTxns([]));
@@ -67,7 +76,7 @@ export default function Assistant() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      text: "Hi! I'm your finance assistant. Ask me about your savings, spending, income, loans or investments.",
+      text: "Hi! I'm your finance assistant. Ask me about your savings, spending, income, loans or investments — or tell me to add a reminder, budget, goal or transaction and I'll confirm before doing it.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -96,6 +105,20 @@ export default function Assistant() {
     setInput("");
     setBusy(true);
     try {
+      // Imperative messages go to the planner first; the action is only run after explicit confirmation.
+      if (isImperative(q)) {
+        const plan = await aiPlan(q);
+        if (plan.type !== "none") {
+          const problem = validateAction(plan);
+          setMessages((m) => [
+            ...m,
+            problem
+              ? { role: "assistant", text: problem }
+              : { role: "assistant", text: plan.summary || ACTION_LABEL[plan.type], action: plan, status: "pending" },
+          ]);
+          return;
+        }
+      }
       // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
       const answer = await aiChat(q, contextText);
       setMessages((m) => [...m, { role: "assistant", text: answer }]);
@@ -112,6 +135,23 @@ export default function Assistant() {
     ask(input);
   }
 
+  const setStatus = (index: number, patch: Partial<Msg>) =>
+    setMessages((m) => m.map((x, j) => (j === index ? { ...x, ...patch } : x)));
+
+  async function runAction(index: number) {
+    const msg = messages[index];
+    if (!msg?.action || msg.status !== "pending" || busy) return;
+    setBusy(true);
+    try {
+      const result = await executeAction(msg.action, { addReminder, thresholds, saveThresholds, reload });
+      setStatus(index, { status: "done", result });
+    } catch (e) {
+      setStatus(index, { status: "failed", result: e instanceof Error ? e.message : "Something went wrong." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl flex-col">
       <div className="mb-4 flex items-center gap-3">
@@ -121,7 +161,7 @@ export default function Assistant() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Assistant</h1>
           <p className="text-sm text-muted-foreground">
-            Powered by your local AI agent — falls back to a quick on-device answer if it's offline.
+            Ask questions, or tell me what to do — every action is shown for confirmation first.
           </p>
         </div>
       </div>
@@ -144,6 +184,16 @@ export default function Assistant() {
               }`}
             >
               {m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
+              {m.action && (
+                <ActionCard
+                  action={m.action}
+                  status={m.status ?? "pending"}
+                  result={m.result}
+                  busy={busy}
+                  onConfirm={() => runAction(i)}
+                  onCancel={() => setStatus(i, { status: "cancelled" })}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -202,6 +252,54 @@ export default function Assistant() {
           <Send className="size-4" />
         </Button>
       </form>
+    </div>
+  );
+}
+
+/** A proposed action: facts to check, then Confirm / Cancel. Nothing runs until Confirm. */
+function ActionCard({
+  action,
+  status,
+  result,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  action: PlannedAction;
+  status: ActionStatus;
+  result?: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const rows = describeAction(action);
+  const tone =
+    status === "done" ? "var(--ok)" : status === "failed" ? "var(--danger)" : status === "cancelled" ? "var(--muted-foreground)" : "var(--primary)";
+  return (
+    <div className="mt-2 overflow-hidden rounded-xl border" style={{ borderColor: `color-mix(in oklab, ${tone} 45%, transparent)` }}>
+      <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold" style={{ backgroundColor: `color-mix(in oklab, ${tone} 12%, transparent)`, color: tone }}>
+        {status === "done" ? <Check className="size-3.5" /> : status === "failed" ? <AlertCircle className="size-3.5" /> : status === "cancelled" ? <X className="size-3.5" /> : <Wand2 className="size-3.5" />}
+        {status === "pending" ? ACTION_LABEL[action.type] : status === "done" ? "Done" : status === "failed" ? "Could not do that" : "Cancelled"}
+      </div>
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-3 py-2 text-xs">
+        {rows.map((r) => (
+          <div key={r.label} className="contents">
+            <span className="text-muted-foreground">{r.label}</span>
+            <span className="font-medium">{r.value}</span>
+          </div>
+        ))}
+      </div>
+      {result && <p className="px-3 pb-2 text-xs text-muted-foreground">{result}</p>}
+      {status === "pending" && (
+        <div className="flex justify-end gap-2 border-t px-3 py-2">
+          <Button size="sm" variant="ghost" onClick={onCancel} disabled={busy}>
+            Cancel
+          </Button>
+          <Button size="sm" className="gap-1" onClick={onConfirm} disabled={busy}>
+            <Check className="size-3.5" /> Confirm
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

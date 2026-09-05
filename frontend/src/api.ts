@@ -318,6 +318,11 @@ export async function listRecurring(): Promise<RecurringPayment[]> {
 
 // ---- AI orchestrator ----
 /** Ask the agent; `context` is a plain-text snapshot of figures the app already computed. */
+/** Extract one confirmable action from an imperative message ({type:"none"} for questions). */
+export async function aiPlan(message: string): Promise<import("@/lib/actions").PlannedAction> {
+  return (await api.post<import("@/lib/actions").PlannedAction>("/api/ai/plan", { message }, { timeout: 120000 })).data;
+}
+
 export async function aiChat(message: string, context?: string): Promise<string> {
   return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data.answer;
 }

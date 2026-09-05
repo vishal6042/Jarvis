@@ -48,6 +48,8 @@ export function answerQuery(question: string, c: FinanceContext): string {
 
 export const ASSISTANT_SUGGESTIONS = [
   "What are my savings this month?",
+  "Remind me to pay rent ₹25,000 on the 5th every month",
+  "Set a monthly budget of ₹10,000 for Food",
   "How much did I spend this month?",
   "What's my outstanding loan amount?",
   "How much are my investments worth?",

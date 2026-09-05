@@ -1,5 +1,6 @@
 package com.jarvis.ai.web;
 
+import com.jarvis.ai.agent.ActionPlanner;
 import com.jarvis.ai.agent.FinanceScore;
 import com.jarvis.ai.agent.FinanceScoreAgent;
 import com.jarvis.ai.agent.ParsedTransaction;
@@ -19,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
  *  - {@code POST /internal/ai/parse}           — service-to-service: parse one alert.
  *  - {@code POST /internal/ai/parse-statement} — service-to-service: scan a statement chunk.
  *  - {@code POST /api/ai/chat}                 — end-user NL Q&A (JWT via the gateway).
+ *  - {@code POST /api/ai/plan}                 — extract one confirmable action from a message.
  */
 @RestController
 public class AiController {
@@ -27,6 +29,7 @@ public class AiController {
     private final StatementParserAgent statementParser;
     private final QueryAgent queryAgent;
     private final FinanceScoreAgent scoreAgent;
+    private final ActionPlanner planner;
     private final String internalKey;
 
     public AiController(
@@ -34,11 +37,13 @@ public class AiController {
         StatementParserAgent statementParser,
         QueryAgent queryAgent,
         FinanceScoreAgent scoreAgent,
+        ActionPlanner planner,
         @Value("${jarvis.internal.key}") String internalKey) {
         this.parser = parser;
         this.statementParser = statementParser;
         this.queryAgent = queryAgent;
         this.scoreAgent = scoreAgent;
+        this.planner = planner;
         this.internalKey = internalKey;
     }
 
@@ -68,6 +73,17 @@ public class AiController {
     public ChatReply chat(@Valid @RequestBody ChatRequest req) {
         return new ChatReply(queryAgent.ask(req.message(), req.context()));
     }
+
+    /**
+     * Extract a structured action ("add a reminder …") for the web app to confirm and execute.
+     * The model never performs anything itself; {"type":"none"} for plain questions.
+     */
+    @PostMapping("/api/ai/plan")
+    public ActionPlanner.PlannedAction plan(@Valid @RequestBody PlanRequest req) {
+        return planner.plan(req.message());
+    }
+
+    public record PlanRequest(@NotBlank String message) {}
 
     /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
     @PostMapping("/api/ai/finance-score")
