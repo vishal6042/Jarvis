@@ -72,6 +72,9 @@ class ApiClient {
     suspend fun summary(baseUrl: String, token: String, from: String, to: String): PeriodSummaryDto =
         getJson(baseUrl, token, "/api/analytics/summary", mapOf("from" to from, "to" to to))
 
+    suspend fun members(baseUrl: String, token: String): List<MemberDto> =
+        getJson(baseUrl, token, "/api/members", emptyMap())
+
     suspend fun accounts(baseUrl: String, token: String): List<AccountDto> =
         getJson(baseUrl, token, "/api/accounts", emptyMap())
 

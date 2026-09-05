@@ -267,6 +267,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var txnsBusy by mutableStateOf(false)
         private set
+    /** null = the whole household; otherwise only this member's accounts and holdings. */
+    var member by mutableStateOf<Long?>(null)
+
     var txnQuery by mutableStateOf("")
     var txnMonth by mutableStateOf(java.time.YearMonth.now().toString()) // "yyyy-MM", or "all"
 
@@ -280,10 +283,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Newest first, filtered by the month picker and the search box. */
-    fun visibleTransactions(): List<TransactionDto> {
+    /** Account ids belonging to the selected member; empty when the whole household is shown. */
+    fun accountIdsOf(member: Long?, accounts: List<com.jarvis.sync.data.AccountDto>): Set<Long> =
+        if (member == null) emptySet() else accounts.filter { it.memberId == member }.map { it.id }.toSet()
+
+    fun visibleTransactions(ownedAccounts: Set<Long> = emptySet()): List<TransactionDto> {
         val needle = txnQuery.trim().lowercase()
         return txns.filter { t ->
             (txnMonth == "all" || t.occurredAt.startsWith(txnMonth)) &&
+                (ownedAccounts.isEmpty() || (t.accountId != null && t.accountId in ownedAccounts)) &&
                 (needle.isEmpty() ||
                     listOfNotNull(t.merchant, t.category, t.accountName, t.note)
                         .any { it.lowercase().contains(needle) })

@@ -40,6 +40,8 @@ data class PeriodSummaryDto(
 @Serializable
 data class AccountDto(
     val id: Long,
+    /** Whose account this is; matches a MemberDto id. */
+    val memberId: Long? = null,
     val type: String,
     val balance: Double? = null,
     @SerialName("displayName") val displayName: String? = null,
@@ -107,6 +109,7 @@ data class ReminderDto(
 @Serializable
 data class InvestmentDto(
     val id: Long,
+    val memberId: Long? = null,
     val kind: String,
     val name: String,
     val principal: Double = 0.0,
@@ -117,6 +120,10 @@ data class InvestmentDto(
     /** True for payslip deductions: the salary already arrives net of them. */
     val salaryDeducted: Boolean = false,
 )
+
+/** A person in the household; the phone filters by them the way the web app does. */
+@Serializable
+data class MemberDto(val id: Long, val name: String, val relation: String? = null)
 
 @Serializable
 data class LoanDto(
@@ -170,6 +177,7 @@ data class FinanceScoreDto(
 /** Extra dashboard sections cached with the tiles so they render offline too. */
 @Serializable
 data class DashboardExtras(
+    val members: List<MemberDto> = emptyList(),
     val upcoming: List<UpcomingItem> = emptyList(),
     val invested: Double = 0.0,
     val investmentValue: Double = 0.0,

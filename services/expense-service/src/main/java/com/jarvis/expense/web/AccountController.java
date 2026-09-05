@@ -72,6 +72,9 @@ public class AccountController {
         a.setIfsc(req.ifsc());
         a.setBranch(req.branch());
         a.setBalance(req.balance());
+        if (req.memberId() != null) {
+            a.setMemberId(req.memberId());
+        }
     }
 
     private ResponseStatusException notFound() {

@@ -81,6 +81,10 @@ public class Account {
     @Column(name = "balance_as_of")
     private Instant balanceAsOf;
 
+    /** Whose account this is: a member id from finance-service (no cross-schema key). */
+    @Column(name = "member_id")
+    private Long memberId;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

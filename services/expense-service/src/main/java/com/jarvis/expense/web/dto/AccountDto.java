@@ -21,7 +21,8 @@ public record AccountDto(
     String billingGroup,
     String ifsc,
     String branch,
-    BigDecimal balance) {
+    BigDecimal balance,
+    Long memberId) {
 
     public static AccountDto from(Account a) {
         return new AccountDto(
@@ -41,6 +42,7 @@ public record AccountDto(
             a.getBillingGroup(),
             a.getIfsc(),
             a.getBranch(),
-            a.getBalance());
+            a.getBalance(),
+            a.getMemberId());
     }
 }

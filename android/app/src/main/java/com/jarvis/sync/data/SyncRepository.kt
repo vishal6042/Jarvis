@@ -302,6 +302,7 @@ class SyncRepository private constructor(context: Context) {
         val loans = runCatching { api.loans(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val recent = runCatching { api.recentTransactions(session.baseUrl, session.token, 10) }.getOrDefault(emptyList())
         val cards = runCatching { api.cards(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        val members = runCatching { api.members(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val paid = runCatching { api.reminderPayments(session.baseUrl, session.token) }.getOrDefault(emptyList())
         // Keep a previously computed score while its inputs are unchanged (the AI call is slow).
         val previous = dashboardDao.get()?.let { parseExtras(it) }
@@ -336,6 +337,7 @@ class SyncRepository private constructor(context: Context) {
             scoreAt = if (fresh) previous.scoreAt else (previous?.scoreAt ?: 0L),
             cards = cards,
             holdings = investments,
+            members = members,
             paidOccurrences = paidKeys,
         )
 

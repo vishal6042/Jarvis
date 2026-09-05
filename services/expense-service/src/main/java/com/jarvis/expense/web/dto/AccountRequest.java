@@ -23,4 +23,6 @@ public record AccountRequest(
     // bank fields
     String ifsc,
     String branch,
-    @PositiveOrZero BigDecimal balance) {}
+    @PositiveOrZero BigDecimal balance,
+    /** Whose account this is; null leaves it unassigned. */
+    Long memberId) {}

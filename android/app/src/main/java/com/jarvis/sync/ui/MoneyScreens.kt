@@ -87,7 +87,9 @@ fun MoneyScreen(vm: AppViewModel) {
         )
     }
 
-    val rows = vm.visibleTransactions()
+    val accounts = extras?.accounts.orEmpty()
+    val owned = vm.accountIdsOf(vm.member, accounts)
+    val rows = vm.visibleTransactions(owned)
     val listState = rememberLazyListState()
 
     Column(Modifier.fillMaxSize()) {
@@ -99,6 +101,27 @@ fun MoneyScreen(vm: AppViewModel) {
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         )
+        val members = extras?.members.orEmpty()
+        if (members.size > 1) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = vm.member == null,
+                    onClick = { vm.member = null },
+                    label = { Text("Everyone") },
+                )
+                members.forEach { m ->
+                    FilterChip(
+                        selected = vm.member == m.id,
+                        onClick = { vm.member = m.id },
+                        label = { Text(m.name) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+        }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -119,7 +142,7 @@ fun MoneyScreen(vm: AppViewModel) {
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(Modifier.fillMaxSize(), state = listState) {
-            val cards = extras?.cards.orEmpty()
+            val cards = extras?.cards.orEmpty().filter { owned.isEmpty() || it.accountId in owned }
             if (cards.isNotEmpty()) {
                 item {
                     Text(
@@ -131,7 +154,7 @@ fun MoneyScreen(vm: AppViewModel) {
                 items(cards, key = { it.accountId }) { CardBillRow(it) }
                 item { Spacer(Modifier.height(8.dp)) }
             }
-            val holdings = extras?.holdings.orEmpty()
+            val holdings = extras?.holdings.orEmpty().filter { vm.member == null || it.memberId == vm.member }
             if (holdings.isNotEmpty()) {
                 item {
                     Row(
