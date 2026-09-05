@@ -60,6 +60,9 @@ public class InvestmentController {
         i.setCommencementDate(req.commencementDate());
         i.setMaturityDate(req.maturityDate());
         i.setNotes(req.notes());
+        if (req.salaryDeducted() != null) {
+            i.setSalaryDeducted(req.salaryDeducted());
+        }
         // Link fields are optional and mostly maintained by ingestion — only overwrite when sent,
         // so an edit from the web form (which doesn't know them) doesn't unlink the account.
         if (req.accountLast4() != null) {

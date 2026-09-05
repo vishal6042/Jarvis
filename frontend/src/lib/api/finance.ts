@@ -20,6 +20,8 @@ export interface ApiInvestment {
   commencementDate?: string | null;
   maturityDate?: string | null;
   notes?: string | null;
+  /** True for payslip deductions (EPF, corporate NPS): never money still to pay. */
+  salaryDeducted?: boolean;
 }
 export interface ApiLoan {
   id: number;

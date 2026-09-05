@@ -68,6 +68,7 @@ const toInv = (a: ApiInvestment): Investment => ({
   commencementDate: a.commencementDate ?? undefined,
   maturityDate: a.maturityDate ?? undefined,
   notes: a.notes ?? undefined,
+  salaryDeducted: a.salaryDeducted ?? false,
 });
 const toLoan = (a: ApiLoan): Loan => ({
   id: String(a.id),

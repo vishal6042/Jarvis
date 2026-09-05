@@ -59,6 +59,13 @@ public class Investment {
     @Column(name = "account_last4", length = 4)
     private String accountLast4;
 
+    /**
+     * True when the contribution is taken out of the payslip (EPF, corporate NPS). The salary that
+     * reaches the bank is already net of it, so it is never money the user still has to pay.
+     */
+    @Column(name = "salary_deducted", nullable = false)
+    private boolean salaryDeducted = false;
+
     /** Date of the alert that last set {@link #current}, so an older alert never overwrites a newer value. */
     @Column(name = "value_as_of")
     private LocalDate valueAsOf;

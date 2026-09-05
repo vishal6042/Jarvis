@@ -38,7 +38,9 @@ export default function DueThisMonthCard({
   const rows = useMemo(
     () =>
       agendaBetween(from, to, { cards, txns, investments, loans, reminders, paidKeys })
-        .filter((r) => r.direction === "out")
+        // Money leaving the account, plus payslip deductions: those are not owed but they are
+        // part of the month, so they show settled rather than vanishing.
+        .filter((r) => r.direction === "out" || r.kind === "sip")
         .map((r) => {
           const rem = r.reminderId ? reminders.find((x) => x.id === r.reminderId) : undefined;
           const st = rem ? reminderStatus(r.on, r.amount, txns, now, reminderKey(rem.id, r.on), paidKeys) : null;

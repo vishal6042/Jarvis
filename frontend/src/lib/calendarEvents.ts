@@ -135,9 +135,10 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
       on,
       kind: "sip",
       title: `${inv.name} · ${KIND_META[inv.kind].label}`,
-      detail: inv.kind === "RD" ? "Monthly deposit" : "SIP instalment",
+      // A payslip deduction never leaves the bank account: the salary arrives net of it.
+      detail: inv.salaryDeducted ? "Deducted from salary" : inv.kind === "RD" ? "Monthly deposit" : "SIP instalment",
       amount: sip,
-      direction: "out",
+      direction: inv.salaryDeducted ? "info" : "out",
       color: KIND_META[inv.kind].color,
       href: "/investments",
     });
@@ -223,6 +224,7 @@ export function upcomingOutflows(days: number, input: Omit<FinEventInput, "year"
 
 export interface AgendaRow {
   key: string;
+  kind: FinEventKind;
   on: string; // yyyy-MM-dd
   title: string;
   detail?: string;
@@ -264,6 +266,7 @@ export function agendaBetween(
   for (const { r, on } of reminderOccurrencesBetween(input.reminders, from, to)) {
     rows.push({
       key: `rem-${r.id}-${on}`,
+      kind: "reminder",
       on,
       title: r.title,
       detail: REMINDER_META[r.type].label,
@@ -287,6 +290,7 @@ export function agendaBetween(
       if (e.on < from || e.on > to) continue;
       rows.push({
         key: e.id,
+        kind: e.kind,
         on: e.on,
         title: e.title,
         detail: e.detail,
@@ -295,8 +299,8 @@ export function agendaBetween(
         color: e.color,
         badge: FIN_EVENT_META[e.kind].label,
         href: e.href,
-        // A card bill with nothing left to pay is already settled.
-        paid: e.kind === "card-due" && (e.amount == null || e.amount <= 0),
+        // Settled already: a card bill with nothing left, or a contribution taken from the payslip.
+        paid: (e.kind === "card-due" && (e.amount == null || e.amount <= 0)) || e.direction === "info",
       });
     }
   }

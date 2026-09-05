@@ -192,6 +192,8 @@ export interface Investment {
   commencementDate?: string;
   maturityDate?: string;
   notes?: string;
+  /** Taken out of the payslip (EPF, corporate NPS), so the salary already arrives net of it. */
+  salaryDeducted?: boolean;
 }
 
 export function seedInvestments(): Investment[] {

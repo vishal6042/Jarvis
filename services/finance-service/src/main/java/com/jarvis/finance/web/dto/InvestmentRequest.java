@@ -20,4 +20,6 @@ public record InvestmentRequest(
     /** Optional: last digits of the linked account; alerts for it then update this investment. */
     String accountLast4,
     LocalDate valueAsOf,
-    LocalDate lastContributionOn) {}
+    LocalDate lastContributionOn,
+    /** True for payslip deductions (EPF, corporate NPS): never money still to pay. */
+    Boolean salaryDeducted) {}
