@@ -1,12 +1,17 @@
 package com.jarvis.ai.agent;
 
 import com.jarvis.ai.client.ExpenseClient;
+import com.jarvis.common.security.CallerContext;
 import java.util.stream.Collectors;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
-/** Tools the Query/Chatbot agent can call to answer questions from real expense data. */
+/**
+ * Tools the Query/Chatbot agent can call to answer questions from real expense data. The agent runs
+ * on the request thread, so the person who asked is still known here: someone confined to their own
+ * money must not learn the households totals by asking the assistant instead of opening a page.
+ */
 @Component
 public class ExpenseAnalyticsTools {
 
@@ -19,14 +24,14 @@ public class ExpenseAnalyticsTools {
     @Tool(description = "Get the user's total spend and total earning (in INR) over the last N days.")
     public String spendingSummary(
         @ToolParam(description = "number of days to look back, e.g. 30") int days) {
-        ExpenseClient.Summary s = expense.summary(days);
+        ExpenseClient.Summary s = expense.summary(days, CallerContext.restrictedTo());
         return "Last %d days — earning: INR %s, spend: INR %s".formatted(days, s.earning(), s.spend());
     }
 
     @Tool(description = "Get the user's spend grouped by category (highest first, in INR) over the last N days.")
     public String spendByCategory(
         @ToolParam(description = "number of days to look back, e.g. 30") int days) {
-        String rows = expense.byCategory(days).stream()
+        String rows = expense.byCategory(days, CallerContext.restrictedTo()).stream()
             .map(c -> "%s: INR %s".formatted(c.category(), c.total()))
             .collect(Collectors.joining("; "));
         return rows.isEmpty() ? "No spending recorded." : rows;

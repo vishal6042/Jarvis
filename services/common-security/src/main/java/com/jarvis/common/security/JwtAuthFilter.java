@@ -12,7 +12,6 @@ import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -55,8 +54,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         .filter(r -> !r.isBlank())
                         .map(r -> new SimpleGrantedAuthority("ROLE_" + r.trim()))
                         .toList();
+                Number mid = claims.get("mid", Number.class);
+                boolean admin = authorities.stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
                 var auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-                auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // The details slot carries who is asking. The principal stays the username so
+                // controllers taking a java.security.Principal keep working unchanged.
+                auth.setDetails(new Caller(username, mid == null ? null : mid.longValue(), admin));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (JwtException | IllegalArgumentException e) {
                 // Invalid/expired token → leave context unauthenticated (request gets 401).

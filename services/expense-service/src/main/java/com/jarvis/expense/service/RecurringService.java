@@ -29,9 +29,11 @@ public class RecurringService {
     private static final int MIN_OCCURRENCES = 3;
 
     private final TransactionRepository transactions;
+    private final Scope scope;
 
-    public RecurringService(TransactionRepository transactions) {
+    public RecurringService(TransactionRepository transactions, Scope scope) {
         this.transactions = transactions;
+        this.scope = scope;
     }
 
     @Transactional(readOnly = true)
@@ -40,7 +42,7 @@ public class RecurringService {
         Instant from = LocalDate.now(zone).minusMonths(LOOKBACK_MONTHS).atStartOfDay(zone).toInstant();
 
         Map<String, List<Transaction>> groups = new LinkedHashMap<>();
-        for (Transaction t : transactions.findDebitsSince(from)) {
+        for (Transaction t : transactions.findDebitsSince(from, scope.all(), scope.accountIds())) {
             String category = t.getCategory() != null ? t.getCategory().getName() : null;
             if ("Card Payment".equals(category)) {
                 continue; // a transfer to the card, not a subscription

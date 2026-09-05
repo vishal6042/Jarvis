@@ -24,15 +24,26 @@ public class JwtTokenService {
     }
 
     public String issue(String username, String roles) {
+        return issue(username, roles, null);
+    }
+
+    /**
+     * @param memberId the household member this sign-in speaks for, carried as the {@code mid}
+     *     claim so every service can scope its answers without another round trip. Null means the
+     *     sign-in is not tied to one member.
+     */
+    public String issue(String username, String roles, Long memberId) {
         Instant now = Instant.now();
         Instant exp = now.plus(ttlMinutes, ChronoUnit.MINUTES);
-        return Jwts.builder()
+        var builder = Jwts.builder()
             .subject(username)
             .claim("roles", roles)
             .issuedAt(Date.from(now))
-            .expiration(Date.from(exp))
-            .signWith(key)
-            .compact();
+            .expiration(Date.from(exp));
+        if (memberId != null) {
+            builder.claim("mid", memberId);
+        }
+        return builder.signWith(key).compact();
     }
 
     /** Returns the parsed claims, or throws if the token is invalid/expired. */

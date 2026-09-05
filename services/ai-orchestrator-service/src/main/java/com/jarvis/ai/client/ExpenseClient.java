@@ -23,18 +23,32 @@ public class ExpenseClient {
         this.internalKey = internalKey;
     }
 
-    public Summary summary(int days) {
+    /** @param memberId whose money to report on; null asks about the whole household. */
+    public Summary summary(int days, Long memberId) {
         return web.get()
-            .uri(uri -> uri.path("/internal/analytics/summary").queryParam("days", days).build())
+            .uri(uri -> {
+                var b = uri.path("/internal/analytics/summary").queryParam("days", days);
+                if (memberId != null) {
+                    b.queryParam("memberId", memberId);
+                }
+                return b.build();
+            })
             .header("X-Internal-Key", internalKey)
             .retrieve()
             .bodyToMono(Summary.class)
             .block();
     }
 
-    public List<CategorySpend> byCategory(int days) {
+    /** @param memberId whose money to report on; null asks about the whole household. */
+    public List<CategorySpend> byCategory(int days, Long memberId) {
         return web.get()
-            .uri(uri -> uri.path("/internal/analytics/by-category").queryParam("days", days).build())
+            .uri(uri -> {
+                var b = uri.path("/internal/analytics/by-category").queryParam("days", days);
+                if (memberId != null) {
+                    b.queryParam("memberId", memberId);
+                }
+                return b.build();
+            })
             .header("X-Internal-Key", internalKey)
             .retrieve()
             .bodyToMono(new ParameterizedTypeReference<List<CategorySpend>>() {})

@@ -5,6 +5,7 @@ import com.jarvis.finance.repo.GoalRepository;
 import com.jarvis.finance.repo.InvestmentRepository;
 import com.jarvis.finance.repo.LoanRepository;
 import com.jarvis.finance.repo.ReminderRepository;
+import com.jarvis.finance.service.Scope;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,13 +20,16 @@ public class DataController {
     private final ReminderRepository reminders;
     private final CategoryThresholdRepository thresholds;
     private final GoalRepository goals;
+    private final Scope scope;
 
     public DataController(
         InvestmentRepository investments,
         LoanRepository loans,
         ReminderRepository reminders,
         CategoryThresholdRepository thresholds,
-        GoalRepository goals) {
+        GoalRepository goals,
+        Scope scope) {
+        this.scope = scope;
         this.investments = investments;
         this.loans = loans;
         this.reminders = reminders;
@@ -36,6 +40,7 @@ public class DataController {
     @DeleteMapping("/api/investments/purge-all")
     @Transactional
     public ResponseEntity<Void> purge() {
+        scope.requireAdmin();
         investments.deleteAllInBatch();
         loans.deleteAllInBatch();
         reminders.deleteAllInBatch();

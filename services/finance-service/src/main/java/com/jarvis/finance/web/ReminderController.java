@@ -4,6 +4,7 @@ import com.jarvis.finance.domain.Reminder;
 import com.jarvis.finance.domain.ReminderPayment;
 import com.jarvis.finance.repo.ReminderPaymentRepository;
 import com.jarvis.finance.repo.ReminderRepository;
+import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.ReminderPaymentDto;
 import com.jarvis.finance.web.dto.ReminderRequest;
 import jakarta.validation.Valid;
@@ -23,19 +24,23 @@ public class ReminderController {
 
     private final ReminderRepository reminders;
     private final ReminderPaymentRepository payments;
+    private final Scope scope;
 
-    public ReminderController(ReminderRepository reminders, ReminderPaymentRepository payments) {
+    public ReminderController(
+        ReminderRepository reminders, ReminderPaymentRepository payments, Scope scope) {
         this.reminders = reminders;
         this.payments = payments;
+        this.scope = scope;
     }
 
     @GetMapping
     public List<Reminder> list() {
-        return reminders.findAll();
+        return scope.all() ? reminders.findAll() : reminders.findByMemberId(scope.memberId());
     }
 
     @PostMapping
     public ResponseEntity<Reminder> create(@Valid @RequestBody ReminderRequest req) {
+        scope.requireOwn(req.memberId());
         Reminder r = new Reminder();
         apply(r, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(reminders.save(r));
@@ -43,7 +48,8 @@ public class ReminderController {
 
     @PutMapping("/{id}")
     public Reminder update(@PathVariable Long id, @Valid @RequestBody ReminderRequest req) {
-        Reminder r = reminders.findById(id).orElseThrow(this::notFound);
+        Reminder r = mine(id);
+        scope.requireOwn(req.memberId());
         apply(r, req);
         return reminders.save(r);
     }
@@ -57,13 +63,16 @@ public class ReminderController {
     public List<ReminderPaymentDto> payments(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from) {
         LocalDate since = from != null ? from : LocalDate.now().minusMonths(12);
-        return payments.findByOccurredOnGreaterThanEqual(since).stream().map(ReminderPaymentDto::from).toList();
+        return payments.findByOccurredOnGreaterThanEqual(since).stream()
+            .filter(p -> scope.canSee(p.getReminder().getMemberId()))
+            .map(ReminderPaymentDto::from)
+            .toList();
     }
 
     /** Mark one occurrence paid (idempotent: marking it again updates the details). */
     @PostMapping("/{id}/payments")
     public ReminderPaymentDto markPaid(@PathVariable Long id, @Valid @RequestBody MarkPaidRequest req) {
-        Reminder r = reminders.findById(id).orElseThrow(this::notFound);
+        Reminder r = mine(id);
         ReminderPayment p = payments
             .findByReminder_IdAndOccurredOn(id, req.occurredOn())
             .orElseGet(() -> {
@@ -83,6 +92,7 @@ public class ReminderController {
     public ResponseEntity<Void> unmarkPaid(
         @PathVariable Long id,
         @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate occurredOn) {
+        mine(id);
         payments.findByReminder_IdAndOccurredOn(id, occurredOn).ifPresent(payments::delete);
         return ResponseEntity.noContent().build();
     }
@@ -92,12 +102,17 @@ public class ReminderController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!reminders.existsById(id)) throw notFound();
-        reminders.deleteById(id);
+        reminders.delete(mine(id));
         return ResponseEntity.noContent().build();
     }
 
+    /** A reminder the caller may act on; someone else's reads as missing rather than forbidden. */
+    private Reminder mine(Long id) {
+        return reminders.findById(id).filter(r -> scope.canSee(r.getMemberId())).orElseThrow(this::notFound);
+    }
+
     private void apply(Reminder r, ReminderRequest req) {
+        r.setMemberId(scope.resolve(req.memberId()));
         r.setTitle(req.title().trim());
         r.setDate(req.date());
         r.setType(req.type());

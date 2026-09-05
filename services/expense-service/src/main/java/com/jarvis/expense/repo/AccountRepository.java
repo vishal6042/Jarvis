@@ -14,4 +14,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByBankIgnoreCaseAndLast4(String bank, String last4);
 
     long countByType(AccountType type);
+
+    /** The accounts belonging to one household member. */
+    List<Account> findByMemberId(Long memberId);
 }

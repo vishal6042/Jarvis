@@ -2,6 +2,7 @@ package com.jarvis.finance.web;
 
 import com.jarvis.finance.domain.Investment;
 import com.jarvis.finance.repo.InvestmentRepository;
+import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.InvestmentRequest;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -16,19 +17,26 @@ import org.springframework.web.server.ResponseStatusException;
 public class InvestmentController {
 
     private final InvestmentRepository investments;
+    private final Scope scope;
 
-    public InvestmentController(InvestmentRepository investments) {
+    public InvestmentController(InvestmentRepository investments, Scope scope) {
         this.investments = investments;
+        this.scope = scope;
     }
 
-    /** All investments, or just one member's when {@code memberId} is given. */
+    /**
+     * All investments, or just one member's when {@code memberId} is given. A caller confined to
+     * one member gets theirs whatever they ask for.
+     */
     @GetMapping
     public List<Investment> list(@RequestParam(required = false) Long memberId) {
-        return memberId == null ? investments.findAll() : investments.findByMemberId(memberId);
+        Long member = scope.resolve(memberId);
+        return member == null ? investments.findAll() : investments.findByMemberId(member);
     }
 
     @PostMapping
     public ResponseEntity<Investment> create(@Valid @RequestBody InvestmentRequest req) {
+        scope.requireOwn(req.memberId());
         Investment i = new Investment();
         apply(i, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(investments.save(i));
@@ -36,15 +44,16 @@ public class InvestmentController {
 
     @PutMapping("/{id}")
     public Investment update(@PathVariable Long id, @Valid @RequestBody InvestmentRequest req) {
-        Investment i = investments.findById(id).orElseThrow(this::notFound);
+        Investment i = investments.findById(id).filter(x -> scope.canSee(x.getMemberId())).orElseThrow(this::notFound);
+        scope.requireOwn(req.memberId());
         apply(i, req);
         return investments.save(i);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!investments.existsById(id)) throw notFound();
-        investments.deleteById(id);
+        Investment i = investments.findById(id).filter(x -> scope.canSee(x.getMemberId())).orElseThrow(this::notFound);
+        investments.delete(i);
         return ResponseEntity.noContent().build();
     }
 

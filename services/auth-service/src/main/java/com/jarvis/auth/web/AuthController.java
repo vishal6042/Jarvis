@@ -8,6 +8,8 @@ import com.jarvis.auth.web.dto.LoginRequest;
 import com.jarvis.auth.web.dto.LoginResponse;
 import com.jarvis.auth.web.dto.RegisterRequest;
 import com.jarvis.auth.web.dto.ResetPasswordRequest;
+import com.jarvis.common.security.Caller;
+import com.jarvis.common.security.CallerContext;
 import com.jarvis.common.security.JwtTokenService;
 import jakarta.validation.Valid;
 import java.util.HashMap;
@@ -66,19 +68,28 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("username", user.getUsername()));
     }
 
-    /** The security question to show on the "forgot password" screen (single user). */
+    /**
+     * The security question to show on the "forgot password" screen. Without a username this
+     * answers for the household administrator, which is what the single-user install expects.
+     */
     @GetMapping("/security-question")
-    public Map<String, String> securityQuestion() {
+    public Map<String, String> securityQuestion(@RequestParam(required = false) String username) {
         Map<String, String> body = new HashMap<>();
-        body.put("question",
-            users.findFirstByOrderByIdAsc().map(AppUser::getSecurityQuestion).orElse(null));
+        body.put("question", forRecovery(username).map(AppUser::getSecurityQuestion).orElse(null));
         return body;
+    }
+
+    /** The account a "forgot password" flow is about: the one named, else the first one created. */
+    private java.util.Optional<AppUser> forRecovery(String username) {
+        return username == null || username.isBlank()
+            ? users.findFirstByOrderByIdAsc()
+            : users.findByUsername(username.trim());
     }
 
     /** Recover access: verify the security answer, then set a new password. */
     @PostMapping("/reset-password")
     public Map<String, String> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
-        AppUser user = users.findFirstByOrderByIdAsc()
+        AppUser user = forRecovery(req.username())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account"));
         if (user.getSecurityAnswerHash() == null
             || !passwordEncoder.matches(normalizeAnswer(req.answer()), user.getSecurityAnswerHash())) {
@@ -92,7 +103,11 @@ public class AuthController {
     /** Change the password while signed-in (current password required). */
     @PostMapping("/change-password")
     public Map<String, String> changePassword(@Valid @RequestBody ChangePasswordRequest req) {
-        AppUser user = users.findFirstByOrderByIdAsc()
+        // Whoever is signed in — not simply the first account, which once there is more than one
+        // user would let one person change another persons password.
+        String me = CallerContext.current().map(Caller::username)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in first"));
+        AppUser user = users.findByUsername(me)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No account"));
         if (!passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
@@ -107,6 +122,18 @@ public class AuthController {
         return answer == null ? "" : answer.trim().toLowerCase();
     }
 
+    /** Who is signed in, and what they are allowed to see — read by both the web app and phone. */
+    @GetMapping("/me")
+    public Map<String, Object> me() {
+        Caller caller = CallerContext.current()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sign in first"));
+        Map<String, Object> body = new HashMap<>();
+        body.put("username", caller.username());
+        body.put("admin", caller.admin());
+        body.put("memberId", caller.memberId());
+        return body;
+    }
+
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest req) {
         AppUser user = users
@@ -115,8 +142,9 @@ public class AuthController {
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-        String token = jwtTokenService.issue(user.getUsername(), user.getRoles());
+        String token = jwtTokenService.issue(user.getUsername(), user.getRoles(), user.getMemberId());
         return new LoginResponse(
-            token, "Bearer", jwtTokenService.getTtlMinutes(), user.getUsername());
+            token, "Bearer", jwtTokenService.getTtlMinutes(), user.getUsername(),
+            user.isAdmin(), user.getMemberId());
     }
 }

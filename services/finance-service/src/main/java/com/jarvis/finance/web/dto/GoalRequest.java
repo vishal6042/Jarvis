@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record GoalRequest(
+    Long memberId,
     @NotBlank String name,
     @NotNull @Positive BigDecimal targetAmount,
     @PositiveOrZero BigDecimal savedAmount,

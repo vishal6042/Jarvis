@@ -17,13 +17,21 @@ import org.springframework.data.repository.query.Param;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
+    /*
+     * Reads that answer a person take :all and :accountIds. An administrator (and any internal
+     * call) passes all = true and sees the whole ledger, including rows not yet linked to an
+     * account; anyone else passes their own accounts and sees nothing else. The pair is explicit
+     * rather than clever so that any future query has to decide, out loud, which it is.
+     */
+
     /** Every distinct raw merchant string with how often it appears and how much is uncategorised. */
     @Query(
         "select t.merchant, count(t), sum(t.amount), "
             + "sum(case when t.category is null or t.category.name = 'Uncategorized' then 1 else 0 end) "
             + "from Transaction t where t.merchant is not null and t.merchant <> '' "
+            + "and (:all = true or t.account.id in :accountIds) "
             + "group by t.merchant order by count(t) desc")
-    List<Object[]> merchantGroups();
+    List<Object[]> merchantGroups(@Param("all") boolean all, @Param("accountIds") Collection<Long> accountIds);
 
     List<Transaction> findByMerchant(String merchant);
 
@@ -32,7 +40,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     /** Would this hash collide with a *different* transaction? Guards the unique index on edit. */
     boolean existsByDedupHashAndIdNot(String dedupHash, Long id);
 
-    Page<Transaction> findByOrderByOccurredAtDesc(Pageable pageable);
+    @Query(
+        """
+        select t from Transaction t
+        where (:all = true or t.account.id in :accountIds)
+        order by t.occurredAt desc
+        """)
+    Page<Transaction> findVisible(
+        @Param("all") boolean all, @Param("accountIds") Collection<Long> accountIds, Pageable pageable);
+
+    /** Every row the caller may see, newest first — the duplicate scan walks all of them. */
+    @Query("select t from Transaction t where (:all = true or t.account.id in :accountIds)")
+    List<Transaction> findVisible(@Param("all") boolean all, @Param("accountIds") Collection<Long> accountIds);
 
     /** Other-side candidates for transfer pairing: opposite direction, same amount, a different account, inside the window. */
     @Query(
@@ -89,8 +108,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = com.jarvis.expense.domain.Direction.DEBIT
           and t.occurredAt >= :from
           and t.transfer = false and t.settlement = false
+          and (:all = true or t.account.id in :accountIds)
         """)
-    List<Transaction> findDebitsSince(@Param("from") Instant from);
+    List<Transaction> findDebitsSince(
+        @Param("from") Instant from,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /** Savings-account transactions in a window — bucketed by month for the net-worth trend. */
     @Query(
@@ -99,8 +122,13 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.account.type = com.jarvis.expense.domain.AccountType.SAVINGS
           and t.occurredAt >= :from and t.occurredAt < :to
           and t.transfer = false
+          and (:all = true or t.account.id in :accountIds)
         """)
-    List<Transaction> findSavingsBetween(@Param("from") Instant from, @Param("to") Instant to);
+    List<Transaction> findSavingsBetween(
+        @Param("from") Instant from,
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /** Total amount in a direction within a time window (used by analytics / the query agent). */
     @Query(
@@ -125,12 +153,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = :direction and t.account.type = :type
           and t.occurredAt >= :from and t.occurredAt < :to
           and t.transfer = false and t.settlement = false
+          and (:all = true or t.account.id in :accountIds)
         """)
     BigDecimal sumByDirectionAndAccountType(
         @Param("direction") Direction direction,
         @Param("type") AccountType type,
         @Param("from") Instant from,
-        @Param("to") Instant to);
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /** Σ amount on one account, in a direction, for settlement or non-settlement rows, inside [from, to). */
     @Query(
@@ -173,12 +204,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = :direction and t.account.type in :types
           and t.occurredAt >= :from and t.occurredAt < :to
           and t.transfer = false and t.settlement = false
+          and (:all = true or t.account.id in :accountIds)
         """)
     BigDecimal sumByDirectionAndAccountTypes(
         @Param("direction") Direction direction,
         @Param("types") Collection<AccountType> types,
         @Param("from") Instant from,
-        @Param("to") Instant to);
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /**
      * Spend-by-category for the breakdown: DEBITs on savings + credit-card accounts, EXCLUDING the
@@ -195,10 +229,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
           and t.account.type in (com.jarvis.expense.domain.AccountType.SAVINGS,
                                  com.jarvis.expense.domain.AccountType.CREDIT_CARD)
           and (c is null or c.name <> 'Card Payment')
+          and (:all = true or t.account.id in :accountIds)
         group by c.name
         order by sum(t.amount) desc
         """)
-    List<Object[]> spendByCategoryDetail(@Param("from") Instant from, @Param("to") Instant to);
+    List<Object[]> spendByCategoryDetail(
+        @Param("from") Instant from,
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /**
      * Income-by-source for the breakdown: CREDITs on the savings account (money in), grouped by
@@ -212,10 +251,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
           and t.account.type = com.jarvis.expense.domain.AccountType.SAVINGS
           and t.occurredAt >= :from and t.occurredAt < :to
           and t.transfer = false and t.settlement = false
+          and (:all = true or t.account.id in :accountIds)
         group by c.name
         order by sum(t.amount) desc
         """)
-    List<Object[]> incomeBySourceDetail(@Param("from") Instant from, @Param("to") Instant to);
+    List<Object[]> incomeBySourceDetail(
+        @Param("from") Instant from,
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /** Spend per category within a window: rows of [categoryName, total]. */
     @Query(

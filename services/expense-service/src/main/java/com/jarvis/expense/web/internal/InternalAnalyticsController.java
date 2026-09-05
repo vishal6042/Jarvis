@@ -13,7 +13,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Service-to-service analytics for the AI query agent (no user JWT; shared internal key).
- * Mirrors the public /api/analytics endpoints but reachable only inside the mesh.
+ * Mirrors the public /api/analytics endpoints but reachable only inside the mesh. The caller says
+ * which member it is asking for, because there is no user token here to work it out from.
  */
 @RestController
 @RequestMapping("/internal/analytics")
@@ -31,19 +32,21 @@ public class InternalAnalyticsController {
     @GetMapping("/summary")
     public PeriodSummary summary(
         @RequestHeader(value = "X-Internal-Key", required = false) String key,
-        @RequestParam(defaultValue = "30") int days) {
+        @RequestParam(defaultValue = "30") int days,
+        @RequestParam(required = false) Long memberId) {
         checkKey(key);
         Instant to = Instant.now();
-        return analytics.summary(to.minus(days, ChronoUnit.DAYS), to);
+        return analytics.summaryFor(memberId, to.minus(days, ChronoUnit.DAYS), to);
     }
 
     @GetMapping("/by-category")
     public List<CategorySpend> byCategory(
         @RequestHeader(value = "X-Internal-Key", required = false) String key,
-        @RequestParam(defaultValue = "30") int days) {
+        @RequestParam(defaultValue = "30") int days,
+        @RequestParam(required = false) Long memberId) {
         checkKey(key);
         Instant to = Instant.now();
-        return analytics.spendByCategory(to.minus(days, ChronoUnit.DAYS), to);
+        return analytics.spendByCategoryFor(memberId, to.minus(days, ChronoUnit.DAYS), to);
     }
 
     private void checkKey(String key) {

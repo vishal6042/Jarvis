@@ -19,6 +19,10 @@ public class Reminder {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Whose this is: a household member from the member table. */
+    @Column(name = "member_id")
+    private Long memberId;
+
     @Column(nullable = false)
     private String title;
 

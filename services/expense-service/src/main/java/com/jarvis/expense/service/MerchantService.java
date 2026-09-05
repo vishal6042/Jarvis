@@ -30,12 +30,17 @@ public class MerchantService {
     private final TransactionRepository transactions;
     private final MerchantAliasRepository aliases;
     private final CategoryRepository categories;
+    private final Scope scope;
 
     public MerchantService(
-        TransactionRepository transactions, MerchantAliasRepository aliases, CategoryRepository categories) {
+        TransactionRepository transactions,
+        MerchantAliasRepository aliases,
+        CategoryRepository categories,
+        Scope scope) {
         this.transactions = transactions;
         this.aliases = aliases;
         this.categories = categories;
+        this.scope = scope;
     }
 
     /** Every distinct raw merchant string, busiest first, with any alias already accepted for it. */
@@ -44,7 +49,7 @@ public class MerchantService {
         Map<String, MerchantAlias> byRaw = aliases.findAll().stream()
             .collect(Collectors.toMap(MerchantAlias::getRaw, Function.identity(), (a, b) -> a));
         List<MerchantSummary> out = new ArrayList<>();
-        for (Object[] row : transactions.merchantGroups()) {
+        for (Object[] row : transactions.merchantGroups(scope.all(), scope.accountIds())) {
             String raw = (String) row[0];
             MerchantAlias a = byRaw.get(raw);
             out.add(new MerchantSummary(

@@ -34,20 +34,43 @@ public class AnalyticsService {
 
     private final TransactionRepository transactions;
     private final AccountRepository accounts;
+    private final Scope scope;
 
-    public AnalyticsService(TransactionRepository transactions, AccountRepository accounts) {
+    public AnalyticsService(
+        TransactionRepository transactions, AccountRepository accounts, Scope scope) {
         this.transactions = transactions;
         this.accounts = accounts;
+        this.scope = scope;
+    }
+
+    /** The accounts the caller may see; an administrator sees them all. */
+    private List<Account> visibleAccounts() {
+        return scope.all() ? accounts.findAll() : accounts.findByMemberId(scope.memberId());
     }
 
     @Transactional(readOnly = true)
     public PeriodSummary summary(Instant from, Instant to) {
+        return summaryFor(scope.memberId(), from, to);
+    }
+
+    /**
+     * As {@link #summary} but for a named member — the assistant asks on behalf of whoever is
+     * chatting, and reaches this service over the internal channel where there is no caller.
+     * A null member means the whole household.
+     */
+    @Transactional(readOnly = true)
+    public PeriodSummary summaryFor(Long member, Instant from, Instant to) {
         // Earning = money into savings. Spend = every purchase, whether from savings or on a card.
         // Card bill payments are "settlement" pairs and own-account moves are "transfer" pairs —
         // both excluded, so nothing is counted twice.
-        BigDecimal earning = transactions.sumByDirectionAndAccountType(Direction.CREDIT, AccountType.SAVINGS, from, to);
+        boolean all = member == null;
+        List<Long> ids = scope.accountIdsOf(member);
+        BigDecimal earning = transactions.sumByDirectionAndAccountType(
+            Direction.CREDIT, AccountType.SAVINGS, from, to, all, ids);
         BigDecimal spend = transactions.sumByDirectionAndAccountTypes(
-            Direction.DEBIT, List.of(AccountType.SAVINGS, AccountType.CREDIT_CARD, AccountType.DEBIT_CARD), from, to);
+            Direction.DEBIT,
+            List.of(AccountType.SAVINGS, AccountType.CREDIT_CARD, AccountType.DEBIT_CARD),
+            from, to, all, ids);
         return new PeriodSummary(from, to, earning, spend);
     }
 
@@ -59,7 +82,7 @@ public class AnalyticsService {
 
         // Pass 1: each card's own cycle and figures.
         List<CardCycle> cycles = new ArrayList<>();
-        for (Account a : accounts.findAll()) {
+        for (Account a : visibleAccounts()) {
             if (a.getType() != AccountType.CREDIT_CARD) {
                 continue;
             }
@@ -196,8 +219,14 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public List<CategorySpend> spendByCategory(Instant from, Instant to) {
+        return spendByCategoryFor(scope.memberId(), from, to);
+    }
+
+    /** As {@link #spendByCategory} but for a named member (null = the whole household). */
+    @Transactional(readOnly = true)
+    public List<CategorySpend> spendByCategoryFor(Long member, Instant from, Instant to) {
         // Itemized real spending across savings + card, minus the "Card Payment" (bill-payment) rows.
-        return transactions.spendByCategoryDetail(from, to).stream()
+        return transactions.spendByCategoryDetail(from, to, member == null, scope.accountIdsOf(member)).stream()
             .map(row -> new CategorySpend((String) row[0], (BigDecimal) row[1]))
             .toList();
     }
@@ -205,7 +234,7 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public List<CategorySpend> incomeBySource(Instant from, Instant to) {
         // Money into the savings account (CREDITs), grouped by category → income sources.
-        return transactions.incomeBySourceDetail(from, to).stream()
+        return transactions.incomeBySourceDetail(from, to, scope.all(), scope.accountIds()).stream()
             .map(row -> new CategorySpend((String) row[0], (BigDecimal) row[1]))
             .toList();
     }
@@ -227,13 +256,13 @@ public class AnalyticsService {
 
         // Net savings flow per month within the window.
         Map<YearMonth, BigDecimal> flow = new HashMap<>();
-        for (Transaction t : transactions.findSavingsBetween(from, to)) {
+        for (Transaction t : transactions.findSavingsBetween(from, to, scope.all(), scope.accountIds())) {
             YearMonth ym = YearMonth.from(t.getOccurredAt().atZone(zone));
             BigDecimal signed = t.getDirection() == Direction.CREDIT ? t.getAmount() : t.getAmount().negate();
             flow.merge(ym, signed, BigDecimal::add);
         }
 
-        BigDecimal currentBalance = accounts.findAll().stream()
+        BigDecimal currentBalance = visibleAccounts().stream()
             .filter(a -> a.getType() == AccountType.SAVINGS && a.getBalance() != null)
             .map(Account::getBalance)
             .reduce(BigDecimal.ZERO, BigDecimal::add);

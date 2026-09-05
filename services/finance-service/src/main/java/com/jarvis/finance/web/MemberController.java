@@ -2,6 +2,7 @@ package com.jarvis.finance.web;
 
 import com.jarvis.finance.domain.Member;
 import com.jarvis.finance.repo.MemberRepository;
+import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.MemberRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -15,9 +16,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class MemberController {
 
     private final MemberRepository members;
+    private final Scope scope;
 
-    public MemberController(MemberRepository members) {
+    public MemberController(MemberRepository members, Scope scope) {
         this.members = members;
+        this.scope = scope;
     }
 
     @GetMapping
@@ -27,6 +30,7 @@ public class MemberController {
 
     @PostMapping
     public ResponseEntity<Member> create(@Valid @RequestBody MemberRequest req) {
+        scope.requireAdmin();
         Member m = new Member();
         apply(m, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(members.save(m));
@@ -34,6 +38,7 @@ public class MemberController {
 
     @PutMapping("/{id}")
     public Member update(@PathVariable Long id, @Valid @RequestBody MemberRequest req) {
+        scope.requireAdmin();
         Member m = members.findById(id).orElseThrow(this::notFound);
         apply(m, req);
         return members.save(m);
@@ -41,6 +46,7 @@ public class MemberController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        scope.requireAdmin();
         if (!members.existsById(id)) throw notFound();
         members.deleteById(id);
         return ResponseEntity.noContent().build();

@@ -2,6 +2,7 @@ package com.jarvis.finance.web;
 
 import com.jarvis.finance.domain.Loan;
 import com.jarvis.finance.repo.LoanRepository;
+import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.LoanRequest;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
@@ -16,18 +17,22 @@ import org.springframework.web.server.ResponseStatusException;
 public class LoanController {
 
     private final LoanRepository loans;
+    private final Scope scope;
 
-    public LoanController(LoanRepository loans) {
+    public LoanController(LoanRepository loans, Scope scope) {
         this.loans = loans;
+        this.scope = scope;
     }
 
     @GetMapping
     public List<Loan> list(@RequestParam(required = false) Long memberId) {
-        return memberId == null ? loans.findAll() : loans.findByMemberId(memberId);
+        Long member = scope.resolve(memberId);
+        return member == null ? loans.findAll() : loans.findByMemberId(member);
     }
 
     @PostMapping
     public ResponseEntity<Loan> create(@Valid @RequestBody LoanRequest req) {
+        scope.requireOwn(req.memberId());
         Loan l = new Loan();
         apply(l, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(loans.save(l));
@@ -35,15 +40,16 @@ public class LoanController {
 
     @PutMapping("/{id}")
     public Loan update(@PathVariable Long id, @Valid @RequestBody LoanRequest req) {
-        Loan l = loans.findById(id).orElseThrow(this::notFound);
+        Loan l = loans.findById(id).filter(x -> scope.canSee(x.getMemberId())).orElseThrow(this::notFound);
+        scope.requireOwn(req.memberId());
         apply(l, req);
         return loans.save(l);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!loans.existsById(id)) throw notFound();
-        loans.deleteById(id);
+        Loan l = loans.findById(id).filter(x -> scope.canSee(x.getMemberId())).orElseThrow(this::notFound);
+        loans.delete(l);
         return ResponseEntity.noContent().build();
     }
 

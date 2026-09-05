@@ -1,5 +1,6 @@
 package com.jarvis.common.security;
 
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -63,6 +64,10 @@ public class CommonSecurityAutoConfiguration {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // A controller that answers 404 or 403 finishes through an ERROR dispatch, which
+                // re-enters this chain. Without this the real status is replaced by a blanket 401,
+                // and the web app reads that as "your session expired" and signs the person out.
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers(open).permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(eh -> eh.authenticationEntryPoint(unauthorizedEntryPoint()))

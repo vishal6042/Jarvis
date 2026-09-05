@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record ReminderRequest(
+    Long memberId,
     @NotBlank String title,
     @NotNull LocalDate date,
     @NotBlank String type,

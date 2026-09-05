@@ -40,6 +40,7 @@ public class TransactionService {
     private final TransferService transfers;
     private final RuleService rules;
     private final MerchantAliasRepository aliases;
+    private final Scope scope;
 
     public TransactionService(
         TransactionRepository transactions,
@@ -48,7 +49,8 @@ public class TransactionService {
         DedupHasher dedupHasher,
         TransferService transfers,
         RuleService rules,
-        MerchantAliasRepository aliases) {
+        MerchantAliasRepository aliases,
+        Scope scope) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
@@ -56,6 +58,22 @@ public class TransactionService {
         this.transfers = transfers;
         this.rules = rules;
         this.aliases = aliases;
+        this.scope = scope;
+    }
+
+    /**
+     * Load a row the caller is allowed to touch. A member confined to their own money must not be
+     * able to read or edit someone elses transaction by guessing its id, so a row outside their
+     * accounts is reported as missing rather than as forbidden.
+     */
+    private Transaction owned(Long id) {
+        Transaction t = transactions
+            .findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        if (t.getAccount() == null ? !scope.all() : !scope.canSee(t.getAccount())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found");
+        }
+        return t;
     }
 
     @Transactional(readOnly = true)
@@ -66,9 +84,7 @@ public class TransactionService {
     /** Replace the tag list (trimmed, de-duplicated, at most 20, stored comma-separated). */
     @Transactional
     public TransactionDto setTags(Long id, List<String> tags) {
-        Transaction t = transactions
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        Transaction t = owned(id);
         List<String> clean = tags == null
             ? List.of()
             : tags.stream()
@@ -89,7 +105,9 @@ public class TransactionService {
             return 0;
         }
         Category c = category == null || category.isBlank() ? null : findOrCreateCategory(category.trim());
-        List<Transaction> rows = transactions.findAllById(ids);
+        List<Transaction> rows = transactions.findAllById(ids).stream()
+            .filter(t -> t.getAccount() != null ? scope.canSee(t.getAccount()) : scope.all())
+            .toList();
         rows.forEach(t -> t.setCategory(c));
         transactions.saveAll(rows);
         return rows.size();
@@ -98,9 +116,7 @@ public class TransactionService {
     /** Set just the category (inline edit from the Transactions page). */
     @Transactional
     public TransactionDto setCategory(Long id, String category) {
-        Transaction t = transactions
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        Transaction t = owned(id);
         t.setCategory(category == null || category.isBlank() ? null : findOrCreateCategory(category.trim()));
         return TransactionDto.from(transactions.save(t));
     }
@@ -112,7 +128,7 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<List<TransactionDto>> duplicateCandidates() {
         Map<String, List<Transaction>> groups = new LinkedHashMap<>();
-        for (Transaction t : transactions.findAll()) {
+        for (Transaction t : transactions.findVisible(scope.all(), scope.accountIds())) {
             if (t.isTransfer() || t.isSettlement()) {
                 continue;
             }
@@ -148,17 +164,14 @@ public class TransactionService {
     @Transactional(readOnly = true)
     public List<TransactionDto> list(int page, int size) {
         return transactions
-            .findByOrderByOccurredAtDesc(PageRequest.of(page, size))
+            .findVisible(scope.all(), scope.accountIds(), PageRequest.of(page, size))
             .map(TransactionDto::from)
             .getContent();
     }
 
     @Transactional(readOnly = true)
     public TransactionDto get(Long id) {
-        return transactions
-            .findById(id)
-            .map(TransactionDto::from)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        return TransactionDto.from(owned(id));
     }
 
     @Transactional
@@ -174,13 +187,7 @@ public class TransactionService {
         t.setTransfer(Boolean.TRUE.equals(req.transfer()));
         t.setTransferDeclared(Boolean.TRUE.equals(req.transfer()));
 
-        if (req.accountId() != null) {
-            Account account = accounts
-                .findById(req.accountId())
-                .orElseThrow(
-                    () -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown accountId"));
-            t.setAccount(account);
-        }
+        t.setAccount(requireOwnAccount(req.accountId()));
         if (req.category() != null && !req.category().isBlank()) {
             t.setCategory(findOrCreateCategory(req.category().trim()));
         }
@@ -195,9 +202,7 @@ public class TransactionService {
     /** Edit an existing transaction (manual correction of an imported or entered row). */
     @Transactional
     public TransactionDto update(Long id, CreateTransactionRequest req) {
-        Transaction t = transactions
-            .findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+        Transaction t = owned(id);
         t.setAmount(req.amount());
         if (req.currency() != null && !req.currency().isBlank()) {
             t.setCurrency(req.currency());
@@ -209,14 +214,7 @@ public class TransactionService {
         }
         t.setNote(req.note());
 
-        if (req.accountId() != null) {
-            Account account = accounts
-                .findById(req.accountId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown accountId"));
-            t.setAccount(account);
-        } else {
-            t.setAccount(null);
-        }
+        t.setAccount(requireOwnAccount(req.accountId()));
         t.setCategory(
             req.category() != null && !req.category().isBlank()
                 ? findOrCreateCategory(req.category().trim())
@@ -239,10 +237,19 @@ public class TransactionService {
     /** Delete a transaction outright (duplicate / mistaken row). */
     @Transactional
     public void delete(Long id) {
-        if (!transactions.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found");
+        transactions.delete(owned(id));
+    }
+
+    /** The account a manual entry names — and only if the caller may post to it. */
+    private Account requireOwnAccount(Long accountId) {
+        if (accountId == null) {
+            return null;
         }
-        transactions.deleteById(id);
+        Account account = accounts
+            .findById(accountId)
+            .filter(scope::canSee)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown accountId"));
+        return account;
     }
 
     /**

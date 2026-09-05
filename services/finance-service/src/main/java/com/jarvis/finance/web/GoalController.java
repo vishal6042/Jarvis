@@ -2,6 +2,7 @@ package com.jarvis.finance.web;
 
 import com.jarvis.finance.domain.Goal;
 import com.jarvis.finance.repo.GoalRepository;
+import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.GoalRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -18,18 +19,21 @@ import org.springframework.web.server.ResponseStatusException;
 public class GoalController {
 
     private final GoalRepository goals;
+    private final Scope scope;
 
-    public GoalController(GoalRepository goals) {
+    public GoalController(GoalRepository goals, Scope scope) {
         this.goals = goals;
+        this.scope = scope;
     }
 
     @GetMapping
     public List<Goal> list() {
-        return goals.findAll();
+        return scope.all() ? goals.findAll() : goals.findByMemberId(scope.memberId());
     }
 
     @PostMapping
     public ResponseEntity<Goal> create(@Valid @RequestBody GoalRequest req) {
+        scope.requireOwn(req.memberId());
         Goal g = new Goal();
         apply(g, req);
         return ResponseEntity.status(HttpStatus.CREATED).body(goals.save(g));
@@ -37,7 +41,8 @@ public class GoalController {
 
     @PutMapping("/{id}")
     public Goal update(@PathVariable Long id, @Valid @RequestBody GoalRequest req) {
-        Goal g = goals.findById(id).orElseThrow(this::notFound);
+        Goal g = mine(id);
+        scope.requireOwn(req.memberId());
         apply(g, req);
         return goals.save(g);
     }
@@ -45,7 +50,7 @@ public class GoalController {
     /** Add money toward a goal (a contribution), capping saved at the target. */
     @PostMapping("/{id}/contribute")
     public Goal contribute(@PathVariable Long id, @Valid @RequestBody ContributeRequest req) {
-        Goal g = goals.findById(id).orElseThrow(this::notFound);
+        Goal g = mine(id);
         BigDecimal saved = g.getSavedAmount().add(req.amount());
         if (saved.compareTo(g.getTargetAmount()) > 0) {
             saved = g.getTargetAmount();
@@ -56,12 +61,17 @@ public class GoalController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!goals.existsById(id)) throw notFound();
-        goals.deleteById(id);
+        goals.delete(mine(id));
         return ResponseEntity.noContent().build();
     }
 
+    /** A goal the caller may act on; someone else's reads as missing rather than forbidden. */
+    private Goal mine(Long id) {
+        return goals.findById(id).filter(g -> scope.canSee(g.getMemberId())).orElseThrow(this::notFound);
+    }
+
     private void apply(Goal g, GoalRequest req) {
+        g.setMemberId(scope.resolve(req.memberId()));
         g.setName(req.name().trim());
         g.setTargetAmount(req.targetAmount());
         g.setSavedAmount(req.savedAmount() == null ? BigDecimal.ZERO : req.savedAmount());

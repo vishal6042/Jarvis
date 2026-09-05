@@ -13,7 +13,7 @@ spring:
             - id: auth-service
               uri: lb://auth-service
               predicates:
-                - Path=/api/auth/**,/api/profile/**,/api/preferences/**
+                - Path=/api/auth/**,/api/profile/**,/api/preferences/**,/api/users/**
             - id: expense-service
               uri: lb://expense-service
               predicates:

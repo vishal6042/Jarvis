@@ -32,7 +32,8 @@ class TransactionServiceMatchAccountTest {
         when(accounts.findByLast4(anyString())).thenReturn(List.of());
         service = new TransactionService(
             mock(TransactionRepository.class), accounts, mock(CategoryRepository.class), mock(DedupHasher.class),
-            mock(TransferService.class), mock(RuleService.class), mock(MerchantAliasRepository.class));
+            mock(TransferService.class), mock(RuleService.class), mock(MerchantAliasRepository.class),
+            new Scope(accounts));
     }
 
     @Test
