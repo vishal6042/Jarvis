@@ -10,13 +10,16 @@ export interface FinanceSummary {
   loans: Loan[];
   investmentsList: Investment[];
   savings: number; // hard cash across savings accounts (net-worth base)
-  earning: number; // last completed month's income (salary lands month-end, so MTD reads 0)
+  earning: number; // last completed month's income that reached the bank (take-home)
+  payslipSaving: number; // EPF/NPS taken before the salary arrived — saved, but never visible as income
+  grossEarning: number; // earning + payslipSaving
   spend: number; // this month-to-date spending (accrues through the month)
   lastMonthSpend: number; // last completed month's spend — pairs with earning for a fair monthly rate
   outstanding: number; // total loan balance
   emiTotal: number; // monthly EMI
   investments: number; // current value
-  savingsRate: number; // %
+  savingsRate: number; // % of take-home kept
+  trueSavingsRate: number; // % of gross kept, counting payslip deductions as the saving they are
   memberName: string; // "your" or a member name
   isAll: boolean;
 }
@@ -56,6 +59,13 @@ export function useFinanceSummary(): FinanceSummary {
   const spend = thisMonthSum ? Number(thisMonthSum.spend) : 0; // this month-to-date spending
   const lastMonthSpend = lastMonthSum ? Number(lastMonthSum.spend) : 0;
 
+  // EPF and NPS never reach the bank, so they are missing from both income and saving. Counting
+  // them on both sides is what makes the savings rate reflect what is actually put aside.
+  const payslipSaving = investmentsList
+    .filter((i) => i.salaryDeducted)
+    .reduce((sum, i) => sum + (i.sip ?? 0), 0);
+  const grossEarning = earning + payslipSaving;
+
   const investments = investmentsList.reduce((sum, i) => sum + i.current, 0);
   const outstanding = loans.reduce((sum, l) => sum + l.outstanding, 0);
   const emiTotal = loans.reduce((sum, l) => sum + l.emi, 0);
@@ -64,6 +74,8 @@ export function useFinanceSummary(): FinanceSummary {
   // Savings rate compares a full month's income and spend (last completed month) — mixing last
   // month's income with this month's partial spend would read misleadingly high early in the month.
   const savingsRate = earning > 0 ? Math.round(((earning - lastMonthSpend) / earning) * 100) : 0;
+  const trueSavingsRate =
+    grossEarning > 0 ? Math.round(((grossEarning - lastMonthSpend) / grossEarning) * 100) : 0;
   const memberName = isAll || activeMember.relation === "Self" ? "your" : activeMember.name;
 
   return {
@@ -73,12 +85,15 @@ export function useFinanceSummary(): FinanceSummary {
     investmentsList,
     savings,
     earning,
+    payslipSaving,
+    grossEarning,
     spend,
     lastMonthSpend,
     outstanding,
     emiTotal,
     investments,
     savingsRate,
+    trueSavingsRate,
     memberName,
     isAll,
   };

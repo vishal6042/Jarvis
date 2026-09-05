@@ -572,7 +572,21 @@ export default function Dashboard() {
             </label>
           }
         />
-        <StatCard title={`Earning · ${lastMonth}`} value={formatINR(f.earning)} icon={<ArrowUpRight className="size-4" />} iconColor="#10b981" art={TrendingUp} onClick={() => navigate("/analytics")} />
+        <StatCard
+          title={`Earning · ${lastMonth}`}
+          value={formatINR(f.earning)}
+          icon={<ArrowUpRight className="size-4" />}
+          iconColor="#10b981"
+          art={TrendingUp}
+          onClick={() => navigate("/analytics")}
+          footer={
+            f.payslipSaving > 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Take-home · {formatINR(f.grossEarning)} gross, {formatINR(f.payslipSaving)} to EPF and NPS
+              </p>
+            ) : undefined
+          }
+        />
         <StatCard
           title={`Spend · ${thisMonth}`}
           value={formatINR(f.spend)}
@@ -589,7 +603,21 @@ export default function Dashboard() {
           }
         />
         <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} onClick={() => navigate("/loans")} />
-        <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} onClick={() => navigate("/analytics")} />
+        <StatCard
+          title="Savings rate"
+          value={`${f.savingsRate}%`}
+          icon={<PiggyBank className="size-4" />}
+          iconColor="#3b82f6"
+          art={PiggyBank}
+          onClick={() => navigate("/analytics")}
+          footer={
+            f.payslipSaving > 0 ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {f.trueSavingsRate}% of gross, counting what the payslip already saved
+              </p>
+            ) : undefined
+          }
+        />
       </div>
 
       <DueThisMonthCard
