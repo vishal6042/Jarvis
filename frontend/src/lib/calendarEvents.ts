@@ -1,6 +1,6 @@
 import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
-import { KIND_META, REMINDER_META, upcomingReminders, type Investment, type Loan, type Reminder } from "@/lib/sample";
+import { KIND_META, occurrencesInMonth, REMINDER_META, upcomingReminders, type Investment, type Loan, type Reminder } from "@/lib/sample";
 import { inferSalary } from "@/lib/forecast";
 
 /**
@@ -213,4 +213,97 @@ export function upcomingOutflows(days: number, input: Omit<FinEventInput, "year"
   const income = items.filter((e) => e.direction === "in" && e.amount != null).reduce((s, e) => s + (e.amount ?? 0), 0);
   const unknownCount = items.filter((e) => e.direction === "out" && e.amount == null && e.kind !== "card-due").length;
   return { from, to, total, income, unknownCount, items };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Agenda: one dated list mixing hand-made reminders with everything derived (card dues, salary,
+// RD/SIP instalments, loan EMIs), for a date range. Used by the Calendar's Upcoming list and the
+// dashboard's "Due this month", so both show the same thing.
+// ---------------------------------------------------------------------------------------------
+
+export interface AgendaRow {
+  key: string;
+  on: string; // yyyy-MM-dd
+  title: string;
+  detail?: string;
+  amount?: number | null;
+  direction: "in" | "out" | "info";
+  color: string;
+  badge: string;
+  href?: string;
+  /** Set when the row is a hand-made reminder, so it can be edited, deleted or marked paid. */
+  reminderId?: string;
+  paid?: boolean;
+}
+
+/** Reminder occurrences between two yyyy-MM-dd dates (inclusive), monthly repeats expanded. */
+function reminderOccurrencesBetween(reminders: Reminder[], from: string, to: string) {
+  const out: { r: Reminder; on: string }[] = [];
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    const map = occurrencesInMonth(reminders, d.getFullYear(), d.getMonth());
+    for (const [on, rs] of Object.entries(map)) {
+      if (on < from || on > to) continue;
+      for (const r of rs) out.push({ r, on });
+    }
+  }
+  return out;
+}
+
+/**
+ * Everything happening between two dates, newest last. Paid reminder occurrences are kept but
+ * flagged, so a month view can show what has already been settled.
+ */
+export function agendaBetween(
+  from: string,
+  to: string,
+  input: Omit<FinEventInput, "year" | "month">,
+): AgendaRow[] {
+  const rows: AgendaRow[] = [];
+  for (const { r, on } of reminderOccurrencesBetween(input.reminders, from, to)) {
+    rows.push({
+      key: `rem-${r.id}-${on}`,
+      on,
+      title: r.title,
+      detail: REMINDER_META[r.type].label,
+      amount: r.amount ?? null,
+      direction: "out",
+      color: REMINDER_META[r.type].color,
+      badge: REMINDER_META[r.type].label,
+      reminderId: String(r.id),
+      paid: input.paidKeys?.has(`${r.id}:${on}`) ?? false,
+    });
+  }
+  const months = new Set<string>();
+  const start = new Date(`${from}T00:00:00`);
+  const end = new Date(`${to}T00:00:00`);
+  for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+    months.add(`${d.getFullYear()}-${d.getMonth()}`);
+  }
+  for (const key of months) {
+    const [y, m] = key.split("-").map(Number);
+    for (const e of financialEvents({ ...input, year: y, month: m })) {
+      if (e.on < from || e.on > to) continue;
+      rows.push({
+        key: e.id,
+        on: e.on,
+        title: e.title,
+        detail: e.detail,
+        amount: e.amount ?? null,
+        direction: e.direction,
+        color: e.color,
+        badge: FIN_EVENT_META[e.kind].label,
+        href: e.href,
+        // A card bill with nothing left to pay is already settled.
+        paid: e.kind === "card-due" && (e.amount == null || e.amount <= 0),
+      });
+    }
+  }
+  return rows.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : 0));
+}
+
+/** First and last day of a month as yyyy-MM-dd. */
+export function monthRange(year: number, month: number): { from: string; to: string } {
+  return { from: iso(year, month, 1), to: iso(year, month, daysIn(year, month)) };
 }

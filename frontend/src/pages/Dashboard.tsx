@@ -17,7 +17,8 @@ import PulseHeader from "@/components/PulseHeader";
 import InsightsCard from "@/components/InsightsCard";
 import SpendBreakdownCard from "@/components/SpendBreakdownCard";
 import GoalsStrip from "@/components/GoalsStrip";
-import { useReminderPayments, useReminders, useThresholds } from "@/lib/store";
+import DueThisMonthCard from "@/components/DueThisMonthCard";
+import { useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { usePref, useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { buildInsights } from "@/lib/insights";
@@ -487,6 +488,8 @@ export default function Dashboard() {
   }, []);
   const { items: reminders } = useReminders();
   const { paidKeys } = useReminderPayments();
+  const { items: investments } = useInvestments(activeId);
+  const { items: loans } = useLoans(activeId);
   const { items: thresholds } = useThresholds();
   const [reserve] = useReserve();
   const [score, setScore] = useState<FinanceScoreResult | null>(null);
@@ -542,6 +545,15 @@ export default function Dashboard() {
         <FinanceScoreCard metrics={metrics} onResult={setScore} onLoading={setScoreLoading} />
         <InsightsCard insights={insights} />
       </div>
+
+      <DueThisMonthCard
+        cards={cards}
+        txns={txns}
+        investments={investments}
+        loans={loans}
+        reminders={reminders}
+        paidKeys={paidKeys}
+      />
 
       <ClockWidget />
 

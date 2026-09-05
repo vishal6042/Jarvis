@@ -46,6 +46,11 @@ import {
 } from "@/components/ui/table";
 
 const PAGE_SIZE = 25;
+/** "YYYY-MM" for today, in local time. */
+const currentMonthKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
 const NONE = "none"; // Select sentinel for "no account"
 
 /** Category options = the standard set + Card Payment, with the row's own value folded in. */
@@ -89,7 +94,8 @@ export default function Transactions() {
   const [dir, setDir] = useState<"all" | Direction>((params.get("type") as Direction | null) ?? "all");
   const [cat, setCat] = useState<string>(params.get("category") ?? "all");
   const [acct, setAcct] = useState<string>(params.get("account") ?? "all");
-  const [month, setMonth] = useState<string>(params.get("month") ?? "all"); // "all" | "YYYY-MM"
+  // Default to the current month — the usual question is "what did I spend this month".
+  const [month, setMonth] = useState<string>(params.get("month") ?? currentMonthKey()); // "all" | "YYYY-MM"
   const [review, setReview] = useState(params.get("review") === "1"); // only rows needing attention
   const [dups, setDups] = useState<Transaction[][]>([]);
   const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
@@ -126,9 +132,10 @@ export default function Transactions() {
     return Array.from(set).sort();
   }, [txns]);
 
-  // Months present in the data, newest first — drives the month filter.
+  // Months present in the data, newest first — drives the month filter. The current month is
+  // always offered, even before anything has landed in it.
   const months = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>([currentMonthKey()]);
     txns.forEach((t) => set.add(t.occurredAt.slice(0, 7)));
     return Array.from(set).sort().reverse();
   }, [txns]);

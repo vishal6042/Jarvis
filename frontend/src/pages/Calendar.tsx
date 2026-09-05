@@ -1,10 +1,10 @@
 import { useMemo, useState, type FormEvent, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import CardArt from "@/components/CardArt";
 import {
   occurrencesInMonth,
   REMINDER_META,
-  upcomingReminders,
   type Reminder,
   type ReminderOccurrence,
   type ReminderType,
@@ -14,7 +14,7 @@ import { cardSummaries, type CardSummary } from "@/api";
 import { useFinanceSummary } from "@/lib/finance";
 import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
-import { FIN_EVENT_META, financialEvents, upcomingOutflows, type FinEvent } from "@/lib/calendarEvents";
+import { agendaBetween, FIN_EVENT_META, financialEvents, monthRange, upcomingOutflows, type FinEvent } from "@/lib/calendarEvents";
 import TimelineCard from "@/components/TimelineCard";
 import { ArrowDownRight, ArrowUpRight, CalendarRange } from "lucide-react";
 import { listTransactions } from "@/api";
@@ -67,6 +67,7 @@ const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amo
 
 export default function Calendar() {
   const { items, add, update, remove } = useReminders();
+  const navigate = useNavigate();
   const { activeId } = useFamily();
   const { paidKeys, markPaid, unmarkPaid } = useReminderPayments();
   const [payingFor, setPayingFor] = useState<ReminderOccurrence | null>(null);
@@ -110,12 +111,13 @@ export default function Calendar() {
     [f.savings, txns, items, cards, reserve, paidKeys],
   );
 
-  // Upcoming list filter: "next30" (default) or a specific YYYY-M.
-  const [upFilter, setUpFilter] = useState("next30");
+  // Upcoming list: this month by default, or a rolling 30 days, or any month ahead.
+  const thisMonthKey = `${new Date().getFullYear()}-${new Date().getMonth()}`;
+  const [upFilter, setUpFilter] = useState(thisMonthKey);
   const monthOptions = useMemo(() => {
-    const opts = [{ value: "next30", label: "Next 30 days" }];
     const now = new Date();
-    for (let i = 0; i < 12; i++) {
+    const opts = [{ value: `${now.getFullYear()}-${now.getMonth()}`, label: "This month" }, { value: "next30", label: "Next 30 days" }];
+    for (let i = 1; i < 12; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
       opts.push({
         value: `${d.getFullYear()}-${d.getMonth()}`,
@@ -125,12 +127,21 @@ export default function Calendar() {
     return opts;
   }, []);
   const upcoming = useMemo(() => {
-    if (upFilter === "next30") return upcomingReminders(items, 50, 30);
-    const [y, m] = upFilter.split("-").map(Number);
-    return Object.entries(occurrencesInMonth(items, y, m))
-      .flatMap(([date, rs]) => rs.map((r) => ({ ...r, occursOn: date })))
-      .sort((a, b) => +new Date(a.occursOn) - +new Date(b.occursOn));
-  }, [items, upFilter]);
+    let from: string;
+    let to: string;
+    if (upFilter === "next30") {
+      const t = new Date();
+      const end = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 30);
+      const d2 = (n: number) => String(n).padStart(2, "0");
+      from = `${t.getFullYear()}-${d2(t.getMonth() + 1)}-${d2(t.getDate())}`;
+      to = `${end.getFullYear()}-${d2(end.getMonth() + 1)}-${d2(end.getDate())}`;
+    } else {
+      const [y, m] = upFilter.split("-").map(Number);
+      ({ from, to } = monthRange(y, m));
+    }
+    return agendaBetween(from, to, { cards, txns, investments, loans, reminders: items, paidKeys });
+  }, [upFilter, cards, txns, investments, loans, items, paidKeys]);
+  const upcomingDue = upcoming.filter((r) => !r.paid && r.direction === "out").length;
 
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
   const firstWeekday = new Date(view.year, view.month, 1).getDay();
@@ -398,11 +409,13 @@ export default function Calendar() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
             <div>
               <CardTitle>Upcoming</CardTitle>
-              <CardDescription>{upcoming.length} reminders ahead.</CardDescription>
+              <CardDescription>
+                {upcomingDue} still to pay of {upcoming.length} · reminders, card bills, EMIs and RD/SIP instalments.
+              </CardDescription>
             </div>
-            <Select items={monthOptions} value={upFilter} onValueChange={(v) => setUpFilter(v ?? "next30")}>
+            <Select items={monthOptions} value={upFilter} onValueChange={(v) => setUpFilter(v ?? thisMonthKey)}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Next 30 days" />
+                <SelectValue placeholder="This month" />
               </SelectTrigger>
               <SelectContent>
                 {monthOptions.map((it) => (
@@ -417,64 +430,104 @@ export default function Calendar() {
             {upcoming.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nothing scheduled. Click a day to add one.</p>
             ) : (
-              upcoming.map((r) => (
-                <div key={`${r.id}-${r.occursOn}`} className="flex items-center gap-3 rounded-lg border p-2.5">
-                  <span className="size-2.5 rounded-full" style={{ backgroundColor: REMINDER_META[r.type].color }} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium">{r.title}</span>
-                      {r.repeat === "monthly" && (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          <Repeat className="size-2.5" /> Monthly
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      {formatDate(r.occursOn)}
-                      {(() => {
-                        const st = reminderStatus(r.occursOn, r.amount, txns, new Date(), reminderKey(r.id, r.occursOn), paidKeys);
-                        if (st.state === "upcoming") return null;
-                        const m = PAY_STATE_META[st.state];
-                        return (
-                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: `${m.color}22`, color: m.color }}>
-                            {m.label}
+              upcoming.map((row) => {
+                const rem = row.reminderId ? items.find((x) => x.id === row.reminderId) : undefined;
+                const st = rem
+                  ? reminderStatus(row.on, row.amount, txns, new Date(), reminderKey(rem.id, row.on), paidKeys)
+                  : null;
+                const settled = row.paid || st?.state === "paid";
+                return (
+                  <div
+                    key={row.key}
+                    className={`flex items-center gap-3 rounded-lg border p-2.5 ${settled ? "opacity-60" : ""}`}
+                  >
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-medium">{row.title}</span>
+                        {rem?.repeat === "monthly" && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            <Repeat className="size-2.5" /> Monthly
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {formatDate(row.on)}
+                        {row.detail && <span className="truncate">· {row.detail}</span>}
+                        {st && st.state !== "upcoming" && (
+                          <span
+                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ backgroundColor: `${PAY_STATE_META[st.state].color}22`, color: PAY_STATE_META[st.state].color }}
+                          >
+                            {PAY_STATE_META[st.state].label}
                             {st.source === "manual" ? " ✓" : ""}
                           </span>
-                        );
-                      })()}
+                        )}
+                        {!rem && row.paid && (
+                          <span
+                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ backgroundColor: `${PAY_STATE_META.paid.color}22`, color: PAY_STATE_META.paid.color }}
+                          >
+                            Paid
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className="ml-auto border-transparent"
-                    style={{ backgroundColor: `${REMINDER_META[r.type].color}22`, color: REMINDER_META[r.type].color }}
-                  >
-                    {REMINDER_META[r.type].label}
-                  </Badge>
-                  {r.amount != null && <span className="text-sm font-semibold">{formatINR(r.amount)}</span>}
-                  {paidKeys.has(reminderKey(r.id, r.occursOn)) ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1 text-xs text-muted-foreground"
-                      title="Mark as not paid"
-                      onClick={() => unmarkPaid(r.id, r.occursOn)}
+                    <Badge
+                      variant="secondary"
+                      className="ml-auto shrink-0 border-transparent"
+                      style={{ backgroundColor: `${row.color}22`, color: row.color }}
                     >
-                      <Undo2 className="size-3.5" /> Undo
-                    </Button>
-                  ) : (
-                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setPayingFor(r)}>
-                      <Check className="size-3.5" /> Mark paid
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-                    <Pencil className="size-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(r.id)}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              ))
+                      {row.badge}
+                    </Badge>
+                    {row.amount != null && (
+                      <span className={`shrink-0 text-sm font-semibold ${row.direction === "in" ? "text-[color:var(--ok)]" : ""}`}>
+                        {row.direction === "in" ? "+" : ""}
+                        {formatINR(row.amount)}
+                      </span>
+                    )}
+                    {rem ? (
+                      <>
+                        {paidKeys.has(reminderKey(rem.id, row.on)) ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 text-xs text-muted-foreground"
+                            title="Mark as not paid"
+                            onClick={() => unmarkPaid(rem.id, row.on)}
+                          >
+                            <Undo2 className="size-3.5" /> Undo
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-xs"
+                            onClick={() => setPayingFor({ ...rem, occursOn: row.on })}
+                          >
+                            <Check className="size-3.5" /> Mark paid
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(rem)}>
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(rem.id)}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 text-xs text-muted-foreground"
+                        onClick={() => row.href && navigate(row.href)}
+                      >
+                        Details <ChevronRight className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })
             )}
           </CardContent>
         </Card>
