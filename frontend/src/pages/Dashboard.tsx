@@ -555,15 +555,6 @@ export default function Dashboard() {
         <InsightsCard insights={insights} />
       </div>
 
-      <DueThisMonthCard
-        cards={cards}
-        txns={txns}
-        investments={investments}
-        loans={loans}
-        reminders={reminders}
-        paidKeys={paidKeys}
-      />
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Net worth"
@@ -600,6 +591,15 @@ export default function Dashboard() {
         <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} onClick={() => navigate("/loans")} />
         <StatCard title="Savings rate" value={`${f.savingsRate}%`} icon={<PiggyBank className="size-4" />} iconColor="#3b82f6" art={PiggyBank} onClick={() => navigate("/analytics")} />
       </div>
+
+      <DueThisMonthCard
+        cards={cards}
+        txns={txns}
+        investments={investments}
+        loans={loans}
+        reminders={reminders}
+        paidKeys={paidKeys}
+      />
 
       <CardsSection cards={cards} />
 
