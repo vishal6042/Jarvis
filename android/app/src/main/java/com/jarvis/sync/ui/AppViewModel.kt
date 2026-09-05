@@ -25,12 +25,14 @@ import androidx.lifecycle.viewModelScope
 import com.jarvis.sync.data.ApiException
 import com.jarvis.sync.data.CategorySpendDto
 import com.jarvis.sync.data.TransactionDto
+import com.jarvis.sync.data.DevicePrefs
 import com.jarvis.sync.data.SyncRepository
 import com.jarvis.sync.sms.InboxSms
 import com.jarvis.sync.data.db.DashboardCache
 import com.jarvis.sync.data.db.SessionEntity
 import com.jarvis.sync.work.SyncScheduler
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -57,6 +59,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Whether this sign-in has authority over the whole household. The server decides what comes
      * back either way; this only stops the app offering a choice that would answer nothing.
      */
+    /** Device-level settings: the remembered server address and the app lock. */
+    private val devicePrefs = DevicePrefs(app)
+
+    /** The server to offer on the sign-in screen — the last one used, else just the scheme. */
+    val rememberedBaseUrl: String get() = devicePrefs.baseUrl
+
+    init {
+        // Someone already signed in has never been through the login screen since it started
+        // remembering, so take the address from the session they are using right now.
+        if (!devicePrefs.hasBaseUrl) {
+            viewModelScope.launch {
+                repo.sessionFlow().firstOrNull()?.baseUrl?.takeIf { it.isNotBlank() }?.let {
+                    devicePrefs.baseUrl = it
+                }
+            }
+        }
+    }
+
+    /** Whether the app asks for a fingerprint, face or the device PIN before it opens. */
+    var lockEnabled by mutableStateOf(devicePrefs.lockEnabled)
+        private set
+
+    fun setAppLock(enabled: Boolean) {
+        devicePrefs.lockEnabled = enabled
+        lockEnabled = enabled
+    }
+
     val isAdmin = session
         .map { it !is SessionUi.LoggedIn || it.session.admin }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)

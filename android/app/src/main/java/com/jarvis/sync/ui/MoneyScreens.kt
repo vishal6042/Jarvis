@@ -1,5 +1,6 @@
 package com.jarvis.sync.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -147,27 +148,18 @@ fun MoneyScreen(vm: AppViewModel) {
         LazyColumn(Modifier.fillMaxSize(), state = listState) {
             val cards = extras?.cards.orEmpty().filter { owned.isEmpty() || it.accountId in owned }
             if (cards.isNotEmpty()) {
-                item {
-                    Text(
-                        "Cards",
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                    )
-                }
+                item { SectionHeader("Cards") }
                 items(cards, key = { it.accountId }) { CardBillRow(it) }
                 item { Spacer(Modifier.height(8.dp)) }
             }
             val holdings = extras?.holdings.orEmpty().filter { vm.member == null || it.memberId == vm.member }
             if (holdings.isNotEmpty()) {
                 item {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text("Investments", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    SectionHeader("Investments") {
                         Text(
                             inr(holdings.sumOf { it.current }),
                             fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
                             color = Color(0xFF10B981),
                         )
                     }
@@ -176,15 +168,16 @@ fun MoneyScreen(vm: AppViewModel) {
                 item { Spacer(Modifier.height(8.dp)) }
             }
             item {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Transactions", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                SectionHeader("Transactions") {
                     if (vm.txnsBusy) {
-                        CircularProgressIndicator(Modifier.width(16.dp).height(16.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(Modifier.width(14.dp).height(14.dp), strokeWidth = 2.dp)
                     } else {
-                        Text(rows.size.toString(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            rows.size.toString(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -197,6 +190,36 @@ fun MoneyScreen(vm: AppViewModel) {
             }
             items(rows, key = { it.id }) { t -> TransactionRow(t) { editing = t } }
         }
+    }
+}
+
+/**
+ * A band that separates one part of the list from the next. Set apart from the rows below it on
+ * every axis that matters — a tinted ground, a rule above, small capitals with wide tracking —
+ * because at a glance a bold sentence-case line reads as just another entry.
+ */
+@Composable
+private fun SectionHeader(title: String, trailing: @Composable (() -> Unit)? = null) {
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title.uppercase(),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f),
+            )
+            trailing?.invoke()
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 

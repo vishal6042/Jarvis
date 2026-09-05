@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,12 +15,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jarvis.sync.ui.AppLockGate
 import com.jarvis.sync.ui.AppRoot
 import com.jarvis.sync.ui.AppViewModel
 import com.jarvis.sync.ui.theme.JarvisSyncTheme
 
-class MainActivity : ComponentActivity() {
+/**
+ * A FragmentActivity rather than a plain ComponentActivity: the biometric prompt is shown as a
+ * fragment, so the app lock needs one to attach to.
+ */
+class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +47,9 @@ class MainActivity : ComponentActivity() {
                 // Ask on first launch if we don't already have SMS access.
                 LaunchedEffect(Unit) { if (!hasSms) requestPerms() }
 
-                AppRoot(vm = vm, hasSmsPermission = hasSms, onRequestPermissions = requestPerms)
+                AppLockGate(enabled = vm.lockEnabled) {
+                    AppRoot(vm = vm, hasSmsPermission = hasSms, onRequestPermissions = requestPerms)
+                }
             }
         }
     }

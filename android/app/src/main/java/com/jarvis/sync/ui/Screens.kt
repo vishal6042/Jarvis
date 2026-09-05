@@ -104,6 +104,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -137,7 +138,9 @@ fun AppRoot(vm: AppViewModel, hasSmsPermission: Boolean, onRequestPermissions: (
 
 @Composable
 private fun LoginScreen(vm: AppViewModel) {
-    var baseUrl by remember { mutableStateOf("http://") }
+    // Offer the server this phone last signed in to. Still editable — moving house or a new
+    // router changes the address — but nobody should have to go and look up an IP to sign back in.
+    var baseUrl by remember { mutableStateOf(vm.rememberedBaseUrl) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -894,6 +897,7 @@ private fun SettingsScreen(
     onRequestPermissions: () -> Unit,
     onOpenHistory: () -> Unit,
 ) {
+    val context = LocalContext.current
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("Settings", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
@@ -941,6 +945,29 @@ private fun SettingsScreen(
                     Text("Send new transaction SMS to Jarvis", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = session.forwardingEnabled, onCheckedChange = { vm.setForwarding(it) })
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        // Only offered when the phone has something to unlock with; a switch that could never
+        // be satisfied would just lock someone out of their own accounts.
+        val canLock = remember(context) { canLockApp(context) }
+        Card(Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Require unlock", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (canLock) "Fingerprint, face or screen lock before the app opens"
+                        else "Set up a fingerprint or screen lock on this phone first",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = vm.lockEnabled && canLock,
+                    enabled = canLock,
+                    onCheckedChange = { vm.setAppLock(it) },
+                )
             }
         }
         Spacer(Modifier.height(12.dp))

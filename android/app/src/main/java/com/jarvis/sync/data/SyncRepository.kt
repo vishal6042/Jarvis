@@ -48,6 +48,7 @@ class SyncRepository private constructor(context: Context) {
     private val db = AppDatabase.get(context)
     private val api = ApiClient()
     private val credentials = Credentials(context)
+    private val devicePrefs = DevicePrefs(context)
     private val json = Json { ignoreUnknownKeys = true }
 
     private val sessionDao = db.sessionDao()
@@ -80,6 +81,8 @@ class SyncRepository private constructor(context: Context) {
         val cleaned = baseUrl.trim().trimEnd('/')
         val resp = api.login(cleaned, username.trim(), password)
         credentials.savePassword(password)
+        // Remember the server across sign-outs, so nobody has to find the PC's IP twice.
+        devicePrefs.baseUrl = cleaned
         sessionDao.upsert(
             SessionEntity(
                 baseUrl = cleaned,

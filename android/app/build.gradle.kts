@@ -69,5 +69,11 @@ dependencies {
     // Encrypted store for the password (silent re-login on token expiry)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Fingerprint / face / device-PIN gate in front of the app
+    implementation("androidx.biometric:biometric:1.1.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Plain JVM tests for the on-device logic that has no Android in it (the SMS filter).
+    testImplementation("junit:junit:4.13.2")
 }
