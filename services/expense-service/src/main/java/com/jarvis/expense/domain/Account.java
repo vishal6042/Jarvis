@@ -60,6 +60,13 @@ public class Account {
     @Column(name = "expiry_year")
     private Integer expiryYear; // e.g. 2029
 
+    /**
+     * Cards billed together on one consolidated statement share a name here (e.g. "ICICI"), so
+     * their bill, due date and payment are reported as one. Null = the card is billed on its own.
+     */
+    @Column(name = "billing_group", length = 60)
+    private String billingGroup;
+
     // ---- Bank-specific (nullable; used for SAVINGS) ----
     @Column(length = 11)
     private String ifsc;

@@ -199,6 +199,8 @@ export interface CardSummary {
   lastPaidOn: string | null;
   lastPaidAmount: number | null;
   utilisationPct: number | null;
+  /** Set when this card shares one consolidated statement with others: the figures are the group's. */
+  billingGroup: string | null;
 }
 export async function cardSummaries(): Promise<CardSummary[]> {
   return (await api.get<CardSummary[]>("/api/analytics/cards")).data;

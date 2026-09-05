@@ -68,6 +68,7 @@ public class AccountController {
         a.setPaymentDueDay(req.paymentDueDay());
         a.setExpiryMonth(req.expiryMonth());
         a.setExpiryYear(req.expiryYear());
+        a.setBillingGroup(req.billingGroup() == null || req.billingGroup().isBlank() ? null : req.billingGroup().trim());
         a.setIfsc(req.ifsc());
         a.setBranch(req.branch());
         a.setBalance(req.balance());

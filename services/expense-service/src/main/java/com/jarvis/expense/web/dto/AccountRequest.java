@@ -19,6 +19,7 @@ public record AccountRequest(
     @Min(1) @Max(31) Integer paymentDueDay,
     @Min(1) @Max(12) Integer expiryMonth,
     @Min(2000) @Max(2100) Integer expiryYear,
+    @Size(max = 60) String billingGroup,
     // bank fields
     String ifsc,
     String branch,

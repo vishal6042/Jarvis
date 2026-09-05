@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Banknote, ChevronLeft, ChevronRight, Lightbulb, Link2, Loader2, PiggyBank, Sparkles, TrendingUp, Upload, Wallet } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { cardSummaries, financeScore, listTransactions, type CardSummary } from "@/api";
 import { networkColor } from "@/components/CardArt";
@@ -244,6 +244,11 @@ function metricsFingerprint(m: ScoreMetrics): string {
 }
 
 /** Every credit card's cycle: unbilled spend, the bill still due and when, last payment, utilisation. */
+/** How many cards are billed on the same consolidated statement as this one. */
+function sharedCount(cards: CardSummary[], c: CardSummary): number {
+  return c.billingGroup ? cards.filter((x) => x.billingGroup === c.billingGroup).length : 1;
+}
+
 function CardsSection({ cards }: { cards: CardSummary[] }) {
   if (cards.length === 0) return null;
   const fmtDay = (iso: string | null) =>
@@ -252,7 +257,9 @@ function CardsSection({ cards }: { cards: CardSummary[] }) {
     <div>
       <div className="mb-3 flex items-baseline justify-between">
         <h2 className="text-lg font-semibold tracking-tight">Your cards</h2>
-        <span className="text-xs text-muted-foreground">Unbilled since the last statement · bill due from settlement pairing</span>
+        <span className="text-xs text-muted-foreground">
+          Unbilled is per card · cards on one statement share their bill, due date and payment
+        </span>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((c) => {
@@ -268,11 +275,19 @@ function CardsSection({ cards }: { cards: CardSummary[] }) {
                   {c.network && <span className="text-[10px] font-semibold tracking-wider uppercase">{c.network}</span>}
                 </CardDescription>
                 <div className="text-2xl font-bold tracking-tight">{formatINR(c.unbilled)}</div>
+                {c.billingGroup && (
+                  <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium ring-1 ring-white/15">
+                    <Link2 className="size-2.5" /> One bill with {sharedCount(cards, c) - 1} other{sharedCount(cards, c) > 2 ? "s" : ""}
+                  </span>
+                )}
                 <p className="text-xs text-muted-foreground">unbilled{c.nextStatementOn ? ` · statement ${fmtDay(c.nextStatementOn)}` : ""}</p>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Bill due</span>
+                  <span className="text-muted-foreground">
+                    Bill due
+                    {c.billingGroup && <span className="ml-1 text-[10px] opacity-70">shared</span>}
+                  </span>
                   {c.billDue > 0 ? (
                     <span className={`font-semibold ${dueSoon ? "text-rose-500" : ""}`}>
                       {formatINR(c.billDue)}{c.dueOn ? ` · ${fmtDay(c.dueOn)}` : ""}

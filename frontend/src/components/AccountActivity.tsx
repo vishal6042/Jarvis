@@ -40,7 +40,14 @@ export default function AccountActivity({ account }: { account: Account }) {
       {isCard && summary && (
         <div className="rounded-xl border bg-card/60 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium">Current cycle</p>
+            <p className="text-sm font-medium">
+              Current cycle
+              {summary.billingGroup && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  shared statement · {summary.billingGroup}
+                </span>
+              )}
+            </p>
             {summary.utilisationPct != null && (
               <span className="text-xs text-muted-foreground">
                 {summary.utilisationPct}% of limit used

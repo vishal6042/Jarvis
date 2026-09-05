@@ -50,6 +50,7 @@ type FormState = {
   paymentDueDay: string;
   expiryMonth: string;
   expiryYear: string;
+  billingGroup: string;
   ifsc: string;
   branch: string;
   balance: string;
@@ -68,6 +69,7 @@ const EMPTY: FormState = {
   paymentDueDay: "",
   expiryMonth: "",
   expiryYear: "",
+  billingGroup: "",
   ifsc: "",
   branch: "",
   balance: "",
@@ -87,6 +89,7 @@ function toForm(a: Account): FormState {
     paymentDueDay: a.paymentDueDay?.toString() ?? "",
     expiryMonth: a.expiryMonth?.toString() ?? "",
     expiryYear: a.expiryYear?.toString() ?? "",
+    billingGroup: a.billingGroup ?? "",
     ifsc: a.ifsc ?? "",
     branch: a.branch ?? "",
     balance: a.balance?.toString() ?? "",
@@ -114,6 +117,7 @@ function toRequest(f: FormState): AccountRequest {
     paymentDueDay: isCard ? num(f.paymentDueDay) ?? null : null,
     expiryMonth: isCard ? num(f.expiryMonth) ?? null : null,
     expiryYear: isCard ? num(f.expiryYear) ?? null : null,
+    billingGroup: isCard ? f.billingGroup.trim() || null : null,
     ifsc: !isCard ? f.ifsc || null : null,
     branch: !isCard ? f.branch || null : null,
     balance: !isCard ? num(f.balance) ?? null : null,
@@ -162,6 +166,7 @@ function AccountDetailsDialog({
               <Row label="Credit limit" value={account.creditLimit ? formatINR(account.creditLimit) : null} />
               <Row label="Billing day" value={account.billingCycleDay ? String(account.billingCycleDay) : null} />
               <Row label="Payment due day" value={account.paymentDueDay ? String(account.paymentDueDay) : null} />
+              <Row label="Billing group" value={account.billingGroup} />
               <Row
                 label="Expiry"
                 value={
@@ -553,6 +558,17 @@ export default function Accounts() {
                     />
                   </Field>
                 </div>
+                <Field label="Billing group">
+                  <Input
+                    value={form.billingGroup}
+                    onChange={(e) => set("billingGroup")(e.target.value)}
+                    placeholder="e.g. ICICI — leave blank if billed on its own"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Cards billed on one consolidated statement: give them the same name and their bill, due date and
+                    payment are reported together.
+                  </p>
+                </Field>
               </div>
             ) : (
               <div className="space-y-3 rounded-lg border bg-muted/30 p-3">

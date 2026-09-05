@@ -14,6 +14,8 @@ export interface Account {
   paymentDueDay?: number | null;
   expiryMonth?: number | null;
   expiryYear?: number | null;
+  /** Cards billed on one consolidated statement share this name; null = billed on its own. */
+  billingGroup?: string | null;
   ifsc?: string | null;
   branch?: string | null;
   balance?: number | null;

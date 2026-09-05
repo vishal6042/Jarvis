@@ -18,6 +18,7 @@ public record AccountDto(
     Integer paymentDueDay,
     Integer expiryMonth,
     Integer expiryYear,
+    String billingGroup,
     String ifsc,
     String branch,
     BigDecimal balance) {
@@ -37,6 +38,7 @@ public record AccountDto(
             a.getPaymentDueDay(),
             a.getExpiryMonth(),
             a.getExpiryYear(),
+            a.getBillingGroup(),
             a.getIfsc(),
             a.getBranch(),
             a.getBalance());

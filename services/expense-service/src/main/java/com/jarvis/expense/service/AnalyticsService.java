@@ -20,7 +20,9 @@ import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -54,14 +56,17 @@ public class AnalyticsService {
     public List<CardSummary> cards() {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         Instant now = Instant.now();
-        List<CardSummary> out = new ArrayList<>();
+
+        // Pass 1: each card's own cycle and figures.
+        List<CardCycle> cycles = new ArrayList<>();
         for (Account a : accounts.findAll()) {
             if (a.getType() != AccountType.CREDIT_CARD) {
                 continue;
             }
             Long id = a.getId();
-            Optional<Transaction> lastPaid =
-                transactions.findFirstByAccountIdAndDirectionAndSettlementTrueOrderByOccurredAtDesc(id, Direction.CREDIT);
+            Transaction lastPaid = transactions
+                .findFirstByAccountIdAndDirectionAndSettlementTrueOrderByOccurredAtDesc(id, Direction.CREDIT)
+                .orElse(null);
 
             LocalDate lastStmt = null, nextStmt = null, dueOn = null;
             if (a.getBillingCycleDay() != null) {
@@ -87,22 +92,92 @@ public class AnalyticsService {
                 paid = transactions.sumOnAccount(id, Direction.CREDIT, true, stmt, now);
             } else {
                 // No billing day known: everything since the last payment is "unbilled".
-                Instant since = lastPaid.map(Transaction::getOccurredAt).orElse(now.minus(30, ChronoUnit.DAYS));
+                Instant since = lastPaid != null ? lastPaid.getOccurredAt() : now.minus(30, ChronoUnit.DAYS);
                 unbilled = net(id, since, now);
             }
+            cycles.add(new CardCycle(a, lastStmt, nextStmt, dueOn, unbilled, billed, paid, lastPaid));
+        }
+
+        // Stable order regardless of row order in the DB.
+        cycles.sort(Comparator.comparing(c -> c.account().getId()));
+
+        // Pass 2: cards on one consolidated statement report the group's bill, dates and payment.
+        Map<String, List<CardCycle>> groups = new LinkedHashMap<>();
+        for (CardCycle c : cycles) {
+            groups.computeIfAbsent(c.groupKey(), k -> new ArrayList<>()).add(c);
+        }
+
+        List<CardSummary> out = new ArrayList<>();
+        for (CardCycle c : cycles) {
+            List<CardCycle> group = groups.get(c.groupKey());
+            boolean shared = c.account().getBillingGroup() != null && group.size() > 1;
+
+            BigDecimal billed = c.billed(), paid = c.paid(), groupUnbilled = c.unbilled();
+            LocalDate lastStmt = c.lastStmt(), nextStmt = c.nextStmt(), dueOn = c.dueOn();
+            Transaction lastPaid = c.lastPaid();
+            BigDecimal limit = c.account().getCreditLimit();
+            if (shared) {
+                billed = BigDecimal.ZERO;
+                paid = BigDecimal.ZERO;
+                groupUnbilled = BigDecimal.ZERO;
+                lastStmt = null;
+                nextStmt = null;
+                dueOn = null;
+                lastPaid = null;
+                limit = null;
+                for (CardCycle m : group) {
+                    billed = billed.add(m.billed());
+                    paid = paid.add(m.paid());
+                    groupUnbilled = groupUnbilled.add(m.unbilled());
+                    // The statement is one and the same; take it from the first member that knows it.
+                    if (lastStmt == null && m.lastStmt() != null) {
+                        lastStmt = m.lastStmt();
+                        nextStmt = m.nextStmt();
+                        dueOn = m.dueOn();
+                    }
+                    if (m.lastPaid() != null && (lastPaid == null || m.lastPaid().getOccurredAt().isAfter(lastPaid.getOccurredAt()))) {
+                        lastPaid = m.lastPaid();
+                    }
+                    // One shared limit rather than the sum of several.
+                    BigDecimal ml = m.account().getCreditLimit();
+                    if (ml != null && (limit == null || ml.compareTo(limit) > 0)) {
+                        limit = ml;
+                    }
+                }
+            }
+
             BigDecimal billDue = billed.subtract(paid).max(BigDecimal.ZERO);
-            Integer util = a.getCreditLimit() != null && a.getCreditLimit().signum() > 0
-                ? billDue.add(unbilled).multiply(BigDecimal.valueOf(100)).divide(a.getCreditLimit(), 0, RoundingMode.HALF_UP).intValue()
+            Integer util = limit != null && limit.signum() > 0
+                ? billDue.add(groupUnbilled).multiply(BigDecimal.valueOf(100)).divide(limit, 0, RoundingMode.HALF_UP).intValue()
                 : null;
 
+            Account a = c.account();
             out.add(new CardSummary(
-                id, a.getDisplayName(), a.getBank(), a.getLast4(), a.getNetwork(), a.getCreditLimit(),
-                lastStmt, nextStmt, dueOn, unbilled, billed, paid, billDue,
-                lastPaid.map(t -> t.getOccurredAt().atZone(ZoneOffset.UTC).toLocalDate()).orElse(null),
-                lastPaid.map(Transaction::getAmount).orElse(null),
-                util));
+                a.getId(), a.getDisplayName(), a.getBank(), a.getLast4(), a.getNetwork(), limit,
+                lastStmt, nextStmt, dueOn, c.unbilled(), billed, paid, billDue,
+                lastPaid != null ? lastPaid.getOccurredAt().atZone(ZoneOffset.UTC).toLocalDate() : null,
+                lastPaid != null ? lastPaid.getAmount() : null,
+                util,
+                shared ? a.getBillingGroup() : null));
         }
         return out;
+    }
+
+    /** One card's own cycle before consolidated-statement grouping is applied. */
+    private record CardCycle(
+        Account account,
+        LocalDate lastStmt,
+        LocalDate nextStmt,
+        LocalDate dueOn,
+        BigDecimal unbilled,
+        BigDecimal billed,
+        BigDecimal paid,
+        Transaction lastPaid) {
+
+        /** Cards billed together share a key; an ungrouped card is a group of one. */
+        String groupKey() {
+            return account.getBillingGroup() != null ? "g:" + account.getBillingGroup() : "a:" + account.getId();
+        }
     }
 
     /** Purchases minus refunds on a card inside a window (settlements excluded). */
