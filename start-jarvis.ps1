@@ -66,16 +66,34 @@ if (-not (Test-Listening 11434)) {
     Write-Warn "Ollama is not listening on :11434 - the AI features will not work."
 }
 
+# ---------------------------------------------------------------- stop anything still running
+
+# Before the build, not after: `clean` deletes the classes a previously-started stack is running
+# from, and a build that then fails would leave those services alive on top of deleted artifacts.
+# Freeing the ports here also clears a stack orphaned by a previous run, which is what makes this
+# script a restart rather than something that fights for the ports.
+Write-Step "Stopping anything already running"
+foreach ($svc in $services) { Stop-OnPort $svc.port }
+Stop-OnPort 5173
+Start-Sleep -Seconds 1
+
 # ---------------------------------------------------------------- build
 
 if ($NoBuild) {
     Write-Step "Skipping build (-NoBuild)"
 } else {
-    Write-Step "Building all modules (this is the slow part)"
+    Write-Step "Building all modules from scratch (this is the slow part)"
     # mvnw resolves the reactor from the working directory, and the parent POM is in services\.
+    #
+    # `clean` is not optional. VS Code's Java extension compiles into the same target\classes that
+    # Maven uses, and on an error it writes a class whose methods throw at runtime. Maven then sees
+    # a class no older than its source, skips the file, and reports SUCCESS over code that cannot
+    # run -- which is how a missing import shipped and left EMI matching broken for two days.
+    # Neither incremental mode catches it: both compare timestamps, and the timestamps look fine.
+    # Wiping the outputs is what makes the build tell the truth. Use -NoBuild to skip it entirely.
     Push-Location $servicesDir
     try {
-        & $mvnw -q -DskipTests install
+        & $mvnw -q -DskipTests clean install
         if ($LASTEXITCODE -ne 0) { throw "Build failed - nothing was started." }
     } finally { Pop-Location }
 }
@@ -93,12 +111,6 @@ if (-not (Test-Path (Join-Path $frontendDir "node_modules"))) {
 
 if (Test-Path $logDir) { Remove-Item "$logDir\*.log" -Force -ErrorAction SilentlyContinue }
 else { New-Item -ItemType Directory -Path $logDir | Out-Null }
-
-# Free every port first, so a stack orphaned by a previous run can't block this one.
-Write-Step "Freeing ports"
-foreach ($svc in $services) { Stop-OnPort $svc.port }
-Stop-OnPort 5173
-Start-Sleep -Seconds 1
 
 $procs   = @()   # child processes, for shutdown
 $readers = @()   # log files being tailed into this window
