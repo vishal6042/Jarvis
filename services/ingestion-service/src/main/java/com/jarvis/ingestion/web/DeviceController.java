@@ -1,5 +1,7 @@
 package com.jarvis.ingestion.web;
 
+import com.jarvis.common.security.Caller;
+import com.jarvis.common.security.CallerContext;
 import com.jarvis.ingestion.domain.Device;
 import com.jarvis.ingestion.repo.DeviceRepository;
 import com.jarvis.ingestion.web.dto.DeviceHeartbeat;
@@ -27,7 +29,11 @@ public class DeviceController {
 
     @GetMapping
     public List<Device> list() {
-        return devices.findAllByOrderByLastSeenAtDesc();
+        // A confined sign-in sees only its own phones. Everyone used to see every device in the
+        // household, down to its forwarding counters and when it last synced.
+        Long confined = CallerContext.restrictedTo();
+        List<Device> all = devices.findAllByOrderByLastSeenAtDesc();
+        return confined == null ? all : all.stream().filter(d -> confined.equals(d.getMemberId())).toList();
     }
 
     /** Upsert by the app's own id; every field the phone sends replaces the stored one. */
@@ -48,11 +54,19 @@ public class DeviceController {
         if (hb.forwardedTotal() != null) d.setForwardedTotal(hb.forwardedTotal());
         if (hb.lastSyncAt() != null) d.setLastSyncAt(hb.lastSyncAt());
         d.setLastSeenAt(Instant.now());
+        // Attribute the phone to whoever it is signed in as, so the listing above can scope it.
+        CallerContext.current().map(Caller::memberId).ifPresent(d::setMemberId);
         return devices.save(d);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> forget(@PathVariable String id) {
+        // Reads as missing rather than forbidden, so it cannot be used to probe for other
+        // people's device ids.
+        Long confined = CallerContext.restrictedTo();
+        if (confined != null && devices.findById(id).filter(d -> confined.equals(d.getMemberId())).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
         devices.deleteById(id);
         return ResponseEntity.noContent().build();
     }

@@ -25,4 +25,12 @@ public class Member {
     private String relation = "Self";
 
     private String email;
+
+    /**
+     * Whether this member has an income of their own. False for a homemaker or a child: their
+     * dashboard drops the earning figures, and their financial score is worked out from what they
+     * do control rather than from income ratios that would read as zero.
+     */
+    @Column(nullable = false)
+    private boolean earns = true;
 }

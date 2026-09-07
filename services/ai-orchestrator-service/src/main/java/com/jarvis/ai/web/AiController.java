@@ -112,7 +112,7 @@ public class AiController {
     /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
     @PostMapping("/api/ai/finance-score")
     public FinanceScore financeScore(@RequestBody FinanceMetrics req) {
-        return scoreAgent.score(req.toPromptText());
+        return scoreAgent.score(req.toPromptText(), req.earns());
     }
 
     public record ParseRequest(@NotBlank String text) {}
@@ -122,7 +122,14 @@ public class AiController {
 
     public record ChatReply(String answer) {}
 
-    /** Monthly financial metrics the frontend already has; formatted into the scoring prompt. */
+    /**
+     * Monthly financial metrics the frontend already has; formatted into the scoring prompt.
+     *
+     * @param earnsIncome false for a member with no income of their own (a homemaker). Null means
+     *     yes, so a caller that has not been updated behaves exactly as it always did.
+     * @param previousMonthSpend the month before {@code monthlySpend}, so the no-income rubric can
+     *     judge whether spending is steady. Only read on that path.
+     */
     public record FinanceMetrics(
         double monthlyIncome,
         double monthlySpend,
@@ -130,9 +137,19 @@ public class AiController {
         double cashSavings,
         double investments,
         double outstandingLoans,
-        double monthlyEmi) {
+        double monthlyEmi,
+        Boolean earnsIncome,
+        double previousMonthSpend) {
+
+        boolean earns() {
+            return earnsIncome == null || earnsIncome;
+        }
 
         String toPromptText() {
+            return earns() ? earnerText() : householdText();
+        }
+
+        private String earnerText() {
             return "Monthly income: ₹" + money(monthlyIncome) + "\n"
                 + "Monthly spending: ₹" + money(monthlySpend) + "\n"
                 + "Savings rate: " + savingsRate + "%\n"
@@ -140,6 +157,36 @@ public class AiController {
                 + "Investments: ₹" + money(investments) + "\n"
                 + "Outstanding loans: ₹" + money(outstandingLoans) + "\n"
                 + "Monthly EMI: ₹" + money(monthlyEmi);
+        }
+
+        /**
+         * No income, so nothing here is stated as a ratio of one. The buffer is spelled out in
+         * months and the trend in words: the model reads those far more reliably than it divides.
+         */
+        private String householdText() {
+            return "Monthly spending: ₹" + money(monthlySpend) + "\n"
+                + "Last month's spending: ₹" + money(previousMonthSpend) + "\n"
+                + "Spending trend: " + trend() + "\n"
+                + "Cash in savings: ₹" + money(cashSavings) + "\n"
+                + "Emergency buffer: " + buffer() + "\n"
+                + "Investments: ₹" + money(investments) + "\n"
+                + "Outstanding loans: ₹" + money(outstandingLoans) + "\n"
+                + "Monthly EMI: ₹" + money(monthlyEmi);
+        }
+
+        private String buffer() {
+            if (monthlySpend <= 0) {
+                return "not known (no spending recorded)";
+            }
+            return String.format("%.1f months of spending", cashSavings / monthlySpend);
+        }
+
+        private String trend() {
+            if (previousMonthSpend <= 0) {
+                return "no earlier month to compare";
+            }
+            double change = (monthlySpend - previousMonthSpend) / previousMonthSpend * 100;
+            return Math.abs(change) < 5 ? "steady" : String.format("%+.0f%% vs last month", change);
         }
 
         private static String money(double v) {

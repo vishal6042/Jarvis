@@ -78,13 +78,19 @@ const cashflowConfig = {
   spend: { label: "Spend", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-/** Real earning vs spend over the selected period, from recorded transactions. */
-function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolean }) {
+/**
+ * Real earning vs spend over the selected period, from recorded transactions.
+ *
+ * @param showEarning false for a member with no income of their own: the earning series and the
+ *   surplus figure are both differences against an income that does not exist, so the chart shows
+ *   spending alone rather than plotting a flat zero line and calling every rupee a deficit.
+ */
+function CashflowChart({ txns, loading, showEarning }: { txns: Transaction[]; loading: boolean; showEarning: boolean }) {
   // (chart cards get a subtle tint only — no wave behind the plot)
   const [period, setPeriod] = useState<Period>("month");
   const [offset, setOffset] = useState(0); // 0 = current period; higher = further back
   const data = useMemo(() => cashflowSeries(txns, period, offset), [txns, period, offset]);
-  const hasData = data.some((d) => d.earning > 0 || d.spend > 0);
+  const hasData = data.some((d) => (showEarning && d.earning > 0) || d.spend > 0);
   const surplus = data.reduce((acc, d) => acc + d.earning - d.spend, 0);
   const tickInterval = period === "day" ? 2 : period === "month" ? 4 : 0;
 
@@ -93,10 +99,10 @@ function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolea
       <CardArt color="var(--chart-1)" subtle />
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <CardTitle>Cash flow</CardTitle>
+          <CardTitle>{showEarning ? "Cash flow" : "Spending"}</CardTitle>
           <CardDescription>
-            Earning vs spend · {periodLabel(period, offset)}
-            {hasData && (
+            {showEarning ? "Earning vs spend" : "Where the money went"} · {periodLabel(period, offset)}
+            {showEarning && hasData && (
               <span className="ml-2 font-semibold" style={{ color: surplus >= 0 ? "var(--ok)" : "var(--danger)" }}>
                 {surplus >= 0 ? "+" : "−"}{formatINR(Math.abs(surplus))} {surplus >= 0 ? "surplus" : "deficit"}
               </span>
@@ -146,16 +152,18 @@ function CashflowChart({ txns, loading }: { txns: Transaction[]; loading: boolea
               />
               <YAxis hide domain={[0, "auto"]} allowDataOverflow />
               <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <Area
-                dataKey="earning"
-                name="Earning"
-                type="monotone"
-                stroke="var(--color-earning)"
-                fill="var(--color-earning)"
-                fillOpacity={0.18}
-                strokeWidth={2}
-                isAnimationActive={false}
-              />
+              {showEarning && (
+                <Area
+                  dataKey="earning"
+                  name="Earning"
+                  type="monotone"
+                  stroke="var(--color-earning)"
+                  fill="var(--color-earning)"
+                  fillOpacity={0.18}
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
+              )}
               <Area
                 dataKey="spend"
                 name="Spend"
@@ -228,6 +236,8 @@ type ScoreMetrics = {
   investments: number;
   outstandingLoans: number;
   monthlyEmi: number;
+  earnsIncome: boolean;
+  previousMonthSpend: number;
 };
 
 /** Stable fingerprint of the inputs — a cached score is reused only while the numbers hold. */
@@ -240,6 +250,10 @@ function metricsFingerprint(m: ScoreMetrics): string {
     Math.round(m.investments),
     Math.round(m.outstandingLoans),
     Math.round(m.monthlyEmi),
+    // Part of the key: the two rubrics score the same numbers differently, so a cached score
+    // from one must not be shown for the other.
+    m.earnsIncome ? "earns" : "household",
+    Math.round(m.previousMonthSpend),
   ].join("|");
 }
 
@@ -454,6 +468,10 @@ function FinanceScoreCard({
 
 export default function Dashboard() {
   const { activeId, activeMember } = useFamily();
+  // A member with no income of their own: the earning figures are hidden and the score is worked
+  // out from the buffer and spending instead. Viewing the whole household always shows earning,
+  // since the household does have an income whoever earns it.
+  const earns = activeMember.earns;
   const f = useFinanceSummary();
   const navigate = useNavigate();
 
@@ -479,6 +497,21 @@ export default function Dashboard() {
       alive = false;
     };
   }, []);
+
+  // The month before the one the score uses, so the no-income rubric can say whether spending is
+  // steady. Transfers and card settlements are excluded, the same way spend is counted elsewhere.
+  const priorMonthSpend = useMemo(() => {
+    // Deliberately not the `now` above: that is a fresh Date each render, and depending on it
+    // would rebuild this every render and re-fire the scoring effect in a loop.
+    const ref = new Date();
+    const start = new Date(ref.getFullYear(), ref.getMonth() - 2, 1);
+    const end = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
+    return txns.reduce((sum, t) => {
+      if (t.direction !== "DEBIT" || t.transfer || t.settlement) return sum;
+      const at = new Date(t.occurredAt);
+      return at >= start && at < end ? sum + t.amount : sum;
+    }, 0);
+  }, [txns]);
 
   // ---- intelligence layer: cards, reminders, budgets, reserve → forecast, insights, breakdown ----
   const [cards, setCards] = useState<CardSummary[]>([]);
@@ -518,10 +551,12 @@ export default function Dashboard() {
     [cards, reminders, txns, thresholds, breakdown, forecast, reviewCount, f.savingsRate, paidKeys],
   );
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  // "All" only really means the family when there is more than one member to combine; a sign-in
+  // confined to one person is looking at their own money, not a household roll-up.
   const subtitle =
-    activeId === "all"
+    activeId === "all" && activeMember.id === "all"
       ? "Combined finances across your family."
-      : activeMember.relation === "Self"
+      : activeMember.relation === "Self" || activeId === "all"
         ? "Your money at a glance."
         : `Monitoring ${activeMember.name}'s finances.`;
   // Memoised: the score card keys its effect on this object, and it reports back via setState,
@@ -535,8 +570,10 @@ export default function Dashboard() {
       investments: f.investments,
       outstandingLoans: f.outstanding,
       monthlyEmi: f.emiTotal,
+      earnsIncome: earns,
+      previousMonthSpend: priorMonthSpend,
     }),
-    [f.earning, f.lastMonthSpend, f.savingsRate, f.savings, f.investments, f.outstanding, f.emiTotal],
+    [f.earning, f.lastMonthSpend, f.savingsRate, f.savings, f.investments, f.outstanding, f.emiTotal, earns, priorMonthSpend],
   );
 
   return (
@@ -555,7 +592,7 @@ export default function Dashboard() {
         <InsightsCard insights={insights} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`grid gap-4 sm:grid-cols-2 ${earns ? "lg:grid-cols-5" : "lg:grid-cols-3"}`}>
         <StatCard
           title="Net worth"
           value={formatINR(netWorth)}
@@ -572,6 +609,7 @@ export default function Dashboard() {
             </label>
           }
         />
+        {earns && (
         <StatCard
           title={`Earning · ${lastMonth}`}
           value={formatINR(f.earning)}
@@ -587,6 +625,7 @@ export default function Dashboard() {
             ) : undefined
           }
         />
+        )}
         <StatCard
           title={`Spend · ${thisMonth}`}
           value={formatINR(f.spend)}
@@ -603,6 +642,8 @@ export default function Dashboard() {
           }
         />
         <StatCard title="Outstanding loans" value={formatINR(f.outstanding)} icon={<Banknote className="size-4" />} iconColor="#f59e0b" art={Banknote} onClick={() => navigate("/loans")} />
+        {/* Income-derived, so it means nothing without an income. */}
+        {earns && (
         <StatCard
           title="Savings rate"
           value={`${f.savingsRate}%`}
@@ -618,6 +659,7 @@ export default function Dashboard() {
             ) : undefined
           }
         />
+        )}
       </div>
 
       <DueThisMonthCard
@@ -651,7 +693,7 @@ export default function Dashboard() {
       ) : (
         <>
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-            <CashflowChart txns={txns} loading={loading} />
+            <CashflowChart txns={txns} loading={loading} showEarning={earns} />
             <SpendBreakdownCard b={breakdown} />
           </div>
           <GoalsStrip />

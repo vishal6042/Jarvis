@@ -132,6 +132,17 @@ function MemberSwitcher() {
   const { members, activeId, setActiveId } = useFamily();
   const label = (m: { name: string; relation: string }) =>
     m.relation === "Self" || m.relation === "All" ? m.name : `${m.name} · ${m.relation}`;
+  // A sign-in confined to one member has nobody to switch between: the server sends them only
+  // themselves. Name who is signed in rather than offering an "All members" roll-up that would
+  // be that same person under a label suggesting the whole household.
+  if (members.length === 1) {
+    return (
+      <div className="flex h-9 w-[190px] items-center gap-2 rounded-md border border-input px-3 text-sm">
+        <Users className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{label(members[0])}</span>
+      </div>
+    );
+  }
   const items = [
     { value: "all", label: "All members" },
     ...members.map((m) => ({ value: m.id, label: label(m) })),

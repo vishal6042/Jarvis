@@ -329,10 +329,14 @@ private fun DashboardScreen(vm: AppViewModel) {
                 FancyStat("Net worth", money(c.netWorth), CardTints.purple, CardTints.purpleAccent, Icons.Filled.AccountBalanceWallet, Modifier.weight(1f))
                 FancyStat("Spend · ${monthShort()}", money(c.monthSpend), CardTints.rose, CardTints.roseAccent, Icons.Filled.ShoppingCart, Modifier.weight(1f))
             }
-            Spacer(Modifier.height(12.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FancyStat("Earning · ${monthShort(1)}", money(c.lastMonthEarning), CardTints.green, CardTints.greenAccent, Icons.AutoMirrored.Filled.TrendingUp, Modifier.weight(1f))
-                FancyStat("Savings rate", "${c.savingsRate}%", CardTints.blue, CardTints.blueAccent, Icons.Filled.Savings, Modifier.weight(1f))
+            // Both of these are income-derived, so for a member with no income of their own they
+            // would read as a flat 0 -- a worse answer than not showing them at all.
+            if (vm.extras(c)?.earns != false) {
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FancyStat("Earning · ${monthShort(1)}", money(c.lastMonthEarning), CardTints.green, CardTints.greenAccent, Icons.AutoMirrored.Filled.TrendingUp, Modifier.weight(1f))
+                    FancyStat("Savings rate", "${c.savingsRate}%", CardTints.blue, CardTints.blueAccent, Icons.Filled.Savings, Modifier.weight(1f))
+                }
             }
 
             vm.extras(c)?.accounts?.takeIf { it.isNotEmpty() }?.let { AccountsRow(it) }

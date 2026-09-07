@@ -30,6 +30,7 @@ import {
   updateLoanApi,
   updateMemberApi,
   updateReminderApi,
+  type ApiMember,
   type ApiInvestment,
   type ApiLoan,
   type ApiReminder,
@@ -51,11 +52,26 @@ export interface FamilyMember {
   name: string;
   relation: string;
   email?: string;
+  /**
+   * False for a member with no income of their own. Their dashboard drops the earning figures,
+   * and their financial score is worked out from what they control rather than income ratios.
+   */
+  earns: boolean;
 }
 
-export const ALL_MEMBER: FamilyMember = { id: "all", name: "All members", relation: "All" };
+// The household as a whole does have an income, whoever earns it.
+export const ALL_MEMBER: FamilyMember = { id: "all", name: "All members", relation: "All", earns: true };
 
 // ---------- mappers (backend ⇄ FE shapes; FE ids are stringified backend ids) ----------
+const toMember = (a: ApiMember): FamilyMember => ({
+  id: String(a.id),
+  name: a.name,
+  relation: a.relation,
+  email: a.email ?? undefined,
+  // Older servers do not send the field; treat a missing value as earning, as it always was.
+  earns: a.earns ?? true,
+});
+
 const toInv = (a: ApiInvestment): Investment => ({
   id: String(a.id),
   kind: a.kind as InvestmentKind,
@@ -155,7 +171,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       getReminderPayments(),
     ]).then(([m, i, l, r, t, rp]) => {
       if (m.status === "fulfilled")
-        setMembers(m.value.map((x) => ({ id: String(x.id), name: x.name, relation: x.relation, email: x.email ?? undefined })));
+        setMembers(m.value.map(toMember));
       if (i.status === "fulfilled") setRawInvestments(i.value);
       if (l.status === "fulfilled") setRawLoans(l.value);
       if (r.status === "fulfilled") setRawReminders(r.value);
@@ -169,15 +185,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     reload();
   }, [reload]);
 
+  // A sign-in confined to one member is only sent that member, so "everyone" and "them" are the
+  // same view. Resolve it to the person: an "All members" roll-up would claim household-wide
+  // figures, and an income, that this sign-in does not have.
   const activeMember =
     activeId === "all"
-      ? ALL_MEMBER
+      ? (members.length === 1 ? members[0] : ALL_MEMBER)
       : members.find((m) => m.id === activeId) ?? members[0] ?? ALL_MEMBER;
 
   // ----- members -----
   const addMember = async (m: Omit<FamilyMember, "id">) => {
-    const saved = await createMember({ name: m.name, relation: m.relation, email: m.email ?? null });
-    setMembers((prev) => [...prev, { id: String(saved.id), name: saved.name, relation: saved.relation, email: saved.email ?? undefined }]);
+    const saved = await createMember({ name: m.name, relation: m.relation, email: m.email ?? null, earns: m.earns ?? true });
+    setMembers((prev) => [...prev, toMember(saved)]);
   };
   const updateMember = async (id: string, patch: Partial<FamilyMember>) => {
     const cur = members.find((x) => x.id === id);
@@ -186,8 +205,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       name: patch.name ?? cur.name,
       relation: patch.relation ?? cur.relation,
       email: (patch.email ?? cur.email) ?? null,
+      earns: patch.earns ?? cur.earns,
     });
-    setMembers((prev) => prev.map((x) => (x.id === id ? { id: String(saved.id), name: saved.name, relation: saved.relation, email: saved.email ?? undefined } : x)));
+    setMembers((prev) => prev.map((x) => (x.id === id ? toMember(saved) : x)));
   };
   const removeMember = async (id: string) => {
     const cur = members.find((x) => x.id === id);

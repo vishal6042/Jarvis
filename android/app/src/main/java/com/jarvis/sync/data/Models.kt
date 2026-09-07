@@ -127,7 +127,13 @@ data class InvestmentDto(
 
 /** A person in the household; the phone filters by them the way the web app does. */
 @Serializable
-data class MemberDto(val id: Long, val name: String, val relation: String? = null)
+data class MemberDto(
+    val id: Long,
+    val name: String,
+    val relation: String? = null,
+    /** False for a member with no income of their own. Defaults true for an older server. */
+    val earns: Boolean = true,
+)
 
 @Serializable
 data class LoanDto(
@@ -162,11 +168,18 @@ data class FinanceMetricsDto(
     val investments: Double,
     val outstandingLoans: Double,
     val monthlyEmi: Double,
+    /** False scores this person on their buffer and spending rather than on income ratios. */
+    val earnsIncome: Boolean = true,
+    /** The month before [monthlySpend], for the no-income spending trend. */
+    val previousMonthSpend: Double = 0.0,
 ) {
     /** Cached scores are reused only while these inputs hold. */
     fun fingerprint(): String = listOf(
         monthlyIncome.toLong(), monthlySpend.toLong(), savingsRate, cashSavings.toLong(),
         investments.toLong(), outstandingLoans.toLong(), monthlyEmi.toLong(),
+        // The two rubrics read the same numbers differently, so a score from one must not be
+        // reused for the other.
+        earnsIncome, previousMonthSpend.toLong(),
     ).joinToString("|")
 }
 
@@ -198,6 +211,11 @@ data class DashboardExtras(
     /** Each investment, so the phone can show EPF, NPS and the deposits separately. */
     val holdings: List<InvestmentDto> = emptyList(),
     val paidOccurrences: List<String> = emptyList(),
+    /**
+     * Whether the signed-in member has an income of their own. False hides the earning figures
+     * on the dashboard, which would otherwise all read zero.
+     */
+    val earns: Boolean = true,
 )
 
 @Serializable

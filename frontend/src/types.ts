@@ -162,6 +162,10 @@ export interface FinanceMetrics {
   investments: number;
   outstandingLoans: number;
   monthlyEmi: number;
+  /** False scores the person on their buffer and spending instead of on income ratios. */
+  earnsIncome?: boolean;
+  /** The month before {@link monthlySpend}, for the no-income spending trend. */
+  previousMonthSpend?: number;
 }
 
 export interface FinanceScoreResult {

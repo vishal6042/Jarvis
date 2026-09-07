@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 /**
  * Rates the user's financial health 1–100 from a few monthly metrics and writes a short headline plus
  * improvement tips. Uses the fast parser model (kept resident) so the dashboard card stays responsive.
+ *
+ * <p>Two rubrics: the usual one, built on income ratios, and one for a member with no income of
+ * their own, built on the buffer they keep, how steadily they spend, and what is invested.
  */
 @Component
 public class FinanceScoreAgent {
@@ -19,23 +22,31 @@ public class FinanceScoreAgent {
     private final ChatClient chatClient;
     private final String model;
     private final String keepAlive;
-    private final String promptTemplate;
+    private final String earnerPrompt;
+    private final String householdPrompt;
 
     public FinanceScoreAgent(
         ChatClient.Builder chatClientBuilder,
         @Value("${jarvis.ai.parser-model}") String model,
         @Value("${jarvis.ai.keep-alive}") String keepAlive,
-        @Value("classpath:prompts/finance-score.txt") Resource promptResource) {
+        @Value("classpath:prompts/finance-score.txt") Resource earnerPrompt,
+        @Value("classpath:prompts/finance-score-no-income.txt") Resource householdPrompt) {
         this.chatClient = chatClientBuilder.build();
         this.model = model;
         this.keepAlive = keepAlive;
-        this.promptTemplate = readResource(promptResource);
+        this.earnerPrompt = readResource(earnerPrompt);
+        this.householdPrompt = readResource(householdPrompt);
     }
 
-    public FinanceScore score(String metrics) {
+    /**
+     * @param earns whether this person has an income of their own. When they do not, a different
+     *     rubric applies: income ratios would all read as zero and rate them badly for a situation
+     *     that is not a financial problem.
+     */
+    public FinanceScore score(String metrics, boolean earns) {
         return chatClient
             .prompt()
-            .system(promptTemplate)
+            .system(earns ? earnerPrompt : householdPrompt)
             .user(metrics)
             .options(
                 OllamaChatOptions.builder()

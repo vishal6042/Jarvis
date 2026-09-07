@@ -307,10 +307,16 @@ class SyncRepository private constructor(context: Context) {
         val firstOfMonth = LocalDate.now(zone).withDayOfMonth(1)
         val thisMonthStart = firstOfMonth.atStartOfDay(zone).toInstant()
         val lastMonthStart = firstOfMonth.minusMonths(1).atStartOfDay(zone).toInstant()
+        val priorMonthStart = firstOfMonth.minusMonths(2).atStartOfDay(zone).toInstant()
         val now = Instant.now()
 
         val thisMonth = api.summary(session.baseUrl, session.token, iso.format(thisMonthStart), iso.format(now))
         val lastMonth = api.summary(session.baseUrl, session.token, iso.format(lastMonthStart), iso.format(thisMonthStart))
+        // Only the no-income score reads this, to say whether spending is steady. Best-effort: one
+        // unreachable month must not blank the dashboard.
+        val priorMonth = runCatching {
+            api.summary(session.baseUrl, session.token, iso.format(priorMonthStart), iso.format(lastMonthStart))
+        }.getOrNull()
         val accounts = api.accounts(session.baseUrl, session.token)
         val cats = api.byCategory(session.baseUrl, session.token, iso.format(thisMonthStart), iso.format(now))
 
@@ -329,6 +335,9 @@ class SyncRepository private constructor(context: Context) {
         val paid = runCatching { api.reminderPayments(session.baseUrl, session.token) }.getOrDefault(emptyList())
         // Keep a previously computed score while its inputs are unchanged (the AI call is slow).
         val previous = dashboardDao.get()?.let { parseExtras(it) }
+        // A member with no income of their own is scored on what they do control. Unknown member, or
+        // an older server that does not send the flag, keeps the behaviour this always had.
+        val earns = members.firstOrNull { it.id == session.memberId }?.earns ?: true
         val metrics = FinanceMetricsDto(
             monthlyIncome = lastMonth.earning,
             monthlySpend = lastMonth.spend,
@@ -337,6 +346,8 @@ class SyncRepository private constructor(context: Context) {
             investments = investments.sumOf { it.current },
             outstandingLoans = loans.sumOf { it.outstanding },
             monthlyEmi = loans.sumOf { it.emi },
+            earnsIncome = earns,
+            previousMonthSpend = priorMonth?.spend ?: 0.0,
         )
         val fp = metrics.fingerprint()
         val fresh = previous?.score != null && previous.scoreFingerprint == fp
@@ -362,6 +373,7 @@ class SyncRepository private constructor(context: Context) {
             holdings = investments,
             members = members,
             paidOccurrences = paidKeys,
+            earns = earns,
         )
 
         val cache = DashboardCache(

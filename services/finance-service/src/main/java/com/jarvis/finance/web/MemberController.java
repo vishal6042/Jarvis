@@ -25,7 +25,9 @@ public class MemberController {
 
     @GetMapping
     public List<Member> list() {
-        return members.findAll();
+        // Someone confined to one member sees only themselves. The household roster is the
+        // administrator's to see: it carries everyone else's name, relation and email address.
+        return scope.all() ? members.findAll() : members.findAllById(List.of(scope.memberId()));
     }
 
     @PostMapping
@@ -56,6 +58,9 @@ public class MemberController {
         m.setName(req.name().trim());
         m.setRelation(req.relation() == null || req.relation().isBlank() ? "Other" : req.relation().trim());
         m.setEmail(req.email());
+        if (req.earns() != null) {
+            m.setEarns(req.earns());
+        }
     }
 
     private ResponseStatusException notFound() {

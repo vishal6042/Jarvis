@@ -53,4 +53,11 @@ public class Device {
 
     @Column(name = "first_seen_at", nullable = false)
     private Instant firstSeenAt = Instant.now();
+
+    /**
+     * The member whose sign-in this phone forwards under, recorded from the heartbeat. Null for a
+     * device that has not checked in since attribution existed; only the administrator sees those.
+     */
+    @Column(name = "member_id")
+    private Long memberId;
 }

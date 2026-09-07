@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -297,29 +299,37 @@ function SecuritySection() {
   );
 }
 
+/**
+ * Managing the household roster -- adding people, editing them, switching the app to monitor
+ * someone else's money -- belongs to the administrator. A confined sign-in now only receives its
+ * own member from the server anyway; this stops the controls being offered at all.
+ */
 function FamilySection() {
+  const admin = useSession().me?.admin ?? false;
   const { members, addMember, updateMember, removeMember, setActiveId } = useFamily();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FamilyMember | null>(null);
-  const [form, setForm] = useState({ name: "", relation: "", email: "" });
+  const [form, setForm] = useState({ name: "", relation: "", email: "", earns: true });
   const [toDelete, setToDelete] = useState<FamilyMember | null>(null);
+
+  if (!admin) return null;
 
   function openAdd() {
     setEditing(null);
-    setForm({ name: "", relation: "", email: "" });
+    setForm({ name: "", relation: "", email: "", earns: true });
     setOpen(true);
   }
   function openEdit(m: FamilyMember) {
     setEditing(m);
-    setForm({ name: m.name, relation: m.relation, email: m.email ?? "" });
+    setForm({ name: m.name, relation: m.relation, email: m.email ?? "", earns: m.earns });
     setOpen(true);
   }
   function submit(e: FormEvent) {
     e.preventDefault();
     if (editing) {
-      updateMember(editing.id, { name: form.name, relation: form.relation, email: form.email });
+      updateMember(editing.id, { name: form.name, relation: form.relation, email: form.email, earns: form.earns });
     } else {
-      addMember({ name: form.name.trim(), relation: form.relation.trim() || "Family", email: form.email });
+      addMember({ name: form.name.trim(), relation: form.relation.trim() || "Family", email: form.email, earns: form.earns });
     }
     setOpen(false);
   }
@@ -417,6 +427,20 @@ function FamilySection() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
+            <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+              <span>
+                <span className="text-sm font-medium">Earns an income</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Turn off for someone who runs the household rather than earning — a homemaker, a
+                  child. Their dashboard drops the earning figures, and their financial score is
+                  judged on savings and spending instead of on income.
+                </span>
+              </span>
+              <Switch
+                checked={form.earns}
+                onCheckedChange={(v) => setForm({ ...form, earns: v })}
+              />
+            </label>
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>

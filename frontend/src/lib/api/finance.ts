@@ -6,6 +6,8 @@ export interface ApiMember {
   name: string;
   relation: string;
   email?: string | null;
+  /** False for a member with no income of their own — a homemaker, a child. */
+  earns: boolean;
 }
 export interface ApiInvestment {
   id: number;
