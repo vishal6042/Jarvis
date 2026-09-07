@@ -68,7 +68,9 @@ const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amo
 export default function Calendar() {
   const { items, add, update, remove } = useReminders();
   const navigate = useNavigate();
-  const { activeId } = useFamily();
+  const { activeId, activeMember } = useFamily();
+  // No income of their own: an expected salary would be money that never arrives.
+  const earns = activeMember.earns;
   const { paidKeys, markPaid, unmarkPaid } = useReminderPayments();
   const [payingFor, setPayingFor] = useState<ReminderOccurrence | null>(null);
   const { items: investments } = useInvestments(activeId);
@@ -97,18 +99,18 @@ export default function Calendar() {
   // Derived financial events (card dues, statements, salary, RD/SIP, EMIs) for the visible month.
   const finByDate = useMemo(() => {
     const map: Record<string, FinEvent[]> = {};
-    for (const e of financialEvents({ year: view.year, month: view.month, cards, txns, investments, loans, reminders: items })) {
+    for (const e of financialEvents({ year: view.year, month: view.month, cards, txns, investments, loans, reminders: items, earns })) {
       (map[e.on] ??= []).push(e);
     }
     return map;
-  }, [view.year, view.month, cards, txns, investments, loans, items]);
+  }, [view.year, view.month, cards, txns, investments, loans, items, earns]);
   const outflow = useMemo(
-    () => upcomingOutflows(14, { cards, txns, investments, loans, reminders: items, paidKeys }),
-    [cards, txns, investments, loans, items, paidKeys],
+    () => upcomingOutflows(14, { cards, txns, investments, loans, reminders: items, paidKeys, earns }),
+    [cards, txns, investments, loans, items, paidKeys, earns],
   );
   const forecast = useMemo(
-    () => buildForecast({ balance: f.savings, txns, reminders: items, cards, reserve, paidKeys }),
-    [f.savings, txns, items, cards, reserve, paidKeys],
+    () => buildForecast({ balance: f.savings, txns, reminders: items, cards, reserve, paidKeys, earns }),
+    [f.savings, txns, items, cards, reserve, paidKeys, earns],
   );
 
   // Upcoming list: this month by default, or a rolling 30 days, or any month ahead.
@@ -139,8 +141,8 @@ export default function Calendar() {
       const [y, m] = upFilter.split("-").map(Number);
       ({ from, to } = monthRange(y, m));
     }
-    return agendaBetween(from, to, { cards, txns, investments, loans, reminders: items, paidKeys });
-  }, [upFilter, cards, txns, investments, loans, items, paidKeys]);
+    return agendaBetween(from, to, { cards, txns, investments, loans, reminders: items, paidKeys, earns });
+  }, [upFilter, cards, txns, investments, loans, items, paidKeys, earns]);
   const upcomingDue = upcoming.filter((r) => !r.paid && r.direction === "out").length;
 
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
@@ -194,7 +196,9 @@ export default function Calendar() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground">Reminders, card dues, EMIs, RD/SIP instalments and your expected salary, in one place.</p>
+          <p className="text-muted-foreground">{earns
+                ? "Reminders, card dues, EMIs, RD/SIP instalments and your expected salary, in one place."
+                : "Reminders, card dues, EMIs and RD/SIP instalments, in one place."}</p>
         </div>
         <Button onClick={() => openAdd()} className="gap-2">
           <Plus className="size-4" /> Add reminder

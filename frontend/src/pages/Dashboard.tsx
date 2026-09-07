@@ -538,8 +538,8 @@ export default function Dashboard() {
   const [scoreLoading, setScoreLoading] = useState(false);
 
   const forecast = useMemo(
-    () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys }),
-    [f.savings, txns, reminders, cards, reserve, paidKeys],
+    () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns }),
+    [f.savings, txns, reminders, cards, reserve, paidKeys, earns],
   );
   const breakdown = useMemo(() => currentMonthBreakdown(txns), [txns]);
   const reviewCount = useMemo(

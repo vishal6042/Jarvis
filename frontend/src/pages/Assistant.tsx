@@ -47,7 +47,7 @@ export default function Assistant() {
   const [cards, setCards] = useState<CardSummary[]>([]);
   const { items: reminders, add: addReminder } = useReminders();
   const { paidKeys } = useReminderPayments();
-  const { activeId } = useFamily();
+  const { activeId, activeMember } = useFamily();
   const { items: investments } = useInvestments(activeId);
   const { items: loans } = useLoans(activeId);
   const [goals, setGoals] = useState<ApiGoal[]>([]);
@@ -62,7 +62,7 @@ export default function Assistant() {
     cardSummaries().then(setCards).catch(() => setCards([]));
   }, []);
   const contextText = useMemo(() => {
-    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys });
+    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns: activeMember.earns });
     const pf = portfolioReturn(investments);
     const lines = [
       `Today: ${fc.today}`,
@@ -102,7 +102,7 @@ export default function Assistant() {
         : []),
     ];
     return lines.join("\n");
-  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys, investments, loans, goals]);
+  }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys, investments, loans, goals, activeMember.earns]);
 
   const [messages, setMessages] = useState<Msg[]>([
     {

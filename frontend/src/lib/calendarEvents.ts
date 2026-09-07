@@ -42,6 +42,8 @@ export interface FinEventInput {
   today?: Date;
   /** Reminder occurrences the user closed by hand — excluded from what is still due. */
   paidKeys?: ReadonlySet<string>;
+  /** False suppresses the expected-salary event for a member with no income of their own. */
+  earns?: boolean;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -102,7 +104,7 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
 
   // Expected salary (only from this month on; history already shows the real credit).
   if (target >= thisMonth) {
-    const sal = inferSalary(i.txns, today);
+    const sal = inferSalary(i.txns, today, i.earns ?? true);
     if (sal.basis > 0 && sal.amount > 0 && !(target === thisMonth && sal.receivedThisMonth)) {
       const on = iso(y, m, Math.min(sal.dayOfMonth, daysIn(y, m)));
       out.push({

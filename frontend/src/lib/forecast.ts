@@ -28,7 +28,14 @@ export interface SalaryEstimate {
  * Infer salary from history: for each of the last three complete months take the largest CREDIT
  * on a savings-type account that isn't a transfer, then use the median amount and landing day.
  */
-export function inferSalary(txns: Transaction[], today = new Date()): SalaryEstimate {
+/**
+ * @param earns false for a member with no income of their own. Money reaching their account is a
+ *   transfer from the household, not a salary that will land again next month, so predicting one
+ *   would inflate every forward-looking figure built on this -- the projected balance and what is
+ *   safe to spend included.
+ */
+export function inferSalary(txns: Transaction[], today = new Date(), earns = true): SalaryEstimate {
+  if (!earns) return { amount: 0, dayOfMonth: 31, receivedThisMonth: false, basis: 0 };
   const credits = txns.filter(
     (t) => t.direction === "CREDIT" && isRealFlow(t) && t.accountName != null && !/card/i.test(t.accountName),
   );
@@ -100,6 +107,8 @@ export interface ForecastInput {
   horizonDays?: number;
   /** Occurrences the user closed by hand, from useReminderPayments(). */
   paidKeys?: ReadonlySet<string>;
+  /** False suppresses the expected-salary event for a member with no income of their own. */
+  earns?: boolean;
 }
 
 /**
@@ -116,11 +125,12 @@ export function buildForecast({
   reserve,
   horizonDays = 30,
   paidKeys,
+  earns = true,
 }: ForecastInput): Forecast {
   const t0 = startOfDay(today);
   const horizonEnd = new Date(t0.getTime() + horizonDays * DAY);
   const monthEnd = new Date(t0.getFullYear(), t0.getMonth() + 1, 0);
-  const salary = inferSalary(txns, t0);
+  const salary = inferSalary(txns, t0, earns);
 
   const raw: Omit<ForecastEvent, "balanceAfter">[] = [];
 
