@@ -83,7 +83,7 @@ services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1, service
   notification-service/ alerts + delivery
 frontend/    React PWA dashboard
 android/     SMS-forwarder app (later phase)
-scripts/     one-off setup helpers (desktop shortcut, icon generation)
+scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption)
 assets/      jarvis.ico for the shortcut
 start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
 ```
