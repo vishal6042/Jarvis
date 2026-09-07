@@ -201,7 +201,9 @@ function Home({
           View All Services <Icon.Arrow size={15} />
         </button>
       </div>
-      <div className="grid">
+      {/* Shrinks and scrolls when the window is short, so the log panel below keeps its floor
+          rather than being squeezed to nothing. */}
+      <div className="grid shrink">
         {services.slice(0, 8).map((service) => (
           <ServiceCard key={service.name} service={service} onChanged={onChanged} />
         ))}

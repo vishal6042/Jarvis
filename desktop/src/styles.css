@@ -434,11 +434,16 @@ h2 {
 .lower {
   display: grid;
   grid-template-columns: 1.9fr 1fr;
+  /* Same trap as .shell: an implicit auto row is sized by its content, so the log box grew to its
+     full height instead of being told how much room it actually had. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   margin-top: 28px;
-  /* Takes whatever height is left, and shrinks rather than pushing the page past the window. */
-  flex: 1;
-  min-height: 0;
+  /* Never collapses to nothing. Without a floor, a short window leaves zero space here and the
+     log box falls back to its content height -- off the bottom of the screen, and unscrollable
+     because nothing was constraining it. */
+  flex: 1 1 auto;
+  min-height: 200px;
 }
 
 .panel {
@@ -447,9 +452,13 @@ h2 {
   box-shadow: inset 0 0 0 1px var(--line);
   padding: 18px;
   min-width: 0;
+  /* Grid items default to min-height:auto, which would stop the panel shrinking below its
+     content and defeat the scroll box inside it. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
+
 
 
 .panel-head {
@@ -720,4 +729,14 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Home: the card grid gives up room before the log panel does -- but never all of it. With a
+   zero floor it collapsed completely and the services disappeared, which is the one thing this
+   page exists to show. One row stays visible and the rest scrolls. */
+.grid.shrink {
+  flex: 0 1 auto;
+  min-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
