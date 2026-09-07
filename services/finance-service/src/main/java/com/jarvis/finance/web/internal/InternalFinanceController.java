@@ -56,7 +56,7 @@ public class InternalFinanceController {
     public List<ReminderPaymentDto> reminderPayments(
         @RequestHeader(value = "X-Internal-Key", required = false) String key) {
         requireKey(key);
-        return reminderPayments.findByOccurredOnGreaterThanEqual(LocalDate.now().minusMonths(3)).stream()
+        return reminderPayments.findFromWithReminder(LocalDate.now().minusMonths(3)).stream()
             .map(ReminderPaymentDto::from)
             .toList();
     }

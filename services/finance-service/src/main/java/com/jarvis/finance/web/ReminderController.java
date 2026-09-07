@@ -63,7 +63,7 @@ public class ReminderController {
     public List<ReminderPaymentDto> payments(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from) {
         LocalDate since = from != null ? from : LocalDate.now().minusMonths(12);
-        return payments.findByOccurredOnGreaterThanEqual(since).stream()
+        return payments.findFromWithReminder(since).stream()
             .filter(p -> scope.canSee(p.getReminder().getMemberId()))
             .map(ReminderPaymentDto::from)
             .toList();
