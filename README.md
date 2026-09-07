@@ -71,7 +71,7 @@ All services share the **single `jarvis` database**; each migrates into its **ow
 ## Repo layout
 
 ```
-services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1)
+services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1, service-list.ps1)
   common-security/      shared JWT lib
   discovery-service/    Eureka server
   api-gateway/          Spring Cloud Gateway
@@ -80,8 +80,12 @@ services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1)
   ingestion-service/    /api/ingest pipeline
   ai-orchestrator-service/  Spring AI agents (Ollama)
   finance-service/      members/investments/loans/reminders/thresholds
+  notification-service/ alerts + delivery
 frontend/    React PWA dashboard
 android/     SMS-forwarder app (later phase)
+scripts/     one-off setup helpers (desktop shortcut, icon generation)
+assets/      jarvis.ico for the shortcut
+start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
 ```
 
 ---
@@ -107,6 +111,19 @@ android/     SMS-forwarder app (later phase)
 ---
 
 ## Run (dev)
+
+**One click** - a Desktop shortcut that does everything (build, all 8 services, the web app) in a
+single window, with each service's logs colour-coded behind a `[name]` prefix. Create it once:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-shortcut.ps1
+```
+
+After that, double-click **Jarvis** on the Desktop. Ctrl+C in that window shuts the whole stack
+down. The same logs are written to `logs\<service>.log`. Flags, if you run it from a terminal:
+`-NoBuild` skips the Maven build, `-NoBrowser` leaves the browser alone.
+
+The manual route, when you want each service in its own window:
 
 **Backend** — build all modules and launch the stack (each service in its own window):
 ```powershell
