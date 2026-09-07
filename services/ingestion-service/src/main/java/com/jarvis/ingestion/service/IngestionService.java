@@ -15,6 +15,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
+import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -35,14 +38,25 @@ public class IngestionService {
     private final AiClient ai;
     private final ExpenseClient expense;
     private final FinanceClient finance;
+    private final PayloadHasher payloadHasher;
 
     public IngestionService(
-        RawMessageRepository rawMessages, AiClient ai, ExpenseClient expense, FinanceClient finance) {
+        RawMessageRepository rawMessages, AiClient ai, ExpenseClient expense, FinanceClient finance,
+        PayloadHasher payloadHasher) {
         this.rawMessages = rawMessages;
         this.ai = ai;
         this.expense = expense;
         this.finance = finance;
+        this.payloadHasher = payloadHasher;
     }
+
+    /**
+     * An earlier arrival in one of these states already counted: a transaction exists, or a
+     * contribution was recorded. IGNORED and FAILED are left out on purpose -- they produced
+     * nothing, so re-running them is harmless and may succeed after a parser improvement.
+     */
+    private static final Set<ParseStatus> ALREADY_COUNTED =
+        EnumSet.of(ParseStatus.PARSED, ParseStatus.INVESTMENT, ParseStatus.DUPLICATE);
 
     @Transactional
     public IngestResponse ingest(IngestRequest req) {
@@ -50,11 +64,32 @@ public class IngestionService {
         // digits must not be able to name an account the forwarder does not own — otherwise a
         // second person's phone could file spending against the first person's card.
         Long forwarder = CallerContext.restrictedTo();
+        Instant receivedAt = req.receivedAt() == null ? Instant.now() : req.receivedAt();
+        String hash = payloadHasher.hash(req.source(), req.sender(), req.payload(), receivedAt);
+
         RawMessage msg = new RawMessage();
         msg.setSource(req.source());
         msg.setPayload(req.payload());
         msg.setSender(req.sender());
-        msg.setReceivedAt(req.receivedAt() == null ? Instant.now() : req.receivedAt());
+        msg.setReceivedAt(receivedAt);
+        msg.setPayloadHash(hash);
+
+        // The phone forwards an alert live as it arrives, and the Inbox backfill can send the same
+        // one again. Parsing is not deterministic, so the second run can produce a different dedup
+        // hash in expense-service and slip a second transaction through. Catch the repeat here, on
+        // the alert text, before the parser is ever called.
+        Optional<RawMessage> earlier =
+            rawMessages.findFirstByPayloadHashAndStatusInOrderByIdAsc(hash, ALREADY_COUNTED);
+        if (earlier.isPresent()) {
+            Long ref = earlier.get().getTransactionRef();
+            msg.setStatus(ParseStatus.DUPLICATE);
+            msg.setTransactionRef(ref);
+            msg = rawMessages.save(msg);
+            log.debug("Alert {} repeats raw message {} — not parsed again", msg.getId(), earlier.get().getId());
+            return new IngestResponse(
+                msg.getId(), ParseStatus.DUPLICATE, ref, "Already forwarded — counted once.");
+        }
+
         msg.setStatus(ParseStatus.PENDING);
         msg = rawMessages.save(msg);
         return process(msg, forwarder).response();

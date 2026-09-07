@@ -41,6 +41,14 @@ public class RawMessage {
     @Column(name = "transaction_ref")
     private Long transactionRef;
 
+    /**
+     * Key over the alert text itself (see {@link com.jarvis.ingestion.service.PayloadHasher}),
+     * so the same alert forwarded twice is recognised before it reaches the parser.
+     * Null for statement imports, whose payload is a filename rather than alert text.
+     */
+    @Column(name = "payload_hash", length = 64)
+    private String payloadHash;
+
     /** Failure detail when status = FAILED. */
     @Column(columnDefinition = "text")
     private String error;

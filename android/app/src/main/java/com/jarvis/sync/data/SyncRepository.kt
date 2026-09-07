@@ -158,7 +158,12 @@ class SyncRepository private constructor(context: Context) {
         val queue = pendingDao.all()
         var allDelivered = true
 
-        for (msg in queue) {
+        for (queued in queue) {
+            // A live-captured message has no inbox id: the SMS_RECEIVED broadcast carries none, and
+            // the provider had usually not stored the message yet when it fired. By now it has, so
+            // resolve the id here -- that is what lets the Inbox tab see this message was already
+            // forwarded, instead of offering it again and creating a second copy of the spend.
+            val msg = if (queued.smsId == null) queued.copy(smsId = resolveSmsId(queued)) else queued
             val req = IngestRequestDto(
                 source = "SMS",
                 payload = msg.payload,
@@ -196,6 +201,15 @@ class SyncRepository private constructor(context: Context) {
         return allDelivered
     }
 
+    /**
+     * The inbox id for a live-captured message, or null when it cannot be found -- the message is
+     * not in the inbox, or READ_SMS was never granted. Null simply means the Inbox tab keeps
+     * showing it as unsent, which is what it did for every live message before this existed.
+     */
+    private suspend fun resolveSmsId(msg: PendingMessage): Long? = withContext(Dispatchers.IO) {
+        runCatching { SmsInboxScanner.findId(appContext, msg.sender, msg.payload, msg.receivedAt) }.getOrNull()
+    }
+
     private suspend fun keep(msg: PendingMessage, error: String) {
         pendingDao.update(msg.copy(attempts = msg.attempts + 1, lastError = error))
     }
@@ -207,6 +221,10 @@ class SyncRepository private constructor(context: Context) {
                 snippet = msg.payload.take(140), sender = msg.sender, status = status, detail = detail, smsId = msg.smsId,
             )
         )
+        // The server has this message now, whatever it made of it. Recording the inbox id is what
+        // keeps the Inbox tab from counting it as unsent -- for a live-forwarded message just as
+        // much as for one queued from the backfill, which marks itself at queue time.
+        msg.smsId?.let { importedDao.insertAll(listOf(ImportedSms(it))) }
     }
 
     // ---- alerts (server notifications) ----
