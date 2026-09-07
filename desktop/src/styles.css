@@ -439,10 +439,12 @@ h2 {
   grid-template-rows: minmax(0, 1fr);
   gap: 18px;
   margin-top: 28px;
-  /* Never collapses to nothing. Without a floor, a short window leaves zero space here and the
-     log box falls back to its content height -- off the bottom of the screen, and unscrollable
-     because nothing was constraining it. */
-  flex: 1 1 auto;
+  /* flex-basis 0, not auto. With auto the base size is this grid's content height, and the log
+     box inside counts its whole buffer towards that however hard it is clipped -- so as logs
+     arrived .lower grew, the flex container ran out of room, and the card grid above shrank and
+     started scrolling for no reason the eye could see. A zero basis takes the leftover space and
+     nothing more, whatever is in the log. The floor stops it collapsing on a short window. */
+  flex: 1 1 0;
   min-height: 200px;
 }
 
