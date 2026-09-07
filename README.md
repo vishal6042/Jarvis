@@ -83,6 +83,7 @@ services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1, service
   notification-service/ alerts + delivery
 frontend/    React PWA dashboard
 android/     SMS-forwarder app (later phase)
+desktop/     Windows Control Center (Electron): start, watch and restart the stack
 scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption)
 assets/      jarvis.ico for the shortcut
 start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
@@ -122,6 +123,30 @@ powershell -ExecutionPolicy Bypass -File scripts\install-shortcut.ps1
 After that, double-click **Jarvis** on the Desktop. Ctrl+C in that window shuts the whole stack
 down. The same logs are written to `logs\<service>.log`. Flags, if you run it from a terminal:
 `-NoBuild` skips the Maven build, `-NoBrowser` leaves the browser alone.
+
+
+### Control Center (Windows desktop app)
+
+A window that starts, watches and restarts the whole stack, in `desktop/`. Build the installer:
+
+```powershell
+cd desktop
+npm install
+npm run dist        # release\Jarvis Control Center Setup 1.0.0.exe
+```
+
+`npm start` runs it without installing.
+
+- **Opening it starts the stack**, but only what is not already listening -- glancing at a healthy
+  stack never restarts it.
+- **PostgreSQL and Ollama are watched, not managed.** Postgres down blocks starting at all, because
+  every service would otherwise die on its first migration; Ollama down is only a warning.
+- **Logs come from `logs\`**, the same files the scripts write, so they show up whoever started the
+  services.
+- **Close minimises to the tray** and leaves everything running; the minimise button behaves
+  normally. Quit from the tray menu, or turn the tray behaviour off in Settings.
+- Services, ports and start order come from `services/services.json` -- the same file the PowerShell
+  launchers read, so there is one list to keep right.
 
 The manual route, when you want each service in its own window:
 

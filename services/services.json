@@ -1,0 +1,22 @@
+{
+  "_comment": "The Jarvis stack, in start order. Single source of truth for every launcher: start-all.ps1 and start-jarvis.ps1 read it through service-list.ps1, and the desktop Control Center reads it directly. 'wait' is the pause before the NEXT service starts - Eureka needs a head start so the rest register cleanly, and the gateway is last so it waits for nobody.",
+  "services": [
+    { "n": 1, "name": "discovery-service",       "label": "Discovery",     "description": "Eureka service registry",        "port": 8761, "wait": 12 },
+    { "n": 2, "name": "auth-service",            "label": "Auth",          "description": "Sign-in, profile and household",  "port": 8081, "wait": 4 },
+    { "n": 3, "name": "expense-service",         "label": "Expenses",      "description": "Accounts and transactions",       "port": 8082, "wait": 4 },
+    { "n": 4, "name": "ai-orchestrator-service", "label": "AI",            "description": "Alert parsing and the assistant",  "port": 8084, "wait": 4 },
+    { "n": 5, "name": "ingestion-service",       "label": "Ingestion",     "description": "SMS and statement pipeline",       "port": 8083, "wait": 4 },
+    { "n": 6, "name": "finance-service",         "label": "Finance",       "description": "Investments, loans and reminders", "port": 8085, "wait": 4 },
+    { "n": 7, "name": "notification-service",    "label": "Notifications", "description": "Alerts and delivery",              "port": 8086, "wait": 4 },
+    { "n": 8, "name": "api-gateway",             "label": "Gateway",       "description": "The only exposed port",            "port": 8080, "wait": 0 }
+  ],
+  "frontend": {
+    "name": "frontend", "label": "Web App", "description": "React dashboard", "port": 5173
+  },
+
+  "_dependencies": "Not ours to start - they run outside the stack - but everything here depends on them. Postgres missing means every service fails its first migration, so it is required; Ollama missing only costs the AI features.",
+  "dependencies": [
+    { "name": "postgres", "label": "PostgreSQL", "description": "The jarvis database", "port": 5432, "required": true },
+    { "name": "ollama",   "label": "Ollama",     "description": "Local models for the AI service", "port": 11434, "required": false }
+  ]
+}
