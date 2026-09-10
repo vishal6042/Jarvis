@@ -45,7 +45,9 @@ jobs:
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
-          DATE="$(date -u +%Y-%m-%d)"
+          # IST, not the runner's UTC: an evening tag in India would otherwise be titled with
+          # yesterday's date.
+          DATE="$(TZ=Asia/Kolkata date +%Y-%m-%d)"
           # Android needs a monotonic integer; the run number gives us one for free.
           VERSION_CODE="$(( 1000 + GITHUB_RUN_NUMBER ))"
           # Semver says a hyphen means pre-release - which is also what a throwaway test tag looks like.
@@ -131,7 +133,7 @@ jobs:
           done
           cp services/services.json services/start-all.ps1 services/service-list.ps1 "$STAGE/"
           cp services/README.md "$STAGE/" 2>/dev/null || true
-          echo "Jarvis $TAG - built from ${{ needs.meta.outputs.tag }}" > "$STAGE/VERSION.txt"
+          echo "Jarvis $TAG - built from $GITHUB_SHA on ${{ needs.meta.outputs.date }}" > "$STAGE/VERSION.txt"
           ls -1 "$STAGE/jars"
           (cd stage && zip -qr "../dist/jarvis-services-$TAG.zip" "jarvis-services-$TAG")
 
