@@ -143,9 +143,13 @@ button:disabled {
 }
 
 .main {
-  /* The shell itself never scrolls. Panels that can outgrow the window scroll inside their own
-     box instead, so the header, the actions and the service cards stay put where you left them. */
-  overflow: hidden;
+  /* Panels that can outgrow the window scroll inside their own box, so the header, the actions
+     and the service cards stay put where you left them and the page does not move underfoot.
+     But every one of those boxes has a floor, and on a short window the floors alone can add up
+     to more than there is room for -- so the page scrolls as a last resort rather than clipping
+     whatever did not fit, which is what put the bottom of the log panel out of reach. */
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 30px 34px 36px;
   display: flex;
   flex-direction: column;
@@ -722,9 +726,14 @@ select {
   min-height: 0;
 }
 
-/* Sized by what is in it, not stretched to match the log panel beside it. */
+/* Sized by what is in it, not stretched to match the log panel beside it. `align-self: start`
+   takes it out of the row's stretch, though, so nothing was holding it to the row's height and a
+   short window let it run on past the bottom of the screen -- taking the log panel's lower edge
+   with it. Cap it at the row and let it scroll on its own if the readings ever outgrow that. */
 .panel.health {
   align-self: start;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 /* The Services page lists everything, so its grid is the part that scrolls. */
