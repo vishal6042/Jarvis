@@ -1,4 +1,5 @@
 <resources>
     <color name="window_bg">#FFF7F5FF</color>
-    <color name="ic_launcher_background">#7C5CFF</color>
+    <!-- The navy the Jarvis mark sits on, matching the web and desktop app icons. -->
+    <color name="ic_launcher_background">#FF0B1B33</color>
 </resources>

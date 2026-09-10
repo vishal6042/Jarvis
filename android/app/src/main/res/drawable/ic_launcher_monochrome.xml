@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The themed-icon layer (Android 13+): the same mark as a flat silhouette, which the launcher
+  recolours to the wallpaper palette. The visor is cut out of the head rather than filled, so
+  the face still reads once every colour is gone.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.33"
+        android:scaleY="0.33"
+        android:translateX="8"
+        android:translateY="13.7">
+
+        <path
+            android:pathData="M44,140 C38,194 70,224 118,224 C168,224 208,190 232,120"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="15"
+            android:strokeLineCap="round" />
+        <path android:pathData="M243,92 L239,129 L209,108 Z" android:fillColor="#FFFFFFFF" />
+
+        <path android:pathData="M36,106 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M150,106 a19,19 0 1,0 38,0 a19,19 0 1,0 -38,0 Z" android:fillColor="#FFFFFFFF" />
+
+        <path android:pathData="M112,58 V34" android:strokeColor="#FFFFFFFF" android:strokeWidth="7" android:strokeLineCap="round" />
+        <path android:pathData="M101,24 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z" android:fillColor="#FFFFFFFF" />
+
+        <path android:pathData="M78,216 C78,182 93,164 112,164 C131,164 146,182 146,216 Z" android:fillColor="#FFFFFFFF" />
+
+        <!-- Head, with the visor as a hole in the same path -->
+        <path
+            android:fillType="evenOdd"
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M106,50 H118 A50,50 0 0 1 168,100 V108 A50,50 0 0 1 118,158 H106 A50,50 0 0 1 56,108 V100 A50,50 0 0 1 106,50 Z M97,74 H127 A27,27 0 0 1 154,101 V105 A27,27 0 0 1 127,132 H97 A27,27 0 0 1 70,105 V101 A27,27 0 0 1 97,74 Z" />
+
+        <path android:pathData="M175,180 H182 A7,7 0 0 1 189,187 V215 A7,7 0 0 1 182,222 H175 A7,7 0 0 1 168,215 V187 A7,7 0 0 1 175,180 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M202,158 H209 A7,7 0 0 1 216,165 V215 A7,7 0 0 1 209,222 H202 A7,7 0 0 1 195,215 V165 A7,7 0 0 1 202,158 Z" android:fillColor="#FFFFFFFF" />
+        <path android:pathData="M229,134 H236 A7,7 0 0 1 243,141 V215 A7,7 0 0 1 236,222 H229 A7,7 0 0 1 222,215 V141 A7,7 0 0 1 229,134 Z" android:fillColor="#FFFFFFFF" />
+    </group>
+</vector>

@@ -65,7 +65,15 @@ app/src/main/java/com/jarvis/sync/
   work/            SyncWorker + SyncScheduler (WorkManager)
   ui/              AppViewModel, Screens (Login / Dashboard / History / Settings), theme/
   MainActivity.kt, JarvisSyncApp.kt
+app/src/main/res/drawable/
+  ic_jarvis_logo.xml         the Jarvis mark, shown on the login screen and in the app bar
+  ic_launcher_foreground.xml the same mark scaled into the adaptive-icon safe zone
+  ic_launcher_monochrome.xml the silhouette Android 13+ themed icons use
+  ic_notification.xml        the status-bar silhouette (Android draws small icons in white)
 ```
+
+The drawables are hand-ported from [`assets/brand/jarvis-mark.svg`](../assets/brand/jarvis-mark.svg)
+(same 256-unit grid), so a change to the logo means editing both.
 
 ## Notes
 

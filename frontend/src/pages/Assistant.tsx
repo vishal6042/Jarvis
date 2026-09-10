@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, Bot, Check, Send, Sparkles, Wand2, X } from "lucide-react";
+import { AlertCircle, Check, Send, Sparkles, Wand2, X } from "lucide-react";
 import { ACTION_LABEL, describeAction, executeAction, isImperative, validateAction, type PlannedAction } from "@/lib/actions";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Markdown from "@/components/Markdown";
 import CardArt from "@/components/CardArt";
+import JarvisLogo from "@/components/JarvisLogo";
 
 type ActionStatus = "pending" | "done" | "cancelled" | "failed";
 
@@ -186,9 +187,7 @@ export default function Assistant() {
   return (
     <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-1 text-primary-foreground shadow-lg shadow-primary/30 ring-1 ring-white/15">
-          <Sparkles className="size-5" />
-        </div>
+        <JarvisLogo size={44} className="rounded-[22%] shadow-lg shadow-primary/25 ring-1 ring-white/15" />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Assistant</h1>
           <p className="text-sm text-muted-foreground">
@@ -203,9 +202,7 @@ export default function Assistant() {
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && (
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/80 to-chart-1/80 text-primary-foreground shadow-sm">
-                <Bot className="size-4" />
-              </div>
+              <JarvisLogo size={32} className="mt-0.5 shrink-0 rounded-[22%] shadow-sm" />
             )}
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
@@ -230,9 +227,7 @@ export default function Assistant() {
         ))}
         {busy && (
           <div className="flex justify-start gap-2">
-            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/80 to-chart-1/80 text-primary-foreground shadow-sm">
-              <Bot className="size-4" />
-            </div>
+            <JarvisLogo size={32} className="mt-0.5 shrink-0 rounded-[22%] shadow-sm" />
             <div className="rounded-2xl rounded-bl-sm bg-card px-4 py-2.5 text-sm text-muted-foreground ring-1 ring-primary/15">
               <span className="inline-flex gap-1">
                 <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />

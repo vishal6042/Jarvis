@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 200" width="700" height="200" role="img" aria-label="Jarvis — your financial assistant">
+  <title>Jarvis — your financial assistant</title>
+  <defs>
+    <linearGradient id="jl-shell" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F1F6FC"/><stop offset="1" stop-color="#C7D6E8"/>
+    </linearGradient>
+    <linearGradient id="jl-visor" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#16304F"/><stop offset="1" stop-color="#050D1B"/>
+    </linearGradient>
+    <linearGradient id="jl-arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2AA6F5"/><stop offset="0.45" stop-color="#2CC5C8"/><stop offset="1" stop-color="#34D98A"/>
+    </linearGradient>
+    <linearGradient id="jl-bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5AECAC"/><stop offset="1" stop-color="#12B26F"/>
+    </linearGradient>
+    <radialGradient id="jl-spark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#8FF0FF"/><stop offset="1" stop-color="#22C3F5"/>
+    </radialGradient>
+  </defs>
+
+  <g transform="translate(4 8) scale(0.72)">
+    <path d="M44 140 C38 194 70 224 118 224 C168 224 208 190 232 120" fill="none" stroke="url(#jl-arc)" stroke-width="15" stroke-linecap="round"/>
+    <path d="M243 92 L239 129 L209 108 Z" fill="#34D98A"/>
+    <circle cx="55" cy="106" r="19" fill="url(#jl-shell)"/><circle cx="55" cy="106" r="9.5" fill="#2FC9F2"/>
+    <circle cx="169" cy="106" r="19" fill="url(#jl-shell)"/><circle cx="169" cy="106" r="9.5" fill="#2FC9F2"/>
+    <path d="M112 58 V34" stroke="#CFE4F5" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <circle cx="112" cy="24" r="11" fill="url(#jl-spark)"/>
+    <path d="M78 216 C78 182 93 164 112 164 C131 164 146 182 146 216 Z" fill="url(#jl-shell)"/>
+    <path d="M100 154 h24 v14 h-24 z" fill="#C7D6E8"/>
+    <rect x="56" y="50" width="112" height="108" rx="50" fill="url(#jl-shell)"/>
+    <rect x="70" y="74" width="84" height="58" rx="27" fill="url(#jl-visor)"/>
+    <path d="M84 98 q11 12 22 0" fill="none" stroke="#3ED8FF" stroke-width="6.5" stroke-linecap="round"/>
+    <path d="M118 98 q11 12 22 0" fill="none" stroke="#3ED8FF" stroke-width="6.5" stroke-linecap="round"/>
+    <rect x="168" y="180" width="21" height="42" rx="7" fill="url(#jl-bar)"/>
+    <rect x="195" y="158" width="21" height="64" rx="7" fill="url(#jl-bar)"/>
+    <rect x="222" y="134" width="21" height="88" rx="7" fill="url(#jl-bar)"/>
+  </g>
+
+  <g font-family="Geist Variable, Inter, Segoe UI, system-ui, -apple-system, Helvetica Neue, Arial, sans-serif">
+    <text x="212" y="112" font-size="84" font-weight="700" letter-spacing="4" fill="#0C1B33">JARVIS</text>
+    <text x="215" y="150" font-size="17.5" font-weight="500" letter-spacing="5.6" fill="#5A6E88">YOUR FINANCIAL ASSISTANT</text>
+  </g>
+</svg>

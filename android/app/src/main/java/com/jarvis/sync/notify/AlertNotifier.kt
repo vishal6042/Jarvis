@@ -61,7 +61,7 @@ object AlertNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(n.title)
             .setContentText(n.message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(n.message))

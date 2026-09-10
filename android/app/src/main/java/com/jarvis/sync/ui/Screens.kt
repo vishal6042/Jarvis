@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.FlowRow
 
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 
 import androidx.compose.foundation.background
@@ -57,7 +58,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.res.painterResource
+import com.jarvis.sync.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -149,6 +153,12 @@ private fun LoginScreen(vm: AppViewModel) {
             Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Center,
         ) {
+            Image(
+                painter = painterResource(R.drawable.ic_jarvis_logo),
+                contentDescription = null,
+                modifier = Modifier.size(88.dp),
+            )
+            Spacer(Modifier.height(12.dp))
             Text("Jarvis Sync", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             Text("Forward transaction SMS to your Jarvis server", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
@@ -232,13 +242,21 @@ private fun MainScaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        when {
-                            alertsOpen -> "Alerts"
-                            historyOpen -> "Sync history"
-                            else -> tabs[selected].label
-                        }
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(R.drawable.ic_jarvis_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            when {
+                                alertsOpen -> "Alerts"
+                                historyOpen -> "Sync history"
+                                else -> tabs[selected].label
+                            }
+                        )
+                    }
                 },
                 navigationIcon = {
                     if (alertsOpen || historyOpen) {

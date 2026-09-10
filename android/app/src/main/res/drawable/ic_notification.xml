@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The status-bar icon. Android throws away the colours and draws the alpha channel in white, so
+  this is the Jarvis face reduced to a silhouette - head, ears, antenna, and the visor punched
+  out of it - at a size that still reads in the status bar.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+
+    <path android:pathData="M1.2,12 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M19.2,12 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M12,5.4 V3.8" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.4" android:strokeLineCap="round" />
+    <path android:pathData="M10.4,2.4 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0 Z" android:fillColor="#FFFFFFFF" />
+    <path
+        android:fillType="evenOdd"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,5 H14 A6,6 0 0 1 20,11 V13 A6,6 0 0 1 14,19 H10 A6,6 0 0 1 4,13 V11 A6,6 0 0 1 10,5 Z M10.3,8 H13.7 A3.5,3.5 0 0 1 17.2,11.5 A3.5,3.5 0 0 1 13.7,15 H10.3 A3.5,3.5 0 0 1 6.8,11.5 A3.5,3.5 0 0 1 10.3,8 Z" />
+</vector>

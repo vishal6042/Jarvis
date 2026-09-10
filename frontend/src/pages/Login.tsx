@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Zap } from "lucide-react";
 import {
   authExists,
   getSecurityQuestion,
@@ -11,6 +10,7 @@ import {
 import { useFamily } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import JarvisLogo from "@/components/JarvisLogo";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -155,9 +155,7 @@ export default function Login() {
       <LoginBackdrop />
       <Card className="relative z-10 w-full max-w-sm border-white/20 bg-card/75 shadow-2xl backdrop-blur-xl">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-            <Zap className="size-6" />
-          </div>
+          <JarvisLogo size={56} className="mx-auto mb-2 rounded-[22%] shadow-lg shadow-primary/25 ring-1 ring-white/15" />
           <CardTitle className="text-2xl">Jarvis</CardTitle>
           <CardDescription>{title}</CardDescription>
         </CardHeader>

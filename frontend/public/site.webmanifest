@@ -1,0 +1,14 @@
+{
+  "name": "Jarvis — Your Financial Assistant",
+  "short_name": "Jarvis",
+  "description": "Plan, save, invest, grow — your self-hosted financial assistant.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1B33",
+  "theme_color": "#0B1B33",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

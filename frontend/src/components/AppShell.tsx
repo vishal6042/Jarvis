@@ -19,7 +19,6 @@ import {
   Upload,
   Users,
   User,
-  Zap,
 } from "lucide-react";
 import { logout } from "@/api";
 import { clearSession } from "@/lib/session";
@@ -29,6 +28,7 @@ import { useNotifications } from "@/lib/notifications";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import CommandBar from "@/components/CommandBar";
+import JarvisLogo from "@/components/JarvisLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -176,12 +176,10 @@ function ThemeToggle() {
 function Brand() {
   return (
     <div className="flex items-center gap-2 px-2 py-1">
-      <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-chart-1 text-primary-foreground shadow-md shadow-primary/30 ring-1 ring-white/15">
-        <Zap className="size-5" />
-      </div>
+      <JarvisLogo size={36} className="rounded-[22%] shadow-md shadow-primary/25 ring-1 ring-white/15" />
       <div className="leading-tight">
         <div className="font-semibold tracking-tight">Jarvis</div>
-        <div className="text-xs text-muted-foreground">Finance</div>
+        <div className="text-xs text-muted-foreground">Financial assistant</div>
       </div>
     </div>
   );

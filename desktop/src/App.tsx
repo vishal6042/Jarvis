@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { api, formatUptime, useHealth, useSettings, useStack, type DependencyState, type ServiceState } from "./api";
 import { DependencyStrip, LogPanel, Ring, ServiceCard } from "./components";
 import * as Icon from "./icons";
+import JarvisLogo from "./logo";
 
 type Page = "home" | "services" | "logs" | "settings" | "about";
 
@@ -28,7 +29,7 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark" />
+          <JarvisLogo size={42} className="brand-mark" />
           <div>
             <div className="brand-name">JARVIS</div>
             <div className="brand-sub">Control Center</div>

@@ -1,69 +1,71 @@
-# Generate assets\jarvis.ico for the desktop shortcut. Run once; re-run only to change the look.
+# Render the Jarvis brand marks (assets\brand\*.svg) into the raster icons that Windows and
+# browsers still insist on: the desktop shortcut / Control Center .ico, and the web app's
+# favicon set. Run after editing an SVG; the SVGs are the source, these files are derived.
 #
-# The violet is the app's own --primary (oklch(0.68 0.19 280)) converted to sRGB, so the
-# shortcut matches the UI it launches.
+# Chrome (or Edge) does the rasterising - it is the only SVG renderer already on the machine,
+# and GDI+ cannot read SVG at all. GDI+ is still what packs the PNGs into an .ico.
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
-$outFile = Join-Path (Split-Path $PSScriptRoot -Parent) "assets\jarvis.ico"
-$sizes   = @(16, 32, 48, 64, 128, 256)
+$root  = Split-Path $PSScriptRoot -Parent
+$brand = Join-Path $root "assets\brand"
+$work  = Join-Path ([System.IO.Path]::GetTempPath()) ("jarvis-brand-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $work -Force | Out-Null
 
-$violet = [System.Drawing.Color]::FromArgb(133, 133, 255)
-$indigo = [System.Drawing.Color]::FromArgb( 74,  59, 191)
+# Below 64px the full mark turns to mush, so the small frames are drawn from the simplified
+# face and the large ones from the complete robot-and-chart tile.
+$icoFrames = @(
+    @{ size =  16; svg = "jarvis-favicon.svg" },
+    @{ size =  32; svg = "jarvis-favicon.svg" },
+    @{ size =  48; svg = "jarvis-favicon.svg" },
+    @{ size =  64; svg = "jarvis-icon.svg"    },
+    @{ size = 128; svg = "jarvis-icon.svg"    },
+    @{ size = 256; svg = "jarvis-icon.svg"    }
+)
 
-function New-RoundedPath([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $d = $r * 2
-    $path.AddArc($x,           $y,           $d, $d, 180, 90)
-    $path.AddArc($x + $w - $d, $y,           $d, $d, 270, 90)
-    $path.AddArc($x + $w - $d, $y + $h - $d, $d, $d,   0, 90)
-    $path.AddArc($x,           $y + $h - $d, $d, $d,  90, 90)
-    $path.CloseFigure()
-    return $path
+$webPngs = @(
+    @{ size = 180; svg = "jarvis-icon.svg"; out = "frontend\public\apple-touch-icon.png" },
+    @{ size = 192; svg = "jarvis-icon.svg"; out = "frontend\public\icon-192.png"         },
+    @{ size = 512; svg = "jarvis-icon.svg"; out = "frontend\public\icon-512.png"         }
+)
+
+function Find-Browser {
+    $candidates = @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+    )
+    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    throw "Neither Chrome nor Edge was found; one of them is needed to rasterise the SVGs."
 }
 
-function New-IconBitmap([int]$size) {
-    $bmp = New-Object System.Drawing.Bitmap($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    $g   = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.SmoothingMode     = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-    $g.Clear([System.Drawing.Color]::Transparent)
+# A headless screenshot of a page holding nothing but the SVG at the exact pixel size, on a
+# transparent backdrop.
+function Convert-SvgToPng([string]$browser, [string]$svgFile, [int]$size, [string]$outFile) {
+    $svgUrl = "file:///" + ($svgFile -replace '\\', '/')
+    $page   = Join-Path $work ("page-" + [guid]::NewGuid().ToString("N") + ".html")
+    $html   = '<!doctype html><meta charset="utf-8">' + [Environment]::NewLine +
+              '<style>html,body{margin:0;padding:0;background:transparent}' +
+              "img{display:block;width:${size}px;height:${size}px}</style>" + [Environment]::NewLine +
+              "<img src=`"$svgUrl`">"
+    Set-Content -Path $page -Value $html -Encoding utf8
 
-    # A squircle rather than a full circle: reads as an app tile even at 16px.
-    $inset  = [single]($size * 0.02)
-    $side   = [single]($size - 2 * $inset)
-    $radius = [single]($size * 0.22)
-    $shape  = New-RoundedPath $inset $inset $side $side $radius
+    New-Item -ItemType Directory -Path (Split-Path $outFile -Parent) -Force | Out-Null
+    if (Test-Path $outFile) { Remove-Item $outFile -Force }
 
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-        (New-Object System.Drawing.Point(0, 0)),
-        (New-Object System.Drawing.Point($size, $size)),
-        $violet, $indigo)
-    $g.FillPath($brush, $shape)
-
-    # Scale the glyph off the canvas so it sits identically at every size.
-    $font = New-Object System.Drawing.Font("Segoe UI", [single]($size * 0.62),
-                                           [System.Drawing.FontStyle]::Bold,
-                                           [System.Drawing.GraphicsUnit]::Pixel)
-    $fmt = New-Object System.Drawing.StringFormat
-    $fmt.Alignment     = [System.Drawing.StringAlignment]::Center
-    $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
-
-    # Nudged up a hair: the J otherwise looks bottom-heavy in the tile.
-    $box = New-Object System.Drawing.RectangleF(0, [single](-$size * 0.04), $size, $size)
-    $g.DrawString("J", $font, [System.Drawing.Brushes]::White, $box, $fmt)
-
-    $font.Dispose(); $fmt.Dispose(); $brush.Dispose(); $shape.Dispose(); $g.Dispose()
-    return $bmp
-}
-
-function ConvertTo-PngEntry($bmp) {
-    $ms = New-Object System.IO.MemoryStream
-    $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
-    $bytes = $ms.ToArray()
-    $ms.Dispose()
-    return $bytes
+    $switches = @(
+        "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
+        "--default-background-color=00000000", "--user-data-dir=$work\browser",
+        "--screenshot=$outFile", "--window-size=$size,$size",
+        ("file:///" + ($page -replace '\\', '/'))
+    )
+    $log = Join-Path $work "browser.log"
+    Start-Process -FilePath $browser -ArgumentList $switches -NoNewWindow -Wait `
+                  -RedirectStandardError $log -RedirectStandardOutput "$log.out" | Out-Null
+    if (-not (Test-Path $outFile)) { throw "Rasterising $svgFile at ${size}px produced nothing." }
 }
 
 # A DIB entry: BITMAPINFOHEADER, then bottom-up BGRA rows, then the legacy 1bpp AND mask.
@@ -106,38 +108,76 @@ function ConvertTo-BmpEntry($bmp) {
     return $bytes
 }
 
-$entries = @()
-foreach ($size in $sizes) {
-    $bmp = New-IconBitmap $size
-    if ($size -ge 256) { $bytes = [byte[]](ConvertTo-PngEntry $bmp) } else { $bytes = [byte[]](ConvertTo-BmpEntry $bmp) }
-    $entries += ,@{ size = $size; bytes = $bytes }
-    $bmp.Dispose()
+function New-Ico([object[]]$entries, [string]$outFile) {
+    New-Item -ItemType Directory -Path (Split-Path $outFile -Parent) -Force | Out-Null
+    $fs = [System.IO.File]::Create($outFile)
+    $bw = New-Object System.IO.BinaryWriter($fs)
+    try {
+        $bw.Write([uint16]0)              # reserved
+        $bw.Write([uint16]1)              # type: icon
+        $bw.Write([uint16]$entries.Count)
+
+        # Image data follows the directory, so the first offset clears all the entries.
+        $offset = 6 + (16 * $entries.Count)
+        foreach ($e in $entries) {
+            # 256 is stored as 0 - the field is a single byte.
+            $dim = $e.size
+            if ($dim -ge 256) { $dim = 0 }
+            $bw.Write([byte]$dim)         # width
+            $bw.Write([byte]$dim)         # height
+            $bw.Write([byte]0)            # palette size (0 = truecolour)
+            $bw.Write([byte]0)            # reserved
+            $bw.Write([uint16]1)          # colour planes
+            $bw.Write([uint16]32)         # bits per pixel
+            $bw.Write([uint32]$e.bytes.Length)
+            $bw.Write([uint32]$offset)
+            $offset += $e.bytes.Length
+        }
+        foreach ($e in $entries) { $bw.Write([byte[]]$e.bytes, 0, $e.bytes.Length) }
+    } finally { $bw.Dispose(); $fs.Dispose() }
 }
 
-$fs = [System.IO.File]::Create($outFile)
-$bw = New-Object System.IO.BinaryWriter($fs)
 try {
-    $bw.Write([uint16]0)              # reserved
-    $bw.Write([uint16]1)              # type: icon
-    $bw.Write([uint16]$entries.Count)
+    $browser = Find-Browser
+    Write-Host "Rasterising with $(Split-Path $browser -Leaf)"
 
-    # Image data follows the directory, so the first offset clears all the entries.
-    $offset = 6 + (16 * $entries.Count)
-    foreach ($e in $entries) {
-        # 256 is stored as 0 - the field is a single byte.
-        $dim = $e.size
-        if ($dim -ge 256) { $dim = 0 }
-        $bw.Write([byte]$dim)         # width
-        $bw.Write([byte]$dim)         # height
-        $bw.Write([byte]0)            # palette size (0 = truecolour)
-        $bw.Write([byte]0)            # reserved
-        $bw.Write([uint16]1)          # colour planes
-        $bw.Write([uint16]32)         # bits per pixel
-        $bw.Write([uint32]$e.bytes.Length)
-        $bw.Write([uint32]$offset)
-        $offset += $e.bytes.Length
+    $entries = @()
+    foreach ($frame in $icoFrames) {
+        $png = Join-Path $work ("ico-" + $frame.size + ".png")
+        Convert-SvgToPng $browser (Join-Path $brand $frame.svg) $frame.size $png
+        if ($frame.size -ge 256) {
+            $bytes = [System.IO.File]::ReadAllBytes($png)
+        } else {
+            $bmp   = New-Object System.Drawing.Bitmap($png)
+            $bytes = [byte[]](ConvertTo-BmpEntry $bmp)
+            $bmp.Dispose()
+        }
+        $entries += ,@{ size = $frame.size; bytes = $bytes }
     }
-    foreach ($e in $entries) { $bw.Write([byte[]]$e.bytes, 0, $e.bytes.Length) }
-} finally { $bw.Dispose(); $fs.Dispose() }
 
-Write-Host "Wrote $outFile ($((Get-Item $outFile).Length) bytes, $($sizes -join '/') px)"
+    foreach ($ico in @("assets\jarvis.ico", "desktop\build\icon.ico")) {
+        $out = Join-Path $root $ico
+        New-Ico $entries $out
+        Write-Host "Wrote $ico ($((Get-Item $out).Length) bytes, $(($icoFrames.size) -join '/') px)"
+    }
+
+    # The browser favicon: the three small frames, all from the simplified face.
+    $faviconEntries = @($entries | Where-Object { $_.size -le 48 })
+    $faviconIco = Join-Path $root "frontend\public\favicon.ico"
+    New-Ico $faviconEntries $faviconIco
+    Write-Host "Wrote frontend\public\favicon.ico ($((Get-Item $faviconIco).Length) bytes, 16/32/48 px)"
+
+    foreach ($png in $webPngs) {
+        $out = Join-Path $root $png.out
+        Convert-SvgToPng $browser (Join-Path $brand $png.svg) $png.size $out
+        Write-Host "Wrote $($png.out) ($($png.size)px)"
+    }
+
+    # The SVGs the web app links to directly.
+    Copy-Item (Join-Path $brand "jarvis-favicon.svg") (Join-Path $root "frontend\public\favicon.svg") -Force
+    Copy-Item (Join-Path $brand "jarvis-mark.svg")    (Join-Path $root "frontend\public\jarvis-mark.svg") -Force
+    Copy-Item (Join-Path $brand "jarvis-favicon.svg") (Join-Path $root "desktop\public\favicon.svg") -Force
+    Write-Host "Copied favicon.svg and jarvis-mark.svg into frontend\public, favicon.svg into desktop\public"
+} finally {
+    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+}

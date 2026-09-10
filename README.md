@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/jarvis-banner.svg" alt="Jarvis — your financial assistant" width="520">
+</p>
+
 # Jarvis — Self-Hosted Personal Finance Assistant
 
 A "Jarvis"-style personal finance assistant for India: track expenses across multiple credit cards
@@ -86,7 +90,7 @@ android/     SMS-forwarder app (later phase)
 desktop/     Windows Control Center (Electron): start, watch and restart the stack
 corpus/      financial guidance the assistant can quote (manifest + extracted text; see below)
 scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption, corpus extraction)
-assets/      jarvis.ico for the shortcut
+assets/      brand/ the logo SVGs (see assets/brand/README.md); jarvis.ico for the shortcut
 start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
 ```
 

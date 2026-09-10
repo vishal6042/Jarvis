@@ -88,11 +88,10 @@ button:disabled {
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #a5b4fc, #4f46e5 55%, #1e1b4b);
-  box-shadow: 0 0 0 1px #ffffff1a, 0 0 22px #6366f166;
+  width: 42px;
+  height: 42px;
+  border-radius: 22%;
+  box-shadow: 0 0 0 1px #ffffff1a, 0 0 22px #22c3f54d;
   flex: none;
 }
 

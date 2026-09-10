@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Jarvis">
+  <title>Jarvis</title>
+  <defs>
+    <linearGradient id="jf-bg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#132B4C"/>
+      <stop offset="1" stop-color="#070F1E"/>
+    </linearGradient>
+    <linearGradient id="jf-shell" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D3E0EE"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#jf-bg)"/>
+  <!-- the growth line, kept to one bold stroke so it still reads at 16px -->
+  <path d="M9 50 C21 56 38 54 49 43" fill="none" stroke="#34D98A" stroke-width="5" stroke-linecap="round"/>
+  <path d="M57 36 L53 49 L44 41 Z" fill="#34D98A"/>
+  <!-- ears -->
+  <circle cx="12" cy="27" r="5.5" fill="url(#jf-shell)"/>
+  <circle cx="48" cy="27" r="5.5" fill="url(#jf-shell)"/>
+  <!-- antenna -->
+  <path d="M30 13 V9" stroke="#CFE4F5" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="30" cy="6" r="4" fill="#3ED8FF"/>
+  <!-- head -->
+  <rect x="14" y="12" width="32" height="30" rx="14" fill="url(#jf-shell)"/>
+  <rect x="18" y="19" width="24" height="16" rx="7.5" fill="#08152A"/>
+  <circle cx="25" cy="27" r="3" fill="#3ED8FF"/>
+  <circle cx="35" cy="27" r="3" fill="#3ED8FF"/>
+</svg>
