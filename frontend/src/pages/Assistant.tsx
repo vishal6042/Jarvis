@@ -1,10 +1,24 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, Check, Send, Sparkles, Wand2, X } from "lucide-react";
+import { AlertCircle, Check, History, MessageSquarePlus, Send, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { ACTION_LABEL, describeAction, executeAction, isImperative, validateAction, type PlannedAction } from "@/lib/actions";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
-import { aiChat, aiPlan, cardSummaries, listTransactions, type CardSummary } from "@/api";
+import {
+  aiChat,
+  aiPlan,
+  appendChatTurn,
+  cardSummaries,
+  deleteChat,
+  getChat,
+  listChats,
+  listTransactions,
+  settleChatTurn,
+  startChat,
+  type CardSummary,
+  type ChatSummary,
+  type ChatTurn,
+} from "@/api";
 import type { Transaction } from "@/types";
 import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { getGoals, type ApiGoal } from "@/lib/api/finance";
@@ -12,22 +26,59 @@ import { amortise } from "@/lib/amortisation";
 import { portfolioReturn } from "@/lib/portfolio";
 import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
-import { formatINR } from "@/lib/format";
+import { formatDate, formatINR } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Markdown from "@/components/Markdown";
 import CardArt from "@/components/CardArt";
 import JarvisLogo from "@/components/JarvisLogo";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type ActionStatus = "pending" | "done" | "cancelled" | "failed";
 
 interface Msg {
+  /** Client-side identity, so a turn can be found again after an await without an index. */
+  key: number;
   role: "user" | "assistant";
   text: string;
   /** A proposed action awaiting the user's explicit confirmation. */
   action?: PlannedAction;
   status?: ActionStatus;
   result?: string;
+  /** Set once the turn has been saved, and needed to record what became of its action. */
+  savedId?: number;
+}
+
+const GREETING =
+  "Hi! I'm your finance assistant. Ask me about your savings, spending, income, loans or investments — or tell me to add a reminder, budget, goal or transaction and I'll confirm before doing it.";
+
+/** A stored turn, back into the shape the page renders. */
+function fromTurn(turn: ChatTurn, key: number): Msg {
+  let action: PlannedAction | undefined;
+  if (turn.actionJson) {
+    try {
+      action = JSON.parse(turn.actionJson) as PlannedAction;
+    } catch {
+      // A turn whose action can't be read is still worth showing as what was said.
+      action = undefined;
+    }
+  }
+  return {
+    key,
+    role: turn.role === "user" ? "user" : "assistant",
+    text: turn.body,
+    action,
+    status: (turn.status as ActionStatus) ?? undefined,
+    result: turn.result ?? undefined,
+    savedId: turn.id,
+  };
 }
 
 export default function Assistant() {
@@ -105,15 +156,104 @@ export default function Assistant() {
     return lines.join("\n");
   }, [f.savings, f.investments, f.outstanding, f.earning, f.lastMonthSpend, f.savingsRate, f.spend, txns, reminders, cards, reserve, paidKeys, investments, loans, goals, activeMember.earns]);
 
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      role: "assistant",
-      text: "Hi! I'm your finance assistant. Ask me about your savings, spending, income, loans or investments — or tell me to add a reminder, budget, goal or transaction and I'll confirm before doing it.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([{ key: 0, role: "assistant", text: GREETING }]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Saved conversations. The chat works whether or not history is reachable: every call below is
+  // best-effort, and a failure costs the transcript, never the answer.
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [opening, setOpening] = useState(false);
+  // The id is also held in a ref: one turn writes two messages, and both have to land in the same
+  // chat even though the second starts before React has re-rendered with the first one's state.
+  const sessionRef = useRef<number | null>(null);
+  const keySeq = useRef(1);
+
+  const refreshChats = useCallback(() => {
+    listChats()
+      .then(setChats)
+      .catch(() => {});
+  }, []);
+  useEffect(refreshChats, [refreshChats]);
+
+  /** The chat this turn belongs to, started on the first thing actually said. */
+  async function currentSession(): Promise<number | null> {
+    if (sessionRef.current != null) return sessionRef.current;
+    try {
+      const started = await startChat();
+      sessionRef.current = started.id;
+      setOpenId(started.id);
+      setChats((c) => [started, ...c]);
+      return started.id;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Show a turn straight away; save it behind the user's back. Returns its client key. */
+  function say(msg: Omit<Msg, "key">): number {
+    const key = ++keySeq.current;
+    setMessages((m) => [...m, { ...msg, key }]);
+    void remember(key, msg);
+    return key;
+  }
+
+  async function remember(key: number, msg: Omit<Msg, "key">) {
+    const session = await currentSession();
+    if (session == null) return;
+    try {
+      const saved = await appendChatTurn(session, {
+        role: msg.role,
+        body: msg.text,
+        actionJson: msg.action ? JSON.stringify(msg.action) : undefined,
+        status: msg.status,
+        result: msg.result,
+      });
+      setMessages((m) => m.map((x) => (x.key === key ? { ...x, savedId: saved.id } : x)));
+      // The first question names the chat, so the list is only right after a round trip.
+      if (msg.role === "user") refreshChats();
+    } catch {
+      // Unsaved, but said: leave the conversation alone.
+    }
+  }
+
+  function newChat() {
+    sessionRef.current = null;
+    setOpenId(null);
+    setMessages([{ key: ++keySeq.current, role: "assistant", text: GREETING }]);
+    setInput("");
+  }
+
+  async function openChat(id: number) {
+    if (busy || opening) return;
+    setOpening(true);
+    try {
+      const transcript = await getChat(id);
+      sessionRef.current = transcript.id;
+      setOpenId(transcript.id);
+      setMessages(
+        transcript.messages.length === 0
+          ? [{ key: ++keySeq.current, role: "assistant", text: GREETING }]
+          : transcript.messages.map((t) => fromTurn(t, ++keySeq.current)),
+      );
+    } catch {
+      toast.error("Couldn't open that conversation.");
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  async function removeChat(id: number) {
+    try {
+      await deleteChat(id);
+      setChats((c) => c.filter((x) => x.id !== id));
+      if (sessionRef.current === id) newChat();
+    } catch {
+      toast.error("Couldn't delete that conversation.");
+    }
+  }
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,7 +273,7 @@ export default function Assistant() {
   async function ask(text: string) {
     const q = text.trim();
     if (!q || busy) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    say({ role: "user", text: q });
     setInput("");
     setBusy(true);
     try {
@@ -142,21 +282,25 @@ export default function Assistant() {
         const plan = await aiPlan(q);
         if (plan.type !== "none") {
           const problem = validateAction(plan);
-          setMessages((m) => [
-            ...m,
-            problem
-              ? { role: "assistant", text: problem }
-              : { role: "assistant", text: plan.summary || ACTION_LABEL[plan.type], action: plan, status: "pending" },
-          ]);
+          if (problem) {
+            say({ role: "assistant", text: problem });
+          } else {
+            say({
+              role: "assistant",
+              text: plan.summary || ACTION_LABEL[plan.type],
+              action: plan,
+              status: "pending",
+            });
+          }
           return;
         }
       }
       // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
       const answer = await aiChat(q, contextText);
-      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+      say({ role: "assistant", text: answer });
     } catch {
       // Backend unavailable → quick local heuristic over the on-device data.
-      setMessages((m) => [...m, { role: "assistant", text: answerQuery(q, ctx) }]);
+      say({ role: "assistant", text: answerQuery(q, ctx) });
     } finally {
       setBusy(false);
     }
@@ -170,29 +314,82 @@ export default function Assistant() {
   const setStatus = (index: number, patch: Partial<Msg>) =>
     setMessages((m) => m.map((x, j) => (j === index ? { ...x, ...patch } : x)));
 
+  /**
+   * Mark what became of a proposed action, on screen and against the saved turn, so reopening the
+   * chat tomorrow shows the same outcome rather than a Confirm button for something already done.
+   */
+  async function settle(index: number, status: ActionStatus, result?: string) {
+    setStatus(index, { status, result });
+    const savedId = messages[index]?.savedId;
+    const session = sessionRef.current;
+    if (savedId == null || session == null) return;
+    try {
+      await settleChatTurn(session, savedId, status, result);
+    } catch {
+      // The action itself has already happened; recording it is best-effort.
+    }
+  }
+
   async function runAction(index: number) {
     const msg = messages[index];
     if (!msg?.action || msg.status !== "pending" || busy) return;
     setBusy(true);
     try {
       const result = await executeAction(msg.action, { addReminder, thresholds, saveThresholds, reload });
-      setStatus(index, { status: "done", result });
+      await settle(index, "done", result);
     } catch (e) {
-      setStatus(index, { status: "failed", result: e instanceof Error ? e.message : "Something went wrong." });
+      await settle(index, "failed", e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl flex-col">
+    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-6xl gap-4">
+      <ChatHistory
+        chats={chats}
+        openId={openId}
+        busy={busy || opening}
+        onOpen={openChat}
+        onNew={newChat}
+        onDelete={removeChat}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
       <div className="mb-4 flex items-center gap-3">
         <JarvisLogo size={44} className="rounded-[22%] shadow-lg shadow-primary/25 ring-1 ring-white/15" />
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Assistant</h1>
           <p className="text-sm text-muted-foreground">
             Ask questions, or tell me what to do — every action is shown for confirmation first.
           </p>
+        </div>
+        {/* The sidebar is the way in on a wide screen; on a narrow one, the same list in a menu. */}
+        <div className="ml-auto flex shrink-0 items-center gap-1 md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon" title="Past conversations" />}>
+              <History className="size-5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+              {chats.length === 0 ? (
+                <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  No saved conversations yet.
+                </div>
+              ) : (
+                chats.slice(0, 12).map((c) => (
+                  <DropdownMenuItem key={c.id} onClick={() => openChat(c.id)} className="flex-col items-start gap-0">
+                    <span className="w-full truncate text-sm">{c.title}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatDate(c.updatedAt)} · {c.messages} messages
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="ghost" size="icon" onClick={newChat} title="New chat">
+            <MessageSquarePlus className="size-5" />
+          </Button>
         </div>
       </div>
 
@@ -278,7 +475,75 @@ export default function Assistant() {
           <Send className="size-4" />
         </Button>
       </form>
+      </div>
     </div>
+  );
+}
+
+/**
+ * Past conversations, newest first. Clicking one reopens it; the chat then carries on in it, so a
+ * question asked tomorrow lands in the same thread as the one it follows from.
+ */
+function ChatHistory({
+  chats,
+  openId,
+  busy,
+  onOpen,
+  onNew,
+  onDelete,
+}: {
+  chats: ChatSummary[];
+  openId: number | null;
+  busy: boolean;
+  onOpen: (id: number) => void;
+  onNew: () => void;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <aside className="hidden w-60 shrink-0 flex-col gap-2 md:flex">
+      <Button variant="outline" onClick={onNew} className="justify-start gap-2">
+        <MessageSquarePlus className="size-4" /> New chat
+      </Button>
+      <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto rounded-2xl border bg-card/50 p-1.5">
+        {chats.length === 0 ? (
+          <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+            Conversations are saved here once you ask something.
+          </p>
+        ) : (
+          chats.map((c) => (
+            <div
+              key={c.id}
+              className={cn(
+                "group flex items-center gap-1 rounded-lg px-2 py-1.5 transition-colors",
+                c.id === openId
+                  ? "bg-primary/10 text-primary ring-1 ring-primary/20"
+                  : "hover:bg-primary/5",
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => onOpen(c.id)}
+                disabled={busy}
+                className="min-w-0 flex-1 text-left disabled:opacity-60"
+              >
+                <div className="truncate text-sm">{c.title}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {formatDate(c.updatedAt)} · {c.messages} {c.messages === 1 ? "message" : "messages"}
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(c.id)}
+                title="Delete conversation"
+                className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </aside>
   );
 }
 

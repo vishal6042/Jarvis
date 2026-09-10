@@ -9,6 +9,24 @@ spring:
     web-application-type: servlet
   profiles:
     active: ${JARVIS_PROFILE:local}
+  # The assistant keeps its conversations. Nothing else here is stored: the agents are still handed
+  # everything they reason about, per request.
+  datasource:
+    url: ${JARVIS_DB_URL:jdbc:postgresql://localhost:5432/jarvis}
+    username: ${DB_USER:jarvis}
+    password: ${DB_PASSWORD:jarvis}
+  jpa:
+    hibernate:
+      ddl-auto: validate          # schema owned by Flyway
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: ${DB_SCHEMA:ai}
+  flyway:
+    enabled: true
+    # Each service owns a private schema inside the shared jarvis DB (created if absent).
+    schemas: ${DB_SCHEMA:ai}
+    default-schema: ${DB_SCHEMA:ai}
   # Generous timeouts for the RestClient that Spring AI uses to call Ollama — local model
   # generation (esp. the first, cold call) can run well past the default read timeout.
   http:

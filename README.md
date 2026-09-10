@@ -46,7 +46,7 @@ ever talks to the gateway (`:8080`); the gateway routes by path to the right ser
 | **auth-service** | 8081 | `auth` | Users + profile; **signup/login → JWT** |
 | **expense-service** | 8082 | `expense` | Accounts, transactions, categories, analytics, dedup |
 | **ingestion-service** | 8083 | `ingestion` | `/api/ingest` pipeline: raw alert → parse → persist |
-| **ai-orchestrator-service** | 8084 | — | Spring AI agents (parser + Q&A); **only** service that calls Ollama |
+| **ai-orchestrator-service** | 8084 | `ai` | Spring AI agents (parser + Q&A) and saved assistant conversations; **only** service that calls Ollama |
 | **finance-service** | 8085 | `finance` | Members, investments, loans, reminders, spend thresholds |
 | **common-security** | — | — | Shared library: JWT token service, request filter, stateless security auto-config |
 

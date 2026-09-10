@@ -365,6 +365,70 @@ export async function aiChat(message: string, context?: string): Promise<string>
   return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data.answer;
 }
 
+/* ── Saved conversations ────────────────────────────────────────────────────────────────────
+ * The assistant's own history, kept per signed-in user by ai-orchestrator-service. The web app
+ * records each turn as it happens, so a chat can be reopened and carried on later.
+ */
+
+export interface ChatSummary {
+  id: number;
+  title: string;
+  updatedAt: string;
+  messages: number;
+}
+
+export interface ChatTurn {
+  id: number;
+  role: string;
+  body: string;
+  /** A proposed action, verbatim, so a reopened chat can rebuild the card it showed. */
+  actionJson?: string | null;
+  status?: string | null;
+  result?: string | null;
+  at: string;
+}
+
+export interface ChatTranscript {
+  id: number;
+  title: string;
+  updatedAt: string;
+  messages: ChatTurn[];
+}
+
+export async function listChats(): Promise<ChatSummary[]> {
+  return (await api.get<ChatSummary[]>("/api/ai/chats")).data;
+}
+
+export async function startChat(): Promise<ChatSummary> {
+  return (await api.post<ChatSummary>("/api/ai/chats", {})).data;
+}
+
+export async function getChat(id: number): Promise<ChatTranscript> {
+  return (await api.get<ChatTranscript>(`/api/ai/chats/${id}`)).data;
+}
+
+export async function appendChatTurn(
+  id: number,
+  turn: { role: string; body: string; actionJson?: string; status?: string; result?: string },
+): Promise<ChatTurn> {
+  return (await api.post<ChatTurn>(`/api/ai/chats/${id}/messages`, turn)).data;
+}
+
+/** What became of a proposed action, once the user confirmed or cancelled it. */
+export async function settleChatTurn(
+  id: number,
+  messageId: number,
+  status: string,
+  result?: string,
+): Promise<ChatTurn> {
+  return (await api.patch<ChatTurn>(`/api/ai/chats/${id}/messages/${messageId}`, { status, result }))
+    .data;
+}
+
+export async function deleteChat(id: number): Promise<void> {
+  await api.delete(`/api/ai/chats/${id}`);
+}
+
 /** LLM-assessed financial-health score (1–100) + tips, from the user's monthly metrics. */
 export async function financeScore(metrics: FinanceMetrics): Promise<FinanceScoreResult> {
   const { data } = await api.post<FinanceScoreResult>("/api/ai/finance-score", metrics, {

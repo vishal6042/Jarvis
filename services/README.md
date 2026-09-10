@@ -30,7 +30,7 @@ history table (`flyway_history_<service>`) so migrations stay independent.
 | `auth-service` | 8081 | `app_user`, `user_profile` | Users + profile; issues JWTs at login |
 | `expense-service` | 8082 | `account`, `category`, `transaction` | Accounts/transactions, analytics, dedup |
 | `ingestion-service` | 8083 | `raw_message` | `/api/ingest` pipeline: raw alert → parse → persist |
-| `ai-orchestrator-service` | 8084 | — | Spring AI agents (parser + query); **only** service that talks to Ollama |
+| `ai-orchestrator-service` | 8084 | `ai` | Spring AI agents (parser + query) and saved assistant conversations; **only** service that talks to Ollama |
 | `finance-service` | 8085 | `member`, `investment`, `loan`, `reminder`, `category_threshold` | Family members, investments, loans, reminders, spend thresholds |
 | `common-security` | — | — | Shared library: JWT token service, request filter, stateless security auto-config |
 
