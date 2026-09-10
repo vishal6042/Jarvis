@@ -34,20 +34,27 @@ foreach ($a in $args) {
 }
 $selected = @($selected | Sort-Object -Unique)
 
-if ($selected.Count -gt 0) {
-    $toRun = @($services | Where-Object { $selected -contains $_.n })
-    if ($toRun.Count -eq 0) { throw "No services matched: $($selected -join ', '). Valid: 1-8." }
-    $unknown = @($selected | Where-Object { $_ -lt 1 -or $_ -gt $services.Count })
-    if ($unknown.Count -gt 0) { Write-Host "Ignoring unknown service number(s): $($unknown -join ', ')" }
-    $plList = ($toRun | ForEach-Object { $_.name }) -join ","
-    Write-Host "Restarting: $(($toRun | ForEach-Object { "[$($_.n)] $($_.name)" }) -join ', ')"
-    & "$root\mvnw.cmd" -q -DskipTests -pl $plList -am install
-} else {
-    $toRun = $services
-    Write-Host "Building all modules to the local repo (so each service can run standalone)..."
-    & "$root\mvnw.cmd" -q -DskipTests install
-}
-if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+# mvnw resolves the reactor from the working directory, not from where the wrapper lives, and the
+# parent POM is in services\. Run the build from there rather than from wherever the caller happened
+# to be standing -- otherwise `-pl expense-service` dies with "Could not find the selected project
+# in the reactor" for anyone who invokes this by its full path.
+Push-Location $root
+try {
+    if ($selected.Count -gt 0) {
+        $toRun = @($services | Where-Object { $selected -contains $_.n })
+        if ($toRun.Count -eq 0) { throw "No services matched: $($selected -join ', '). Valid: 1-8." }
+        $unknown = @($selected | Where-Object { $_ -lt 1 -or $_ -gt $services.Count })
+        if ($unknown.Count -gt 0) { Write-Host "Ignoring unknown service number(s): $($unknown -join ', ')" }
+        $plList = ($toRun | ForEach-Object { $_.name }) -join ","
+        Write-Host "Restarting: $(($toRun | ForEach-Object { "[$($_.n)] $($_.name)" }) -join ', ')"
+        & "$root\mvnw.cmd" -q -DskipTests -pl $plList -am install
+    } else {
+        $toRun = $services
+        Write-Host "Building all modules to the local repo (so each service can run standalone)..."
+        & "$root\mvnw.cmd" -q -DskipTests install
+    }
+    if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+} finally { Pop-Location }
 
 # Free each target's port so the fresh instance can bind (this is what makes it a *restart*).
 function Stop-OnPort([int]$port) {
