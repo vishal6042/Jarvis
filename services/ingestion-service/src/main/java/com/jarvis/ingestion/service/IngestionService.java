@@ -220,11 +220,18 @@ public class IngestionService {
             // on the loan (payment count, last payment, outstanding when rate/balance are known).
             String category = parsed.category() == null || parsed.category().isBlank()
                 ? "Uncategorized" : parsed.category().trim();
+            String merchant = parsed.merchant();
             String loanNote = "";
             if ("DEBIT".equals(direction)) {
                 var loan = finance.findLoan(AlertHints.loanAccountLast4(msg.getPayload()), last4, amount, forwarder);
                 if (loan.isPresent()) {
                     category = "Loan EMI";
+                    // One EMI, two alerts: SBI sends a generic debit ("Transferred to Mr. X",
+                    // naming the loan's own holder) and, hours later, the standing-instruction
+                    // confirmation ("to Loan A/c No.XXXXX432573"). Only the merchant text differs,
+                    // so expense-service hashed them apart and stored the debit twice. Naming the
+                    // loan gives both shapes one identity, and the second becomes a duplicate.
+                    merchant = emiMerchant(loan.get());
                     var paid = finance.recordLoanPayment(
                         loan.get().id(), amount, occurredAt.atZone(ZoneOffset.UTC).toLocalDate(), forwarder);
                     loanNote = " · EMI to " + paid.lender() + " loan"
@@ -242,12 +249,15 @@ public class IngestionService {
                 amount,
                 parsed.currency() == null || parsed.currency().isBlank() ? "INR" : parsed.currency(),
                 direction,
-                parsed.merchant(),
+                merchant,
                 category,
                 occurredAt,
                 msg.getSource().name(),
                 String.valueOf(msg.getId()),
-                balanceAfter);
+                balanceAfter,
+                // The account on the other side, when the alert named it. expense-service decides
+                // whether it is one of the household's own — it owns the account list.
+                AlertHints.counterpartyLast4(msg.getPayload(), last4));
             ExpenseClient.CreateResult result = expense.create(createReq);
             if (!result.created()) {
                 return new Outcome(finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction."), null);
@@ -273,6 +283,19 @@ public class IngestionService {
 
     private String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /**
+     * One stable name for every alert about the same loan's EMI, whatever wording the bank used.
+     * The loan account digits keep two loans from the same lender apart; without them the loan id
+     * does, since it is the thing being repaid either way.
+     */
+    private static String emiMerchant(FinanceClient.LinkedLoan loan) {
+        String lender = loan.lender() == null || loan.lender().isBlank() ? "Loan" : loan.lender().trim();
+        String ref = loan.loanAccountLast4() == null || loan.loanAccountLast4().isBlank()
+            ? "#" + loan.id()
+            : "••••" + loan.loanAccountLast4();
+        return lender + " loan EMI " + ref;
     }
 
     private BigDecimal parseAmount(String raw) {

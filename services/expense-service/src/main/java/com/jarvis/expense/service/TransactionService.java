@@ -293,7 +293,9 @@ public class TransactionService {
 
         Optional<Transaction> saved = save(t);
         saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));
-        saved.ifPresent(transfers::pair); // an own-account transfer is neither earning nor spend
+        // An own-account transfer is neither earning nor spend — whether its other side reached
+        // the ledger too, or the alert named it and only one bank ever wrote in.
+        saved.ifPresent(s -> transfers.reconcile(s, req.counterpartyLast4()));
         return saved.map(TransactionDto::from);
     }
 

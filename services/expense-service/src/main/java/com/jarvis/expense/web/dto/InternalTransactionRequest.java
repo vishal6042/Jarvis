@@ -30,4 +30,10 @@ public record InternalTransactionRequest(
     MessageSource source,
     String sourceRef,
     /** Balance stated in the alert after this transaction (savings accounts); refreshes the account balance. */
-    BigDecimal balanceAfter) {}
+    BigDecimal balanceAfter,
+    /**
+     * Digits of the account this transfer credited, when the alert named one ("Acct XX380 debited
+     * ... & Acct XX971 credited"). Resolved here, against the household's accounts: money landing
+     * in one of them is a transfer, not spending, and saying so needs only this one alert.
+     */
+    String counterpartyLast4) {}

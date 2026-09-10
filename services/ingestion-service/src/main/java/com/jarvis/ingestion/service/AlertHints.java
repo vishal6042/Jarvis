@@ -55,6 +55,45 @@ public final class AlertHints {
         return m.find() ? trailingDigits(m.group(1)) : null;
     }
 
+    /**
+     * The account credited by a transfer, as named in the debit alert: ICICI writes "Acct XX380
+     * debited with Rs 70,000.00 on 06-Sep-26 & Acct XX971 credited". Group 1 is its trailing digits.
+     *
+     * <p>Deliberately narrow — the digits have to be followed by "credited", so neither a standing
+     * instruction ("... to Loan A/c No.XXXXX432573") nor a merchant credit ("SHAIK ABDUL AZE
+     * credited") can match it. Both of those are real spending.
+     */
+    private static final Pattern CREDITED_ACCOUNT = Pattern.compile(
+        "(?i)a/?c(?:ct|count)?\\.?\\s*(?:no\\.?\\s*)?:?\\s*[xX*]+(\\d{2,})\\s+credited");
+
+    /**
+     * The OTHER account a transfer alert names — the one the money landed in. Null when the alert
+     * names no second account, which is the common case: most UPI alerts identify the payee only
+     * by name, and a name cannot say whether the money stayed in the household.
+     *
+     * @param subjectLast4 the account the alert is about; skipped when the text names it again,
+     *     so an alert can never be read as a transfer to itself
+     */
+    public static String counterpartyLast4(String text, String subjectLast4) {
+        if (text == null) {
+            return null;
+        }
+        String subject = trailingDigits(subjectLast4);
+        Matcher m = CREDITED_ACCOUNT.matcher(text);
+        while (m.find()) {
+            String digits = trailingDigits(m.group(1));
+            if (digits != null && !sameAccount(digits, subject)) {
+                return digits;
+            }
+        }
+        return null;
+    }
+
+    /** Alerts mask a different number of digits per bank, so "971" and "6971" are one account. */
+    private static boolean sameAccount(String a, String b) {
+        return a != null && b != null && (a.endsWith(b) || b.endsWith(a));
+    }
+
     /** Bare masked numbers without a keyword, e.g. "XXXXXXXX1507 CREDIT" — lower confidence, so tried last. */
     private static final Pattern BARE_MASKED = Pattern.compile("[xX*]{4,}(\\d{3,})\\b");
 

@@ -53,14 +53,19 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("select t from Transaction t where (:all = true or t.account.id in :accountIds)")
     List<Transaction> findVisible(@Param("all") boolean all, @Param("accountIds") Collection<Long> accountIds);
 
-    /** Other-side candidates for transfer pairing: opposite direction, same amount, a different account, inside the window. */
+    /**
+     * Other-side candidates for transfer pairing: opposite direction, same amount, a different
+     * account, inside the window. Rows already flagged as transfers are excluded — except declared
+     * ones, which were flagged from a single alert and still need their other side flagged when it
+     * turns up.
+     */
     @Query(
         """
         select t from Transaction t
         where t.direction = :direction and t.amount = :amount
           and t.account is not null and t.account.id <> :accountId
           and t.occurredAt >= :from and t.occurredAt <= :to
-          and t.transfer = false and t.settlement = false
+          and (t.transfer = false or t.transferDeclared = true) and t.settlement = false
         order by t.occurredAt asc
         """)
     List<Transaction> findTransferCandidates(

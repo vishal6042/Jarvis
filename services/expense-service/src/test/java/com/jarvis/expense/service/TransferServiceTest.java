@@ -15,6 +15,7 @@ import com.jarvis.expense.domain.Category;
 import com.jarvis.expense.domain.AccountType;
 import com.jarvis.expense.domain.Direction;
 import com.jarvis.expense.domain.Transaction;
+import com.jarvis.expense.repo.AccountRepository;
 import com.jarvis.expense.repo.CategoryRepository;
 import com.jarvis.expense.repo.TransactionRepository;
 import java.math.BigDecimal;
@@ -27,18 +28,20 @@ class TransferServiceTest {
 
     private TransactionRepository repo;
     private CategoryRepository categories;
+    private AccountRepository accounts;
     private TransferService service;
-    private final Account icici = account(5L);
-    private final Account sbi = account(10L);
+    private final Account icici = account(5L, "1380");
+    private final Account sbi = account(10L, "6971");
 
     @BeforeEach
     void setUp() {
         repo = mock(TransactionRepository.class);
         categories = mock(CategoryRepository.class);
+        accounts = mock(AccountRepository.class);
         Category cardPayment = new Category();
         cardPayment.setName("Card Payment");
         when(categories.findByNameIgnoreCase("Card Payment")).thenReturn(java.util.Optional.of(cardPayment));
-        service = new TransferService(repo, categories);
+        service = new TransferService(repo, categories, accounts);
     }
 
     @Test
@@ -124,11 +127,94 @@ class TransferServiceTest {
         assertFalse(service.pair(cardA));
     }
 
-    private static Account account(Long id) {
+    @Test
+    void aDebitCreditingAnOwnAccountIsATransferEvenWithNoSecondAlert() {
+        // "ICICI Bank Acct XX380 debited with Rs 70,000.00 ... & Acct XX971 credited" — the SBI
+        // alert for the other half may never arrive, so pairing alone would call this spending.
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "70000", "2026-09-06T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(accounts.findByLast4("971")).thenReturn(List.of());
+        when(accounts.findAll()).thenReturn(List.of(icici, sbi));
+
+        assertTrue(service.reconcile(debit, "971"));
+        assertTrue(debit.isTransfer());
+        // Pairing recomputes `transfer` from scratch and cannot re-derive a one-sided move.
+        assertTrue(debit.isTransferDeclared());
+        verify(repo).save(debit);
+    }
+
+    @Test
+    void aCounterpartyThatIsNotOneOfOursStaysSpending() {
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "2300", "2026-09-09T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(accounts.findByLast4("4321")).thenReturn(List.of());
+        when(accounts.findAll()).thenReturn(List.of(icici, sbi));
+
+        assertFalse(service.reconcile(debit, "4321"));
+        assertFalse(debit.isTransfer());
+        verify(repo, never()).save(any());
+    }
+
+    @Test
+    void anAlertNamingNoSecondAccountStaysSpending() {
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "215", "2026-09-08T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of());
+
+        assertFalse(service.reconcile(debit, null));
+        assertFalse(debit.isTransfer());
+    }
+
+    @Test
+    void payingACardBillIsLeftToSettlementPairing() {
+        // Savings → credit card is the bill being paid; that has its own treatment, and calling it
+        // a transfer would hide it from the card's "paid this cycle" figure.
+        Account card = account(8L, "3007");
+        card.setType(AccountType.CREDIT_CARD);
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "118428", "2026-09-02T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(accounts.findByLast4("3007")).thenReturn(List.of(card));
+
+        assertFalse(service.reconcile(debit, "3007"));
+        assertFalse(debit.isTransfer());
+    }
+
+    @Test
+    void bothLegsPairNormallyWhenTheSecondAlertDoesArrive() {
+        // Pairing wins over the single-alert path, so the credit half is flagged too.
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "70000", "2026-09-06T00:00:00Z");
+        Transaction credit = txn(2L, sbi, Direction.CREDIT, "70000", "2026-09-06T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(credit));
+
+        assertTrue(service.reconcile(debit, "971"));
+        assertTrue(debit.isTransfer());
+        assertTrue(credit.isTransfer());
+        assertFalse(debit.isTransferDeclared()); // pairing derived it; no declaration needed
+    }
+
+    @Test
+    void aLateSecondAlertStillFlagsTheCreditHalf() {
+        // The debit was flagged from its own alert first. When SBI's credit arrives hours later it
+        // must find that row and be flagged too, or the credit counts as earning.
+        Transaction debit = txn(1L, icici, Direction.DEBIT, "70000", "2026-09-06T00:00:00Z");
+        debit.setTransfer(true);
+        debit.setTransferDeclared(true);
+        Transaction credit = txn(2L, sbi, Direction.CREDIT, "70000", "2026-09-06T00:00:00Z");
+        when(repo.findTransferCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(debit));
+
+        assertTrue(service.reconcile(credit, null));
+        assertTrue(credit.isTransfer());
+    }
+
+    private static Account account(Long id, String last4) {
         Account a = new Account();
         a.setId(id);
+        a.setLast4(last4);
         a.setType(AccountType.SAVINGS);
         return a;
+    }
+
+    private static Account account(Long id) {
+        return account(id, null);
     }
 
     private static Transaction txn(Long id, Account account, Direction dir, String amount, String at) {

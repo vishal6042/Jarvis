@@ -125,13 +125,15 @@ public class ExpenseClient {
         Instant occurredAt,
         String source,
         String sourceRef,
-        BigDecimal balanceAfter) {
+        BigDecimal balanceAfter,
+        /** Digits of the account credited by this transfer, when the alert named one. */
+        String counterpartyLast4) {
 
-        /** Statement-import shape: explicit account, no bank hint or balance. */
+        /** Statement-import shape: explicit account, no bank hint, balance or counterparty. */
         public CreateTransactionRequest(
             Long memberId, Long accountId, String last4, BigDecimal amount, String currency, String direction,
             String merchant, String category, Instant occurredAt, String source, String sourceRef) {
-            this(memberId, accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null);
+            this(memberId, accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null, null);
         }
     }
 

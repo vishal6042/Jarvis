@@ -84,9 +84,11 @@ public class Transaction {
     private boolean transfer = false;
 
     /**
-     * Set when a person declared this a transfer rather than pairing deriving it — a payin to
-     * one's own fixed deposit, say, whose other side is not a tracked account. Survives the
-     * pairing pass, which clears and recomputes {@link #transfer} from scratch.
+     * Set when something other than pairing established this is a transfer, and pairing could
+     * never re-derive it: a person declaring one (a payin to their own fixed deposit, whose other
+     * side is not a tracked account), or an alert naming a household account as the side it
+     * credited when that account's own bank never wrote in. Survives the pairing pass, which
+     * clears and recomputes {@link #transfer} from scratch.
      */
     @Column(name = "transfer_declared", nullable = false)
     private boolean transferDeclared = false;

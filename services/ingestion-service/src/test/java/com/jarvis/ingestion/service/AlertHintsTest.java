@@ -81,6 +81,44 @@ class AlertHintsTest {
     }
 
     @Test
+    void theCreditedAccountIsReadFromTransferAlerts() {
+        assertEquals("971", AlertHints.counterpartyLast4(
+            "ICICI Bank Acct XX380 debited with Rs 70,000.00 on 06-Sep-26 & Acct XX971 credited."
+                + " IMPS:624917380061. Call 18002662 for dispute or SMS BLOCK 380 to 9215676766", "1380"));
+        assertEquals("519", AlertHints.counterpartyLast4(
+            "ICICI Bank Acct XX380 debited with Rs 500,000.00 on 31-Jul-26 & Acct XX519 credited."
+                + " IMPS:621213060610.", "1380"));
+    }
+
+    @Test
+    void aPayeeWhoIsNotAnAccountIsNoCounterparty() {
+        // A merchant or person credited is spending, however the bank words it.
+        assertNull(AlertHints.counterpartyLast4(
+            "ICICI Bank Acct XX380 debited for Rs 700.00 on 02-Aug-26; SHAIK ABDUL AZE credited. UPI:621420543940.", "1380"));
+        assertNull(AlertHints.counterpartyLast4(
+            "INR 475.00 debited from A/c XXXXXXXXXX8519 towards UPI/DR/D625244078380/Flipkart Value 09-SEP-2026", "8519"));
+    }
+
+    @Test
+    void anEmiToALoanAccountIsNeverACounterparty() {
+        // Repaying a loan is real spending; only the "credited" wording marks an own-account move.
+        assertNull(AlertHints.counterpartyLast4(
+            "Dear Customer, Standing Instruction has been successfully executed for Rs. 68,339.00"
+                + " from A/c No.XXXXX036971 to Loan A/c No.XXXXX432573 on 10/09/26.  - SBI.", "6971"));
+        assertNull(AlertHints.counterpartyLast4(
+            "Your A/C XXXXX036971 Debited INR 68,339.00 on 10/09/26 -Transferred to Mr. VISHALBHARTI."
+                + " Avl Balance INR 4,079.04-SBI", "6971"));
+    }
+
+    @Test
+    void theAlertsOwnAccountIsNotItsCounterparty() {
+        // SBI names the receiving account on the credit leg — which is the subject, not another one.
+        assertNull(AlertHints.counterpartyLast4(
+            "Dear Customer, RTGS transaction with ICICI Bank Reference No. ICICR12026050610533525"
+                + " for Rs.500000.00 has been credited to the Beneficiary Account XX6971 on 06-05-26", "6971"));
+    }
+
+    @Test
     void realBankAlertsPassThePreFilter() {
         assertFalse(AlertHints.isNotATransaction(
             "ICICI Bank Acct XX380 debited for Rs 700.00 on 02-Aug-26; SHAIK ABDUL AZE credited. UPI:621420543940."));
