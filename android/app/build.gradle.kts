@@ -14,8 +14,10 @@ android {
         applicationId = "com.jarvis.sync"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        // The release workflow stamps the tag onto the APK (-PjarvisVersionName / -PjarvisVersionCode);
+        // a plain local or Android Studio build gets the checked-in defaults below.
+        versionCode = (project.findProperty("jarvisVersionCode") as String?)?.toInt() ?: 2
+        versionName = (project.findProperty("jarvisVersionName") as String?) ?: "1.1"
     }
 
     buildTypes {

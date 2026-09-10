@@ -12,6 +12,11 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Desktop (Electron) build output
+desktop/dist/
+desktop/dist-electron/
+desktop/release/
+
 # Android
 android/.gradle/
 android/build/
