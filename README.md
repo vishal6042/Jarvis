@@ -8,33 +8,73 @@ A "Jarvis"-style personal finance assistant for India: track expenses across mul
 and savings accounts, manage investments/loans/reminders, and ask a local AI agent about your
 money. Fully self-hosted on your own PC, **₹0 to run** (local Ollama inference, no cloud APIs).
 
-> Status: **Phase 1 — expense tracking + finance dashboard.** Web app (React PWA) on a true
-> Spring Boot **microservices** backend. Android SMS ingestion is a later phase.
+> Status: **running daily.** Eight Spring Boot microservices behind one gateway, with **three
+> clients** on top — a React PWA, an **Android** SMS forwarder, and a **Windows desktop Control
+> Center** that runs the whole stack. A household can share it: an administrator sees everything,
+> everyone else sees only their own money.
+
+---
+
+## What it does
+
+**Capture** — money gets into Jarvis three ways, and all three land in the same pipeline:
+
+- **Phone** — the Android app reads bank/UPI **transaction SMS** as they arrive and forwards them to
+  `/api/ingest`. It queues durably on-device, so an outage or a dead Wi-Fi never loses one.
+- **Statement import** — PDF/CSV statements and payslips, parsed and deduplicated against what the
+  SMS already captured.
+- **By hand** — add a transaction, account, investment or loan in the web app.
+
+**Understand** — the AI parser turns a raw alert into a typed transaction (amount, direction,
+merchant, account, category), cleans the merchant name to one canonical form per shop, and spots the
+things a naive parser gets wrong: a card EMI counted once rather than twice, a transfer between your
+own accounts recognised from a single bank's alert, a duplicate of an alert you already forwarded.
+
+**Track**
+
+| | |
+|---|---|
+| **Accounts** | Credit cards, savings, wallets — with bills, statement dates and consolidated multi-card statements |
+| **Transactions** | Full history, category rules, merchant aliases, transfer pairing, manual edits |
+| **Analytics** | Spend and earning by month and category, trends, savings rate, net worth |
+| **Investments** | Mutual funds, stocks, EPF, NPS, RD/FD, LIC endowment policies — valued, not just listed |
+| **Loans** | Balances, EMIs and what each one costs you |
+| **Goals** | What you are saving towards and how close you are |
+| **Calendar** | Bills, EMIs and reminders on the dates they fall due, with mark-as-paid |
+| **Household** | Members with their own logins, each scoped to their own money; one administrator sees all of it |
+| **Notifications** | Card-expiry, payment-due and category-threshold alerts, pushed live over SSE |
+
+**Ask** — the Assistant answers from **your** numbers (`@Tool` calls into the expense analytics) and
+from **published regulator guidance** (a Qdrant vector search over SEBI / RBI / Income Tax material),
+picking whichever the question needs. Conversations are saved server-side, so the thread is there on
+whichever client you open next.
 
 ---
 
 ## Architecture
 
-True microservices behind a single API gateway, discovered via Netflix Eureka. The browser only
-ever talks to the gateway (`:8080`); the gateway routes by path to the right service over `lb://`.
+True microservices behind a single API gateway, discovered via Netflix Eureka. Every client — web,
+phone and desktop — only ever talks to the gateway (`:8080`); the gateway routes by path to the
+right service over `lb://`.
 
 ```
-                         React PWA (:5173)
-                               │  JWT Bearer
-                               ▼
-                     ┌────────────────────┐
-                     │     api-gateway     │  :8080  (only exposed port)
-                     │  routes · JWT · CORS │
-                     └──────────┬──────────┘
-        lb:// (Eureka) ─────────┼───────────┬───────────┬───────────┬──────────┐
-              ▼          ▼                  ▼           ▼           ▼          ▼
-        auth-service  expense-service  ingestion   ai-orchestrator finance   (…)
-           :8081         :8082          :8083          :8084        :8085
-              └──────────── all register with ─────────────────────────┘
-                         discovery-service (Eureka) :8761
-                                    │
-                         PostgreSQL `jarvis` DB        Ollama :11434
-                    (schema per service)        (ai-orchestrator only)
+   React PWA (:5173)     Android app (LAN)     Control Center (Electron)
+          │                     │                        │
+          └──────── JWT Bearer ─┴──────────┐             │ starts / watches / restarts
+                                           ▼             ▼
+                            ┌───────────────────────┐  reads services/services.json
+                            │      api-gateway      │  :8080  (only exposed port)
+                            │  routes · JWT · CORS  │
+                            └───────────┬───────────┘
+     lb:// (Eureka) ─┬────────┬─────────┼─────────┬──────────┬──────────┐
+            ▼        ▼        ▼         ▼         ▼          ▼          ▼
+          auth   expense  ingestion    ai    finance   notification  (…)
+         :8081    :8082     :8083    :8084    :8085       :8086
+            └──────────────── all register with ─────────────────────┘
+                          discovery-service (Eureka) :8761
+                                       │
+        PostgreSQL `jarvis` :5432   Ollama :11434        Qdrant :6333/:6334
+       (one DB, schema per service) (ai only)     (guidance the assistant quotes)
 ```
 
 ### Services
@@ -43,11 +83,12 @@ ever talks to the gateway (`:8080`); the gateway routes by path to the right ser
 |---|---|---|---|
 | **discovery-service** | 8761 | — | Netflix Eureka registry |
 | **api-gateway** | 8080 | — | Edge routing (`lb://`), JWT fast-reject, **sole CORS owner** |
-| **auth-service** | 8081 | `auth` | Users + profile; **signup/login → JWT** |
-| **expense-service** | 8082 | `expense` | Accounts, transactions, categories, analytics, dedup |
+| **auth-service** | 8081 | `auth` | Users + profile + household members; **signup/login → JWT** |
+| **expense-service** | 8082 | `expense` | Accounts, transactions, categories, merchant aliases, analytics, dedup |
 | **ingestion-service** | 8083 | `ingestion` | `/api/ingest` pipeline: raw alert → parse → persist |
-| **ai-orchestrator-service** | 8084 | `ai` | Spring AI agents (parser + Q&A) and saved assistant conversations; **only** service that calls Ollama |
-| **finance-service** | 8085 | `finance` | Members, investments, loans, reminders, spend thresholds |
+| **ai-orchestrator-service** | 8084 | `ai` | Spring AI agents (parser + Q&A), RAG over the guidance corpus, saved assistant conversations; **only** service that calls Ollama |
+| **finance-service** | 8085 | `finance` | Members, investments, loans, goals, reminders, spend thresholds |
+| **notification-service** | 8086 | `notification` | Card-expiry / payment-due / threshold rules, delivered live over SSE |
 | **common-security** | — | — | Shared library: JWT token service, request filter, stateless security auto-config |
 
 All services share the **single `jarvis` database**; each migrates into its **own Postgres schema**
@@ -64,11 +105,54 @@ All services share the **single `jarvis` database**; each migrates into its **ow
   Q&A agent `qwen3.5:27b` with `@Tool` functions that call expense analytics over `WebClient`.
   Provider is a Spring profile (`local` default), so a cloud/bigger model is a config swap.
 - **DB:** PostgreSQL 18 (local install, no Docker), one `jarvis` database, schema per service.
+- **RAG:** Qdrant (1024-dim, Cosine) over regulator guidance, embedded with `bge-large` via Ollama
+  and searched by the agent as a `@Tool` rather than as a pipeline stage.
 - **Frontend:** React 19 + Vite + TypeScript, Tailwind v4, shadcn/ui (base-ui "nova"), Recharts,
   react-router, axios. Installable PWA.
+- **Android:** Kotlin + Jetpack Compose (Material 3), Room, WorkManager, OkHttp,
+  kotlinx-serialization, EncryptedSharedPreferences, BiometricPrompt. minSdk 26, JDK 17.
+- **Desktop:** Electron 33 + React 19 + Vite + TypeScript, `systeminformation`, packaged as a
+  per-machine NSIS installer by electron-builder.
 - **Auth:** HS256 JWT issued by auth-service, validated at the gateway and re-validated by each
   service (defence in depth) with a shared secret. Service-to-service calls use an `X-Internal-Key`.
-- **Android (later):** Kotlin SMS-forwarder posting to `/api/ingest`.
+- **CI:** GitHub Actions — one tag-triggered workflow builds and tests everything and publishes the
+  release (see [Releases](#releases-ci)).
+
+---
+
+## The three apps
+
+### Web — React PWA (`frontend/`)
+
+The full product: dashboard, transactions, accounts, analytics, import, investments, loans, goals,
+calendar, assistant, household settings and profile. Installable as a PWA. Every data domain is
+backend-persisted — only the JWT, the theme and a few UI flags live in the browser.
+
+### Android — Jarvis Sync (`android/`)
+
+A Kotlin/Compose companion that captures bank/UPI **transaction SMS** in real time and forwards them
+to `/api/ingest`, plus a compact dashboard, an investments/money tab, card bills with mark-as-paid,
+and "Ask Jarvis".
+
+- **Never loses a message.** Captured SMS go into an on-device Room database and are delivered by a
+  WorkManager job (network-constrained, exponential backoff, a 15-minute safety net and a boot-time
+  re-arm). A message leaves the queue only on a definitive server response.
+- **Works offline.** The dashboard renders from a local cache; the session (server URL + JWT) lives
+  in the DB, so the app opens straight to the dashboard with no network.
+- **Stays logged in.** The password sits in EncryptedSharedPreferences so the background worker can
+  silently re-login when the 24h JWT expires.
+- **Locked behind biometrics** — fingerprint, face or device PIN in front of the app.
+- **Inbox** — every transaction SMS already on the phone, month by month, with a **Sync** button.
+  Safe to re-run: the server dedups.
+- **Scoped to one person.** A household member's phone shows only their own accounts and money.
+
+Sideload only — the SMS permissions it needs aren't grantable through the Play Store, which is fine
+for a self-hosted personal tool. Full detail in [`android/README.md`](android/README.md).
+
+### Desktop — Jarvis Control Center (`desktop/`)
+
+An Electron window that starts, watches and restarts the whole stack on Windows, so nothing needs a
+terminal. Detail and behaviour under [Control Center](#control-center-windows-desktop-app) below.
 
 ---
 
@@ -83,14 +167,15 @@ services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1, service
   expense-service/      accounts/transactions/analytics
   ingestion-service/    /api/ingest pipeline
   ai-orchestrator-service/  Spring AI agents (Ollama)
-  finance-service/      members/investments/loans/reminders/thresholds
-  notification-service/ alerts + delivery
+  finance-service/      members/investments/loans/goals/reminders/thresholds
+  notification-service/ alerts + delivery (SSE)
 frontend/    React PWA dashboard
-android/     SMS-forwarder app (later phase)
+android/     Jarvis Sync: Kotlin/Compose SMS forwarder + mobile dashboard
 desktop/     Windows Control Center (Electron): start, watch and restart the stack
 corpus/      financial guidance the assistant can quote (manifest + extracted text; see below)
 scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption, corpus extraction)
 assets/      brand/ the logo SVGs (see assets/brand/README.md); jarvis.ico for the shortcut
+.github/     release workflow + the changelog and test-report scripts it runs
 start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
 ```
 
@@ -112,7 +197,11 @@ start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shor
   ollama pull qwen3.5:9b
   ollama pull qwen3.5:27b
   ```
-- **Node 20+** for the frontend.
+- **Qdrant** on `:6333`/`:6334` for the guidance corpus (optional; the Control Center starts it).
+- **Node 20+** for the frontend and the desktop app.
+- **Android Studio** (Ladybug / 2024.2+) with a **JDK 17–21**, only if you're building the phone app.
+  Point `android/local.properties` at your SDK; Gradle 8.9 rejects the Java 25 bundled with recent
+  Android Studio builds.
 
 ---
 
@@ -153,6 +242,20 @@ npm run dist        # release\Jarvis Control Center Setup 1.0.0.exe
 - Services, ports and start order come from `services/services.json` -- the same file the PowerShell
   launchers read, so there is one list to keep right.
 
+### Android app
+
+```bash
+cd android
+./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
+```
+
+Or open `android/` in Android Studio and hit Run. On first launch, grant **SMS** (and notifications
+on Android 13+), then enter your server URL (`http://<PC-LAN-IP>:8080`) and your Jarvis credentials.
+Plain HTTP on the LAN is enabled deliberately (`network_security_config.xml`); an `https://` URL
+works as-is if you ever put the gateway behind TLS.
+
+Tagged releases carry a prebuilt APK — see [Releases](#releases-ci).
+
 The manual route, when you want each service in its own window:
 
 **Backend** — build all modules and launch the stack (each service in its own window):
@@ -173,10 +276,61 @@ npm run dev        # http://localhost:5173  (talks to the gateway via VITE_API_B
 
 ### First-run / auth flow
 
-The app is **single-user**. On a fresh database there is no account, so the login page opens on
-**Sign up** — enter your personal details (name/email/phone/city) + username/password; that creates
-your account **and** profile. You're then dropped to **Sign in** to log in. After that it's always
-sign-in. (`GET /api/auth/exists` drives signup-first; register returns 409 once an account exists.)
+On a fresh database there is no account, so the login page opens on **Sign up** — enter your personal
+details (name/email/phone/city) + username/password; that creates your account **and** profile.
+You're then dropped to **Sign in** to log in. After that it's always sign-in.
+(`GET /api/auth/exists` drives signup-first; register returns 409 once an account exists.)
+
+That first account is the **household administrator**: it sees all the money and is the only one
+that can add more accounts. From **Settings → Household** the administrator creates an account per
+member and ties it to that member — and from then on that person's web session and phone show only
+their own accounts, transactions and investments. Sign-up is closed once the first account exists,
+so nobody can add themselves.
+
+---
+
+## Releases (CI)
+
+Push a `v*` tag and [`.github/workflows/release.yml`](.github/workflows/release.yml) builds, tests
+and publishes everything. Nothing is built by hand for a release.
+
+```bash
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+What the workflow does:
+
+1. **Versions everything from the tag.** `v1.2.0` → Maven `1.2.0` on all nine modules
+   (`versions:set`), the same in both `package.json` files, and `versionName` on the APK with a
+   monotonic `versionCode` from the run number.
+2. **Builds and tests in parallel** — Maven `verify` on Linux, Gradle on Linux, the frontend on
+   Linux, and the Electron installer on a Windows runner (NSIS needs one).
+3. **Reports the tests.** Surefire and Gradle both emit JUnit XML; the workflow ships that raw XML,
+   a merged `junit-merged.xml`, and a readable HTML report, and prints the summary on the run's
+   own page. **A failing test blocks the release** — the report job is the gate.
+4. **Publishes the release**, titled `Jarvis-<date>-<tag>`, with a changelog generated from the
+   commits since the previous tag and grouped by the part of the product each one touched. A tag
+   with a hyphen in it (`v1.2.0-rc1`) is marked pre-release.
+
+Attached to every release:
+
+| Asset | What it is |
+|---|---|
+| `jarvis-services-<v>.zip` | All nine service jars + `services.json` + the PowerShell launchers |
+| `jarvis-web-<v>.zip` | The React PWA, built for production |
+| `Jarvis-Control-Center-Setup-<v>.exe` | Windows x64 installer (NSIS, per-machine) |
+| `jarvis-sync-<v>.apk` | The Android app, ready to sideload |
+| `jarvis-<v>-test-report.html` | The readable test report |
+| `jarvis-<v>-test-reports.zip` | Raw JUnit XML + `junit-merged.xml` |
+| `jarvis-<v>-checksums.txt` | SHA-256 of every file above |
+
+Builds are unsigned: Windows SmartScreen and Android's installer will both warn, which is expected
+for a self-hosted personal build. Set `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD` as repository secrets and the APK is signed with your
+own release key instead of the debug one.
+
+`workflow_dispatch` rebuilds an existing tag; re-running a tag updates its release in place rather
+than creating a second one.
 
 ---
 
@@ -275,10 +429,14 @@ Two things to know when working on this:
 
 ## Roadmap (later phases)
 
-- **Android app** — native SMS reader → `/api/ingest` for real-time capture.
+Done since the first plan: the **Android SMS reader**, **statement import** (PDF/CSV), the
+**desktop Control Center**, **household accounts**, and **RAG** over regulator guidance.
+
+Still ahead:
+
 - **Gmail ingestion** — OAuth read-only poller for bank-alert emails.
 - **Telegram bot** — push alerts + conversational queries.
-- **Statement import** (PDF/CSV), **voice** (Whisper + Piper), **smart-home** (Home Assistant),
+- **Voice** (Whisper + Piper), **smart-home** (Home Assistant),
   **Account Aggregator** (Finvu/Setu).
 
 > Full design + decision history: `~/.claude/plans/i-want-to-create-stateful-papert.md`.
