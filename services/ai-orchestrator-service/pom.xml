@@ -25,6 +25,13 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
+        <!-- Qdrant holds the financial-guidance corpus. Chosen over an in-memory store for its
+             indexed payload filtering: a question about personal tax must not retrieve a deduction
+             that only a co-operative society can claim. -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-vector-store-qdrant</artifactId>
+        </dependency>
         <!-- WebClient (load-balanced) to call expense-service analytics from the query agent. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

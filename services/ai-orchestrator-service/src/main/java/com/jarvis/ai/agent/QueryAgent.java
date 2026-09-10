@@ -1,5 +1,6 @@
 package com.jarvis.ai.agent;
 
+import com.jarvis.ai.rag.GuidanceTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,18 +18,33 @@ public class QueryAgent {
         Answer questions about their spending, earning and budgets. All amounts are in INR (₹).
         Use the provided tools to fetch real figures before answering — never invent numbers.
         Keep answers short and direct.
+
+        For questions about how money works, or what a rule or limit is, call
+        searchFinancialGuidance and answer from what it returns. Name the source in your answer
+        (for example "per SEBI" or "per the Income Tax Department"). If it finds nothing, say so
+        rather than inventing a rule.
+
+        Two things you must get right:
+        - Income tax has an old and a new regime with different limits. Always say which regime a
+          figure applies to, and never mix them in one calculation.
+        - Guidance is general and published; the user's figures are their own. Explain what the
+          guidance says and how it applies to their numbers. Do not present it as personalised
+          financial advice, and do not recommend specific products to buy.
         """;
 
     private final ChatClient chatClient;
     private final ExpenseAnalyticsTools tools;
+    private final GuidanceTools guidance;
     private final String agentModel;
 
     public QueryAgent(
         ChatClient.Builder chatClientBuilder,
         ExpenseAnalyticsTools tools,
+        GuidanceTools guidance,
         @Value("${jarvis.ai.agent-model}") String agentModel) {
         this.chatClient = chatClientBuilder.build();
         this.tools = tools;
+        this.guidance = guidance;
         this.agentModel = agentModel;
     }
 
@@ -50,7 +66,7 @@ public class QueryAgent {
             .prompt()
             .system(system)
             .user(message)
-            .tools(tools)
+            .tools(tools, guidance)
             .options(OllamaChatOptions.builder().model(agentModel).build())
             .call()
             .content();

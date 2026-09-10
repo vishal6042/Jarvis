@@ -16,7 +16,13 @@
 
   "_dependencies": "Not ours to start - they run outside the stack - but everything here depends on them. Postgres missing means every service fails its first migration, so it is required; Ollama missing only costs the AI features.",
   "dependencies": [
-    { "name": "postgres", "label": "PostgreSQL", "description": "The jarvis database", "port": 5432, "required": true },
-    { "name": "ollama",   "label": "Ollama",     "description": "Local models for the AI service", "port": 11434, "required": false }
+    { "name": "postgres", "label": "PostgreSQL", "description": "The jarvis database", "port": 5432, "required": true,
+      "downMessage": "Not running - nothing can start without it" },
+    { "name": "ollama",   "label": "Ollama",     "description": "Local models for the AI service", "port": 11434, "required": false,
+      "downMessage": "Not running - the AI features will not work" },
+    { "name": "qdrant",   "label": "Qdrant",     "description": "Financial guidance the assistant quotes", "port": 6333, "required": false,
+      "downMessage": "Not running - the assistant cannot quote official guidance",
+      "_start": "Postgres and Ollama run as Windows services and look after themselves. Qdrant is a bare executable with nothing to restart it after a reboot, so the launcher starts it. It is never stopped again: it is a store that outlives the stack, and it holds collections belonging to other projects.",
+      "start": { "command": "C:\\Qdrant\\qdrant.exe" } }
   ]
 }

@@ -1,0 +1,958 @@
+Skip to Main Content
+
+Please wait...
+
+Computation of Tax for Individual Page Loaded
+
+Income Tax Department
+
+Ministry of Finance, Government of India
+
+Guided TourSkip to main content
+
+Accessibility
+
+Accessibility Options
+
+Font Size
+
+A-
+80%91%100%110%125%140%
+A+
+
+Saturation
+
+Screen Reader
+
+High Contrast Theme
+
+Basic HTML View
+
+Invert Colors
+
+Language Options
+English
+English
+
+हिन्दी
+
+English
+English
+
+हिन्दी
+
+Help
+
+Department Officials
+IRS Officers Online
+
+Official Email Systems
+
+Employees Corner
+
+Take Online Oath
+
+Home
+
+About Us
+
+History of Direct Taxation
+
+Who We Are
+
+Departmental Directory [AHB 2026]
+
+Designations and Payscales
+
+Right to Information
+
+Organizations and Functions
+CBDT
+
+Organization Chart
+
+Regional Offices (CCA/DG Sub-Sites)
+
+Taxpayers’ Charter
+Taxpayers’ Charter
+
+Taxpayers’ Charter Reports
+
+Tax Laws & Rules
+
+Constitution of India
+
+Acts
+Income-tax Act 2025
+
+Income-tax Act, 1961
+
+Black Money (Undisclosed Foreign Income and Assets) and Imposition of Tax Act, 2015
+
+Prohibition of Benami Property Transactions Act, 1988
+
+All Acts
+
+Rules
+Income-tax Rules, 2026
+
+Income-tax Rules, 1962
+
+Black Money (Undisclosed Foreign Income and Assets) and Imposition of Tax Rules, 2015
+
+All Rules
+
+Circulars and Notifications
+Circulars
+
+Notifications
+
+Orders & Instructions
+CBDT Orders
+
+Forms/Downloads
+Income Tax Returns
+
+Income Tax Forms (2026)
+
+Income Tax Forms
+
+View All
+
+Budget & Bills​​
+Finance Acts
+
+Finance Bills
+
+View All
+
+Tax Information & Services
+
+Tax e-Services
+
+Media Gallery
+
+Advertisement
+
+Video
+
+Audio
+
+Event
+
+e-Books
+
+Comic books
+
+Booklets
+
+Brochures/ Pamphlets
+
+Infographical Video
+
+Live Video Streaming
+
+Close
+
+SearchAdvanced Search
+
+Menu
+
+Home
+
+About Us
+
+Tax Laws & Rules
+
+Tax Information & Services
+
+Tax e-Services
+
+Media Gallery
+
+About Us
+
+History of Direct Taxation
+
+Who We Are
+
+Departmental Directory [AHB 2026]
+
+Designations and Payscales
+
+Right to Information
+
+Organizations and Functions
+
+Regional Offices (CCA/DG Sub-Sites)
+
+Taxpayers’ Charter
+
+Organizations and Functions
+
+CBDT
+
+Organization Chart
+
+Taxpayers’ Charter
+
+Taxpayers’ Charter
+
+Taxpayers’ Charter Reports
+
+Tax Laws & Rules
+
+Constitution of India
+
+Acts
+
+Rules
+
+Circulars and Notifications
+
+Orders & Instructions
+
+Forms/Downloads
+
+Budget & Bills​​
+
+Acts
+
+Income-tax Act 2025
+
+Income-tax Act, 1961
+
+Black Money (Undisclosed Foreign Income and Assets) and Imposition of Tax Act, 2015
+
+Prohibition of Benami Property Transactions Act, 1988
+
+All Acts
+
+Rules
+
+Income-tax Rules, 2026
+
+Income-tax Rules, 1962
+
+Black Money (Undisclosed Foreign Income and Assets) and Imposition of Tax Rules, 2015
+
+All Rules
+
+Circulars and Notifications
+
+Circulars
+
+Notifications
+
+Orders & Instructions
+
+CBDT Orders
+
+Forms/Downloads
+
+Income Tax Returns
+
+Income Tax Forms (2026)
+
+Income Tax Forms
+
+View All
+
+Budget & Bills​​
+
+Finance Acts
+
+Finance Bills
+
+View All
+
+Media Gallery
+
+Advertisement
+
+Video
+
+Audio
+
+Event
+
+e-Books
+
+Comic books
+
+Booklets
+
+Brochures/ Pamphlets
+
+Infographical Video
+
+Live Video Streaming
+
+Department Officials
+IRS Officers Online
+
+Official Email Systems
+
+Employees Corner
+
+Take Online Oath
+
+Close
+
+SearchAdvanced Search
+
+Home
+
+Computation of Tax for IndividualComputation of Tax for Individual, (2 of 2)
+
+Computation of Tax for Individual
+Back to Search
+
+The income taxable in the hands of an individual and tax liability thereon shall be computed according to his residential status. The income taxable under the Income-tax Act is computed under the five heads of income, and tax thereon is computed as per the tax slab rates applicable for that previous year.
+
+Disclaimer:
+
+The contents of this document are for information purposes only. This aims to enable public to have a quick and an easy access to information and do not purport to be legal documents.
+
+Viewers are advised to verify the content from Government Acts/Rules/Notifications etc.
+
+“This document contains the provisions of the Income-tax Act, 1961, as amended by the Finance Act, 2026.”
+
+Computation of Tax for Individual
+
+The income taxable in the hands of an individual and tax liability thereon shall be computed according to his residential status. The income taxable under the Income-tax Act is computed under the five heads of income, and tax thereon is computed as per the tax slab rates applicable for that previous year.
+
+Determination of residential status
+
+Income-tax liability of an individual is calculated on the basis of his'Total Income'. His residential status in India influences the income to be included in the taxable income. An individual can be categorised into the following residential status during the previous year:
+
+(a)Resident in India
+
+(b)Resident but Not-ordinarily Resident
+
+(c)Non-Resident in India
+
+An individual, who is a resident in India, is liable to pay tax in India on his global income. On the other hand, a non-resident person is liable to pay tax in India only on that income which accrues or arises or is deemed to accrue or arise in India, and income received or deemed to be received in India. However, if the income of an individual is taxable in India and outside India, then he can claim a foreign tax credit in respect of such income.
+
+Computation of income
+
+Income tax is levied on the total income of an individual. Thus, the first step is to compute the total income. The total income of an assessee is computed in the following steps:
+
+Calculate income under 5 heads
+
+In Income-tax Act, the income is computed in the following 5 heads of income:
+
+(a)Salary
+
+(b)House Property
+
+(c)Profits and gains from business or profession
+
+(d)Capital Gain
+
+(e)Income from Other Sources.
+
+Clubbing of income of any other person
+
+An individual is generally taxed in respect of his own income, but in respect of certain income, the Income-tax Act clubs the income of other persons in an individual's income. Hence, an individual has to add another person's income to his own income if clubbing provisions apply in his case.
+
+Set off and carry forward of losses
+
+Where an individual has incurred losses under any head of income, then he is allowed to make the following adjustments subject to relevant provisions relating to set-off and carry forward of losses:
+
+(a)Intra-head adjustment to set-off of losses from one source of income against income from another source taxable under the same head of income.
+
+(b)Inter-head adjustment to set-off of losses from one head of income against income taxable under another head of income.
+
+If losses cannot be set off in the same year due to inadequacy of eligible profits, then certain losses are carried forward to the next assessment year.
+
+Allowability of deductions under Chapter VI-A
+
+The aggregate of income so computed as per aforesaid steps is called 'Gross Total Income (GTI)', out of which various deductions are allowed to a taxpayer on account of investments and savings made by him.
+
+Determining total income
+
+The balance income after allowing the deductions is called 'Total Income'. The total income is bifurcated into 2 parts - Normal Income and Special Income. The normal income of a taxpayer is charged to tax as per applicable tax rates, and special income is charged to tax at special rates.
+
+Computation of tax
+
+To calculate an individual's tax liability, income shall be first apportioned into normal income and special income. The bifurcation is done as normal income is taxable at applicable slab rates. However, where an individual opts for New Tax Regime as provided underSection 115BAC, the tax on normal income shall be charged at the rates provided under the said section. Whereas special income is taxed at special rates as prescribed under the Act.
+
+An individual is liable to pay tax on normal income only if it exceeds the maximum exemption limit.
+
+Applicability of AMT
+
+Every assessee (other than a company) is subject to Alternative Minimum Tax ('AMT') if he has claimed any of the following deductions:
+
+(a) Deduction under any provision (other thanSection 80P) included in Chapter VI-A under the heading 'C- Deduction in respect of certain income'; or
+
+(b) Deduction underSection 10AA; or
+
+(c) Deduction underSection 35AD.
+
+The alternative minimum tax is payable by the individual if the adjusted total income exceeds Rs. 20 lakhs and the tax payable by him on his total income (computed as per normal provisions of the Act) is less than 18.5% (or 9% in case of a unit in IFSC) of 'adjusted total income'.
+
+Computation of tax liability on total income
+
+Amount
+
+AMT liability
+
+	Tax payable on deemed total income computed as per AMT provisions	xxx
+
+	Add: Surcharge	xxx
+
+	AMT after surcharge	xxx
+
+	Add: Health and Education Cess	xxx
+
+	Total tax payable as per AMT provisions (A)	xxx
+
+Normal tax liability
+
+	Tax on income at normal rates
+
+ Tax on income at special rates	xxx
+
+ xxx
+
+	Tax on Total Income
+
+ Less: Rebate under Section 87A	xxx
+
+ (xxx)
+
+	Tax payable after rebate
+
+ Add: Surcharge	xxx
+
+ xxx
+
+	Tax payable after surcharge
+
+ Add: Health and Education Cess	xxx
+
+ xxx
+
+	Total tax payable as per normal provisions (B)	xxx
+
+	Gross tax payable [Higher of AMT liability (A) or Normal tax liability (B)]	xxx
+
+	Less: Tax-deferred on perquisite value of ESOPs issued by eligible start-ups	(xxx)
+
+Gross tax payable (after excluding tax-deferred on perquisite value of ESOPs issued by eligible start-ups)
+
+Less:
+
+- AMT Credit
+
+- Relief under Section 89
+
+- Foreign tax credit under Section 90, 90A or 91
+
+xxx
+
+(xxx)
+
+(xxx)
+
+(xxx)
+
+Net tax liability
+
+Add:
+
+- Interest under Section 234A, 234B, 234C
+
+- Fees for late filing of return under section 234F
+
+xxx
+
+xxx
+
+xxx
+
+Aggregate tax liability
+
+Less: Taxes Paid
+
+- TDS deducted
+
+- TCS collected
+
+- Advance tax paid
+
+- Self-Assessment Tax
+
+xxx
+
+(xxx)
+
+(xxx)
+
+(xxx)
+
+(xxx)
+
+Total tax payable/ refundable
+
+xxx
+
+Tax Rates for Individual
+
+Normal Tax Rates (Old tax regime)
+
+The normal tax rates are prescribed every year under the First Schedule of the Finance Act. The tax rates in the case of an individual have been enumerated in the below table:
+
+	Net income range	Resident Super Senior Citizen	Resident Senior Citizen	Any other Individual
+
+	Up to Rs. 2,50,000	Nil	Nil	Nil
+
+	Rs. 2,50,001- Rs. 3,00,000	Nil	Nil	5%
+
+	Rs. 3,00,001- Rs. 5,00,000	Nil	5%	5%
+
+	Rs. 5,00,001- Rs. 10,00,000	20%	20%	20%
+
+	Above Rs. 10,00,000	30%	30%	30%
+
+'Super senior citizen' means an individual whose age is 80 years or more at any time during the relevant previous year.
+
+'Senior citizen' means an individual whose age is 60 years or more at any time during the relevant previous year but less than 80 years on the last day of the previous year.
+
+Normal Tax Rates (New tax regime)
+
+Section 115BACprovides a new tax regime for individuals, which has reduced tax slabs. However, to avail of the benefit of this tax regime, the assessee has to forgo specified exemptions and deductions.
+
+If an eligible assessee opts for this regime, the income shall be taxable at the following rate:
+
+🞄For assessment year 2025-26
+
+	Total Income (Rs)	Rate
+
+	Upto 3,00,000	Nil
+
+	From 3,00,001 to 7,00,000	5%
+
+	From 7,00,001 to 10,00,000	10%
+
+	From 10,00,001 to 12,00,000	15%
+
+	From 12,00,001 to 15,00,000	20%
+
+	Above 15,00,000	30%
+
+🞄For the assessment year 2026-27
+
+	Total Income (Rs)	Rate
+
+	Upto 4,00,000	Nil
+
+	From 4,00,001 to 8,00,000	5%
+
+	From 8,00,001 to 12,00,000	10%
+
+	From 12,00,001 to 16,00,000	15%
+
+	From 16,00,001 to 20,00,000	20%
+
+	From 20,00,001 to 24,00,000	25%
+
+	Above 24,00,000	30%
+
+The assessee opting for payment of taxes underSection 115BACis required to satisfy the following conditions:
+
+(a)Total income of the assessee has to be computed without claiming the following specified exemptions and deductions;
+
+🞄Leave Travel concession [Section 10(5)];
+
+🞄House Rent Allowance [Section 10(13A)];
+
+🞄Official and personal allowances (other than those as may be prescribed) [Section 10(14)];
+
+🞄Allowances to MPs/MLAs [Section 10(17)];
+
+🞄Exemption for income of minor [Section 10(32)];
+
+🞄Deduction for units established in Special Economic Zones (SEZ) [Section 10AA];
+
+🞄Entertainment Allowance [Section 16(ii)];
+
+🞄Professional Tax [Section 16(iii)];
+
+🞄Interest on housing loan (In case of property referred undersection 23(2)i.e. self-occupied house property) [Section 24(b)];
+
+🞄Additional depreciation in respect of new plant and machinery [Section 32(1)(iia)];
+
+🞄Deduction for investment in new plant and machinery in notified backward areas [Section 32AD];
+
+🞄Deduction in respect of tea, coffee, or rubber business [Section 33AB];
+
+🞄Deduction in respect of business consisting of prospecting or extraction or production of petroleum or natural gas in India [Section 33ABA];
+
+🞄Deduction for donation made to approved scientific research association, university, college, or other institutes for doing scientific research which may or may not be related to business [Section 35(1)(ii)];
+
+🞄Deduction for payment made to an Indian company for doing scientific research which may or may not be related to business [Section 35(1)(iia)];
+
+🞄Deduction for donation made to a university, college, or other institution for doing research in social science or statistical research [Section 35(1)(iii)];
+
+🞄Deduction for donation made for or expenditure on scientific research [Section 35(2AA)];
+
+🞄Deduction in respect of capital expenditure incurred in respect of certain specified businesses, i.e., cold chain facility, warehousing facility, etc. [Section 35AD];
+
+🞄Deduction for expenditure on agriculture extension project [Section 35CCC]; and
+
+🞄Deduction underSections 80Cto80Uother than specified underSection 80JJAA,Section 80CCD(2),Section 80CCH(2), andSection 80LA(1A)[Chapter VI-A].
+
+(b)Total income of the assessee has to be computed without set-off of losses or depreciation carried forward from earlier years if such loss or depreciation is attributable to any of the specified exemptions and deductions;
+
+(c)Total income of the assessee has to be computed without set-off of any loss under the head "Income from house property" with any other head of income;
+
+(d)Total income of the assessee has to be calculated after claiming depreciation in the prescribed manner; and
+
+(e)Total income of the assessee has to be computed without claiming any exemptions or deductions for allowances or perquisites provided under any other law for the time being in force.
+
+Special Tax Rates
+
+Income-tax Act prescribes the following special tax rates in respect of certain income:
+
+	Section	Assessee	Particulars	Tax Rate
+
+	Section 111A	Any Person	Short-term capital gains arising from the transfer of equity shares or units of an equity-oriented mutual fund or units of business trust if the transfer of such capital asset is chargeable to Securities Transaction Tax (STT)	15% (if the asset is transferred before 23-07-2024) or 20% (if the asset is transferred on or after 23-07-2024)
+
+	Section 112	Any person	Long-term capital gains arising from the transfer of listed securities (other than a unit) or zero-coupon bonds without giving effect to the benefit of indexation.	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Non-resident	Long-term capital gains arising from the transfer of unlisted shares or shares of closely held companies without giving effect to the benefit of indexation and currency translation.	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Any Person	Any other long-term capital gains	20% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Section 112A	Any Person	Long-term capital gains, in excess of Rs. 1.25 lakhs, arising from the transfer of equity shares, units of an equity-oriented mutual fund, or units of business trust if the transfer of such capital asset is chargeable to Securities Transaction Tax (STT)	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Section 115A	Non-resident	Interest received from Government or an Indian concern on monies borrowed or debt incurred by such Government or the Indian concern in foreign currency	20%
+
+	Non-resident	Interest received from notified Infrastructure Debt Fund as referred to in Section 10(47)	5%
+
+	Non-resident	Interest received from an Indian Co. or business trust as specified in Section 194LC, i.e., interest in respect of monies borrowed by them in foreign currency or long-term infrastructure bonds or rupee-denominated bonds.
+🞄Interest payable in respect of long-term bond or rupee-denominated bonds listed on a recognised stock exchange in IFSC- 4% if bonds are issued before 01-07-2023 and 9% if bonds are issued on or after 01-07-2023;
+
+🞄In any other case- 5%
+
+	Non-resident	Interest on rupee-denominated bonds of an Indian Co. or Government Securities or municipal debt securities as referred to in Section 194LD	5%
+
+	Non-resident	Interest income distributed by business trust to its unit holders as referred to in Section 194LBA.	5%
+
+	Non-resident	Dividend income	10% if the dividend is received from a unit in an IFSC otherwise 20%
+
+	Non-resident	Income received in respect of units of specified Mutual Funds or of UTI purchased in foreign currency	20%
+
+	Non-resident	Income by way of royalty or fees for technical services received from Indian concern or Government in pursuance of an approved agreement made after 31-3-1976. However, the benefit shall not be available if royalty or fees for technical services is connected with the assessee's Permanent Establishment (PE) in India.	20%
+
+	Section 115AC	Non-resident	Long-term capital gains arising from the transfer of Bonds or GDRs of an Indian Company or Public sector company (PSU) purchased in foreign currency	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Non-resident	Interest on bonds of an Indian Company or Public Sector Company (PSU) purchased in foreign currency	10%
+
+	Non-resident	Dividend on GDRs of an Indian Company or Public Sector Company (PSU) purchased in foreign currency	10%
+
+	Section 115ACA	Resident Individual	Long-term capital gains arising from the transfer of GDRs issued by an Indian company, engaged in specified knowledge-based industry or service, to its employees if such GDRs are purchased in foreign currency and capital gain is computed without taking benefit of foreign exchange fluctuation and indexation.	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Resident Individual	Dividend on GDRSs issued by an Indian company, engaged in a specified knowledge-based industry or service, to its employees if such GDRs are purchased in foreign currency	10%
+
+	Section 115AD	Foreign Institutional Investors	Short-term capital gains arising from the transfer of equity shares or units of an equity-oriented mutual fund or units of business trust as covered under Section 111A	15% (if the asset is transferred before 23-07-2024) or 20% (if the asset is transferred on or after 23-07-2024)
+
+	Short-term capital gains arising from the transfer of any other securities	30%
+
+	Long-term capital gains in excess of Rs. 1.25 lakh arising from the transfer of equity shares or units of an equity-oriented mutual fund or units of business trust as covered under Section 112A	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Long-term capital gains arising from the transfer of other securities provided capital gain is computed without taking benefit of foreign exchange fluctuation and indexation.	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Foreign Institutional Investor	Interest on rupee-denominated bonds of an Indian Company or Government Securities or municipal debt securities.	5%
+
+	Foreign Institutional Investor	Interest income from other securities	20%
+
+	Foreign Institutional investor	Dividend income from securities (other than dividend from units of specified mutual fund or units of UTI purchased in foreign currency)	20%
+
+	Foreign Institutional investor	Income from securities (other than income from units of specified mutual fund or units of UTI purchased in foreign currency)	20%
+
+	Section 115B	Assessee engaged in the life insurance business	Profit and gains of life insurance business	12.5%
+
+	Section 115BB	Any person	Income by way of winnings from lotteries, crossword puzzles, races including horse races, card games, and other games of any sort, or gambling or betting of any form or nature whatsoever (other than winnings from online games).	30%
+
+Section 115BBA
+
+Non-resident sportsman (foreign citizen)
+
+Income of a sportsman:
+
+a) from participation in any game in India;
+
+b) advertisement; or
+
+c) from the contribution of articles relating to any game or sport in India in newspapers, magazines, or journals
+
+20%
+
+	Non-resident entertainer (foreign citizen)	Income of an entertainer from performance in India	20%
+
+	Section 115BBC	Any person	Anonymous donation	30%
+
+	Section 115BBE	Any person	Undisclosed income as referred to in Sections 68, 69, 69A, 69B, 69C, and 69D	60%
+
+	Section 115BBF	Resident person	Income by way of royalty in respect of a patent developed and registered in India	10%
+
+	Section 115BBG	Any person	Any income by way of transfer of carbon credits	10%
+
+	Section 115BBH	Any Person	Income from the transfer of any Virtual Digital Asset (VDA)	30%
+
+	Section 115BBJ	Any Person	Income by way of winnings from Online Games	30%
+
+	Section 115E	Non-resident Indian	Long-term capital gains arising from the transfer of specified assets purchased in foreign currency	10% (if the asset is transferred before 23-07-2024) or 12.5% (if the asset is transferred on or after 23-07-2024)
+
+	Non-resident Indian	Income from specified asset purchased in foreign currency	20%
+
+Rebate underSection 87A
+
+🞄In the case of a resident individual, a rebate of up to Rs. 12,500 is allowed underSection 87Afrom the amount of tax if the total income of such individual does not exceed Rs. 500,000.
+
+🞄A maximum rebate of Rs. 25,000 is allowed under section 87A from the amount of income tax on total income, which is chargeable to tax undersection 115BAC(1A). However, this rebate is allowed if the total income of assessee chargeable to tax undersection 115BAC(1A)is up to Rs. 7,00,000. [Applicable for AY 2025-26]
+
+🞄A maximum rebate of Rs. 60,000 is allowed underSection 87Afrom the amount of income tax on total income, which is chargeable to tax undersection 115BAC(1A). However, this rebate is allowed if the total income of assessee chargeable to tax undersection 115BAC(1A)is up to Rs. 7,00,000. [Applicable from AY 2026-27]
+
+Further, if the total income chargeable to tax undersection 115BAC(1A)exceeds Rs. 7,00,000/12,00,000 and the tax payable on such income exceeds the difference between the total income and Rs. 7,00,000/12,00,000 he can claim a rebate with marginal relief to the extent of the difference between the tax payable on such total income and the amount by which it exceeds Rs. 7,00,000/12,00,000.
+
+Rate of Surcharge
+
+In respect of an individual, the rate of surcharge shall be as under:
+
+	Nature of Income	Range of Total Income
+
+	Up to Rs. 50 lakhs	More than Rs. 50 lakhs but up to Rs. 1 crore	More than Rs. 1 crore but up to Rs. 2 crores	More than Rs. 2 crores but up to Rs. 5 crores	More than Rs. 5 crores
+
+	Short-term capital gain covered under Section 111A or Section 115AD	Nil	10%	15%	15%	15%
+
+	Long-term capital gain covered under Section 112A or Section 115AD or Section 112	Nil	10%	15%	15%	15%
+
+	Dividend income (not being dividend income chargeable to tax at a special rate under sections 115A, 115AB , 115AC , 115ACA )	Nil	10%	15%	15%	15%
+
+	Unexplained income chargeable to tax under Section 115BBE	25%	25%	25%	25%	25%
+
+	Any other income (if opted for the old tax regime)	Nil	10%	15%	25%	37%
+
+	Any other income (if opted for the new tax regime of Section 115BAC)	Nil	10%	15%	25%	25%
+
+Health and Education Cess
+
+Every person is liable to pay health and education cess at the rate of 4% on the amount of income taxplussurcharge.
+
+MCQs on Computation of tax for individual
+
+Q1. A non-resident person is liable to pay tax in India on __________.
+
+(a) Global Income
+
+(b) Income which accrues or arises or deemed to accrue or arise in India
+
+(c) Income received or deemed to be received in India
+
+(d) Both (b) and (c)
+
+Correct answer: (d)
+
+Explanation: An individual, who is resident in India, is liable to pay tax in India on his global income. On the other hand, a non-resident person is liable to pay tax in India only on that income which accrues or arises or is deemed to accrue or arise in India, and income received or deemed to be received in India.
+
+Q2. In the case of an individual, Alternate Minimum Tax (AMT) is payable at the rate of _______.
+
+(a) 18.5%
+
+(b) 15%
+
+(c) 10%
+
+(d) 25%
+
+Correct answer: (a)
+
+Explanation: The alternative minimum tax is payable by the individual if the adjusted total income exceeds Rs. 20 lakhs and the tax payable by him on his total income (computed as per normal provisions of the Act) is less than 18.5% (or 9% in case of a unit in IFSC) of 'adjusted total income'.
+
+Q3. The Basic exemption limit for a resident Super Senior citizen is ________ if he opts out from the default tax regime under section 115BAC(6).
+
+(a) Rs. 2,50,000
+
+(b) Rs. 3,00,000
+
+(c) Rs. 5,00,000
+
+(d) None of the above
+
+Correct answer: (c)
+
+Explanation: The Basic exemption limit for a resident super senior citizen is Rs. 5,00,000, for a resident senior citizen is Rs. 3,00,000, and for any other individual is Rs. 2,50,000.
+
+Q4. The Basic exemption limit for a resident Super Senior citizen is ________ for the assessment year 2026-27. (in case the assessee opts for taxation under section 115BAC).
+
+(a) Rs. 2,50,000
+
+(b) Rs. 4,00,000
+
+(c) Rs. 5,00,000
+
+(d) None of the above
+
+Correct answer: (b)
+
+Explanation: For A.Y. 2026-27, the basic exemption limit underSection 115BACis Rs. 4,00,000, irrespective of the classification of the individual.
+
+Q5. Short-term capital gains arising from the transfer of equity shares, chargeable to Securities Transaction Tax (STT), are taxable at the rate of ______.
+
+(a) 10%
+
+(b) 15%
+
+(c) 30%
+
+(d) Slab rate
+
+Correct answer: (b)
+
+Explanation: Short-term capital gains arising from the transfer of equity shares or units of an equity-oriented mutual fund or units of business trust, if the transfer of such capital asset is chargeable to Securities Transaction Tax (STT) is taxable at the rate of 15% (if the asset is transferred before 23-07-2024) or 20% (if the asset is transferred on or after 23-07-2024).
+
+Q6. A person having income by way of winnings from lotteries, or crossword puzzles, is taxable at the rate of _____.
+
+(a) 20%
+
+(b) 15%
+
+(c) 30%
+
+(d) Slab rate
+
+Correct answer: (c)
+
+Explanation: Income by way of winnings from lotteries, crossword puzzles, races including horse races, card games, and other games of any sort, or gambling or betting of any form or nature whatsoever (other than winnings from online games) is taxed at the rate of 30%.
+
+Q7. Which of the following deduction are allowed to an individual if he opts for the new tax regime ofSection 115BAC?
+
+(a)Section 80C
+
+(b)Section 80D
+
+(c)Section 80CCD(2)
+
+(d)Section 80G
+
+Correct answer: (c)
+
+Explanation: If an individual has opted for new tax regime ofSection 115BAC, the total income of such individual has to be computed without claiming the deductions underSections 80Cto80Uother than specified underSection 80JJAA,Section 80CCD(2),Section 80CCH(2), andSection 80LA(1A).
+
+Q8. Whether set-off of losses under the head "Income from house property" with any other income is allowed to an individual if he opted for the tax regime ofSection 115BAC?
+
+(a) Yes
+
+(b) No
+
+Correct answer: (b)
+
+Explanation: If an individual has opted default tax regime ofSection 115BAC, the total income of the assessee has to be computed without set-off of any loss under the head "Income from house property" with any other head of income.
+
+Video Player
+
+Skip to main content
+
+IT Bill Comparison Tool
+
+Compare Income-tax Act 1961 with Income-tax Act 2025
+
+Upload FilesSelect from CatalogEnter URLs
+
+Act, 1961
+Drop file here orChoose File
+
+Act, 2025
+Drop file here orChoose File
+
+Compare
+
+etds-leftetds-bothetds-rightetds-merged
+
+etds-htmletds-pdf
+
+Compare sections first to enable export
+
+Income-tax Act, 1961
+
+Income-tax Act, 2025
+
+Select sections from both Acts and click "Compare" to see differences.
+
+For reference purposes only. Please verify with official sources.
+
+❓ Help
+
+Follow Us On:
+
+Last reviewed and updated on:08-Sep-2026
+
+Public Awareness
+
+NUDGE
+
+Report Phishing
+
+RTI
+
+Children's Corner
+
+Quick Links
+
+Feedback
+
+Sitemap
+
+Contact Us
+
+Grievance & Support
+
+Analytics
+
+Important Resources
+
+Locate Income-tax Offices
+
+Useful Links
+
+Subscribe - Newsletter
+
+Subscribe - Tax Feeds
+
+e-Governance
+
+This is the official website of Central Board of Direct Taxes (CBDT), Department of Revenue, Ministry of Finance, Government of India.
+
+Website Policies
+
+•
+
+Disclaimer
+
+•
+
+Accessibility
+
+•
+
+Terms & Conditions
+
+•
+
+Website Certifications
+
+•
+
+This site is best viewed in 1366x768 resolution with latest version of Chrome, Firefox, Safari & Microsoft Edge
+
+© - Copyright Income Tax Department, Ministry of Finance, Government of India. All Rights Reserved.
+
+Hidden
+
+Show More
+
+Show More

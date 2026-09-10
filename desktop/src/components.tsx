@@ -174,19 +174,23 @@ export function DependencyStrip({ dependencies }: { dependencies: DependencyStat
     <div className="deps">
       {dependencies.map((d) => (
         <div className="dep" key={d.name}>
-          <span className={`status ${d.up ? "running" : d.required ? "failed" : "stopped"}`}>
+          {/* Up-but-degraded gets its own colour: a green dot on an empty Qdrant would claim the
+              guidance lookups are fine when every one of them is coming back with nothing. */}
+          <span
+            className={`status ${
+              !d.up ? (d.required ? "failed" : "stopped") : d.degraded ? "degraded" : "running"
+            }`}
+          >
             <span className="dot" />
           </span>
           <div style={{ minWidth: 0 }}>
             <div className="dep-title">
               {d.label} <span className="dep-port">:{d.port}</span>
             </div>
-            <div className="dep-sub">
+            <div className={`dep-sub${d.up && d.degraded ? " dep-warn" : ""}`}>
               {d.up
-                ? d.description
-                : d.required
-                  ? "Not running — nothing can start without it"
-                  : "Not running — the AI features will not work"}
+                ? (d.detail ?? d.description)
+                : (d.downMessage ?? "Not running")}
             </div>
           </div>
         </div>

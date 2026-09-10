@@ -17,7 +17,12 @@ export interface DependencyState {
   description: string;
   port: number;
   required: boolean;
+  downMessage?: string;
   up: boolean;
+  /** What it is actually doing, where an open port alone does not say. */
+  detail?: string;
+  /** Listening, but not able to serve -- an empty Qdrant answers every lookup with nothing. */
+  degraded?: boolean;
 }
 
 export interface LogLine {

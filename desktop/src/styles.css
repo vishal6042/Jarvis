@@ -703,6 +703,19 @@ select {
   color: var(--muted);
 }
 
+/* Running but not able to serve -- worth reading, not worth alarming about. */
+.dep-sub.dep-warn {
+  color: var(--amber);
+}
+
+/* Steady amber, no pulse: "starting" pulses because it is going somewhere, this is not. */
+.status.degraded {
+  color: var(--amber);
+}
+.status.degraded .dot {
+  background: var(--amber);
+}
+
 /* The Logs page is a single panel, so it takes the height the page has left. */
 .panel.grow {
   flex: 1;

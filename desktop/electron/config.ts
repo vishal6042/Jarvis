@@ -18,6 +18,16 @@ export interface DependencyDef {
   port: number;
   /** Nothing in the stack can run without it, so starting is refused while it is down. */
   required: boolean;
+  /**
+   * What breaks while this is down, in the manifest rather than inferred from `required`: losing
+   * Ollama costs every AI feature, losing Qdrant costs only the quoted guidance.
+   */
+  downMessage?: string;
+  /**
+   * How to start it, for a dependency that has no service manager of its own. Absent means "not
+   * ours to start" -- which is still true of Postgres and Ollama.
+   */
+  start?: { command: string; args?: string[]; cwd?: string };
 }
 
 export interface StackDef {

@@ -84,7 +84,8 @@ services/    Spring Boot microservices (parent POM, mvnw, start-all.ps1, service
 frontend/    React PWA dashboard
 android/     SMS-forwarder app (later phase)
 desktop/     Windows Control Center (Electron): start, watch and restart the stack
-scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption)
+corpus/      financial guidance the assistant can quote (manifest + extracted text; see below)
+scripts/     one-off setup helpers (desktop shortcut, icon generation, phone battery exemption, corpus extraction)
 assets/      jarvis.ico for the shortcut
 start-jarvis.ps1 / .cmd   one-window launcher for the whole stack (what the shortcut runs)
 ```
@@ -211,6 +212,60 @@ Copy `.env.example` → `.env`. Common overrides (all have dev defaults):
 - The **Assistant** calls the real `/api/ai/chat` agent (falls back to a local heuristic if the AI
   service is offline). **Analytics** and the dashboard summary read real `/api/analytics/*` and
   gracefully fall back to sample data when the backend is unavailable.
+
+---
+
+## Financial guidance corpus (RAG)
+
+The assistant answers "what did I spend on food?" from your own data, and "how much can I claim
+under 80C?" from published guidance. The second half is a small Qdrant collection the agent can
+search through a `searchFinancialGuidance` tool.
+
+**Sources are regulators only** — SEBI, RBI and the Income Tax Department — so the material stays
+neutral and citable rather than promotional. `corpus/manifest.json` lists each document with its
+URL and what extraction it needs; `corpus/text/` holds the extracted text and is committed;
+`corpus/sources/` holds the originals and is gitignored.
+
+Retrieval is a **tool, not a pipeline stage**. Spending questions need your figures and nothing
+else, rule questions need only guidance, and "I have ₹20,000 spare — save or invest?" needs both.
+Letting the agent choose means there is no query router to keep correct.
+
+```
+Qdrant       localhost:6334 (gRPC)   collection jarvis_financial_guidance, 1024-dim, Cosine
+Embeddings   bge-large via Ollama    same model for indexing and querying, or the vectors are meaningless
+Filters      country=IN, audience=individual
+```
+
+The `audience` filter earns its place: barely half the rows in the Income Tax deductions table
+apply to individuals, and the rest are for companies and co-operative societies. Without it, a
+question about personal deductions can retrieve cattle insurance for federal milk co-operatives.
+
+**Qdrant is started for you.** It is a bare executable with no service wrapper, so nothing brings it
+back after a reboot — the Control Center starts it (path in `services.json`) when you start the
+stack, and never stops it again, because a store outlives the stack that reads it and this one also
+holds collections belonging to other projects.
+
+The dependency strip reports what it is actually doing rather than just that the port is open:
+**"311 guidance chunks indexed"** when healthy, or an amber **"Collection is empty — run the
+indexer"** when not. That distinction matters: an empty Qdrant answers every lookup with no hits,
+so the assistant quietly stops citing sources with nothing anywhere reporting an error.
+
+**Re-index** after changing the corpus (indexing never happens on a normal startup):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\rag\extract.ps1   # only if sources changed
+cd services; .\mvnw -pl ai-orchestrator-service spring-boot:run `
+  -Dspring-boot.run.arguments=--jarvis.rag.index-on-start=true
+```
+
+Two things to know when working on this:
+
+- **Tax figures date.** Chunks carry an `as_of` (currently Finance Act 2026 / AY 2026-27), and the
+  same document holds both old- and new-regime figures for the same relief, so the agent is
+  instructed to always say which regime it means.
+- **The Income Tax site blocks scripted fetching**, and its own PDFs are truncated screenshots of
+  its web pages. Save those pages from a browser by hand; that is why the extracted text is
+  committed rather than regenerated from a download.
 
 ---
 

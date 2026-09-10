@@ -34,3 +34,6 @@ Thumbs.db
 
 # Local statement files / test data (never commit personal financial data)
 /data/
+
+# RAG corpus: originals are large and re-downloadable; the extracted text is what gets indexed
+corpus/sources/

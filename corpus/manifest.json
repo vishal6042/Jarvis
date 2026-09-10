@@ -1,0 +1,84 @@
+{
+  "_comment": "The financial-guidance corpus the assistant retrieves from. Only regulators and government bodies, so the material stays neutral and citable. Text under corpus/text/ is committed and is what actually gets indexed; corpus/sources/ holds the originals and is gitignored. Regenerate the text with scripts/rag/extract.ps1 -- 'strategy' and 'fixups' record what each document needs, which differs per document and was established by measuring, not guessing.",
+
+  "collection": "jarvis_financial_guidance",
+  "embeddingModel": "bge-large",
+  "vectorSize": 1024,
+
+  "documents": [
+    {
+      "id": "sebi-financial-education-booklet",
+      "title": "Financial Education Booklet",
+      "publisher": "SEBI",
+      "url": "https://investor.sebi.gov.in/pdf/downloadable-documents/Financial%20Education%20Booklet%20-%20English.pdf",
+      "country": "IN",
+      "docType": "education",
+      "audience": "individual",
+      "strategy": "heading",
+      "fixups": ["strip-running-header"],
+      "notes": "Lettered headings (A., B., ...). Rupee sign extracts correctly. 28% of pages are tables."
+    },
+    {
+      "id": "sebi-home-maker-module",
+      "title": "Home Maker Module",
+      "publisher": "SEBI",
+      "url": "https://www.sebi.gov.in/sebi_data/investors/financial_literacy/Home%20Maker%20Module.pdf",
+      "country": "IN",
+      "docType": "education",
+      "audience": "individual",
+      "strategy": "heading",
+      "fixups": [],
+      "notes": "Numbered headings (1., 2., ...), not lettered -- the regex must accept both."
+    },
+    {
+      "id": "sebi-nsfe",
+      "title": "National Strategy for Financial Education 2020-2025",
+      "publisher": "SEBI / NCFE",
+      "url": "https://investor.sebi.gov.in/pdf/policy-documents/FinalNSFE.pdf",
+      "country": "IN",
+      "docType": "strategy",
+      "audience": "individual",
+      "strategy": "heading",
+      "fixups": [],
+      "notes": "Policy document. Background rather than day-to-day guidance."
+    },
+    {
+      "id": "rbi-fame-2024",
+      "title": "Financial Awareness Messages (FAME), 4th Edition",
+      "publisher": "Reserve Bank of India",
+      "url": "https://www.rbi.org.in/commonman/images/FAME202426022024.pdf",
+      "country": "IN",
+      "docType": "education",
+      "audience": "individual",
+      "strategy": "page",
+      "fixups": ["strip-running-header", "backtick-to-rupee", "wingdings-bullet"],
+      "notes": "No textual headings -- each page is one self-contained message, so chunk on pages. RBI's font maps the rupee sign onto a backtick: 48 amounts read as `10,000 until repaired. Front matter carries Hindi in a legacy non-Unicode font that extracts as gibberish; it is cover text only."
+    },
+    {
+      "id": "itd-computation-of-tax",
+      "title": "Computation of Tax for Individual",
+      "publisher": "Income Tax Department",
+      "url": "https://www.incometaxindia.gov.in/w/computation-of-tax-for-individual-1",
+      "country": "IN",
+      "docType": "tax",
+      "audience": "individual",
+      "asOf": "Finance Act 2026 / AY 2026-27",
+      "strategy": "page",
+      "fixups": [],
+      "notes": "Saved from the browser as HTML: the site blocks scripted fetching, and its PDF is a truncated screenshot of this same page. Refresh by hand after each Finance Act."
+    },
+    {
+      "id": "itd-deductions",
+      "title": "Deductions allowable to tax payer",
+      "publisher": "Income Tax Department",
+      "url": "https://www.incometaxindia.gov.in/w/deductions-allowable-to-tax-payer",
+      "country": "IN",
+      "docType": "tax",
+      "audience": "mixed",
+      "asOf": "Finance Act 2026 / AY 2026-27",
+      "strategy": "heading",
+      "fixups": [],
+      "notes": "Only 56% of the 140 deduction rows apply to individuals; the rest are companies, co-operatives and financial corporations. Audience is therefore classified per chunk, so a question about personal deductions cannot retrieve cattle insurance for milk co-operatives. Carries both old- and new-regime figures for the same relief, so answers must state which regime they mean."
+    }
+  ]
+}

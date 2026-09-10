@@ -1,0 +1,1060 @@
+National Strategy for Financ2ia0l 12
+
+              Education
+                                           2
+
+                                   Table of Contents
+
+                      Content                                            Page Number
+
+           Acknowledgements                                              3
+
+Section I
+
+A. Introduction and Background                                           4-8
+
+B. Vision, Mission, Goals, Strategic Action Plan and Stakeholders        8-10
+
+          Section II Assessment of the Need for Financial Education
+
+A. National Survey on Financial Education                                10-11
+
+B. Assessment through Complaints and Creation of Complaints              11
+
+Database
+
+C. Assessment of needs through international experience                  11-12
+
+D. Efforts made so far in the field of financial education - RBI, SEBI,  12-16
+
+IRDA, PFRDA, FMC and market players
+
+E. Mapping of financial education content in school curricula            16
+
+                    Section III Policy Design
+
+A. Components of Financial Education
+
+1. Basic Financial Education                                             17-19
+
+2. Sector Focused Financial Education
+
+3. Product Education
+
+B. Content of Financial Education                                        19-20
+
+C. Financial Education for women                                         20
+
+D. Financial Education for the illiterate                                20-21
+
+E. Financial Education for the differently abled                         21
+
+F. Delivery Channels for Financial Education                             21-24
+
+Section IV Institutional Arrangement                                     24-25
+
+Section V Guidance
+
+Guidance to Regulators                                                   26-27
+Guidance to Industry Associations
+
+Guidance to Commercial Financial Institutions
+
+Guidance to Self Help groups and Others
+
+Guidance to other authorities
+
+Section VI Peer Review and Comments                                      28-31
+                                                               3
+
+                                                    Acknowledgements
+
+A proposal for drafting a National Strategy for Financial Education along with the initial document was
+presented by Securities and Exchange Board of India (SEBI) at the first meeting of the Technical Group of
+the Sub- Committee of the Financial Stability and Development Council (FSDC) on Financial Inclusion and
+Literacy on November 11, 2011. The document received wide appreciation from all regulators who were
+part of the said Technical Committee and it was decided that a sub group was formed comprising of
+representatives from Reserve Bank of India, SEBI, Insurance Regulatory and Development Authority
+(IRDA), Pension Funds Regulatory and Development Authority (PFRDA), and Ministry of Finance
+(Department of Economic Affairs, acting as FSDC Secretariat and Department of Financial Services) to
+take the idea forward including the fine tuning the document in respect of national strategy, examine the
+contours of conducting a national survey to ascertain the needs of the country with regard to financial
+literacy and interface with the committee constituted by CBSE for curriculum development in schools.
+
+Since then, several rounds of consultations/ discussions/ meetings by the technical committee of the sub
+group for have taken place and various suggestions from RBI, SEBI, IRDA, PFRDA and Forward Markets
+Commission(FMC) had been incorporated. The document was placed on the websites all regulators for
+public comments on July 16, 2012. Comments were received from various stakeholders including banks,
+exchanges, NGOs and other public institutions apart from individuals. The comments received were
+reviewed and suitably incorporated in the document.
+
+The document was also sent for peer reviews and suggestions from Organisation for Economic
+Cooperation and Development (OECD) and Financial Services Board (FSB), South Africa has also been
+appropriately incorporated.
+
+The secretariat expresses sincere acknowledgements to all regulators, OECD and FSB, South Africa along
+with institutions and individuals from whom comments have been received to finalise the document
+                                                          4
+
+                                                Section I
+                                 A. Introduction and Background
+
+1. The first decade of the twenty-first century has seen a universal recognition for
+    spreading financial literacy among people. The concept of improving financial
+    literacy as a national project has been gradually evolving Most countries have
+    adopted a unified and coordinated national strategy for financial education. Given
+    the fact that India has a large population, is a fast growing economy with national
+    focus on inclusive growth and has an urgent need to develop a vibrant and stable
+    financial system, it is all the more necessary to quickly formulate and implement
+    a national strategy for the country. Also, since a large number of stakeholders,
+    including the central and state governments, financial regulators, financial
+    institutions, civil society, educationists and others, are involved in spreading
+    financial literacy, a broad national strategy is a prerequisite to ensure that all the
+    stakeholders work in tandem according to the strategy and not at cross
+    purposes. The formulation and implementation of National Strategy for Financial
+    Education will reap rich benefits to the country and can be attributed to following
+    reasons:
+    Inclusive Growth, Financial Inclusion and Financial Education
+    Financial education plays a vital role in making the demand side respond to the
+    initiatives of supply side interventions. Financial inclusion is a top most policy
+    priority of the Government of India. One of the most visible aspects of
+    governance has been the agenda of social inclusion, of which financial inclusion
+    is an integral part. As the Hon’ble Union Finance Minister, Shri Pranab
+    Mukherjee, said in his speech at the Reserve Bank of India - Organization for
+    Economic Cooperation and Development Workshop on Delivering Financial
+    Literacy in March 2010, “Financial literacy, and education, plays a crucial role in
+    financial inclusion, inclusive growth and sustainable prosperity”.
+         a) Knowledge and skill: Increasing range and complexity of financial
+             products has made it very difficult for an ordinary person to take an
+             informed decision. Financial literacy imparts knowledge and skills and,
+             thereby, confidence to the ordinary person to manage financial products
+                                                5
+
+    and services and enabling him to have more control over his/her present
+    and future financial well being.
+b) Freedom from exploitation: Financial literacy helps protect the society
+    and individuals against exploitative financial schemes and exorbitant
+    interest rates charged by moneylenders.
+c) Avoidance of over-indebtedness: Financial education will help avoid
+    over-indebtedness, improve quality of services and promote wise financial
+    decisions.
+d) Promoting entrepreneurship: Awareness about financial products will
+    help small entrepreneurs, who are educated and who already have
+    business sense, understand dynamics of market mechanism and improve
+    their business dealings.
+e) Positive spill-over effects: Financial education can lead to multiplier
+    effects in the economy. A household that is well educated in financial
+    matters would resort to regular savings, which, in turn, would lead to
+    investments in right channels and greater income generation. The
+    financial well being of individuals will, in turn, increase the welfare of the
+    society.
+f) Reducing strain on social programmes: A financially aware person
+    would be in a better position to assess his/her own requirements and
+    make savings in appropriate schemes. It reduces strain on social
+    programmes and pension plans and fosters a more resilient economy.
+g) Behavioral change: The proliferation of financial products has led to its
+    indiscriminate usage without users realising their financial implications. “In
+    fact, the recent global financial crisis has raised the question whether
+    individuals’ lack of financial knowledge led them to take out adjustable rate
+    mortgages or incur credit card debt they could not afford. Financial
+    education can become an agent of behavioral change.
+h) Deeper participation in financial markets: India needs to convert savers
+    into investors. Greater participation of domestic retail investors in
+    securities market will make securities market deeper. Domestic savers will
+    also reap the benefits of corporate growth.
+                                                          6
+
+2. OECD defines financial literacy as a combination of financial awareness,
+    knowledge, skills, attitude and behavior necessary to make sound financial
+    decisions and ultimately achieve individual financial well being. People achieve
+    financial literacy through a process of financial education.
+
+3. OECD defines financial education as “the process by which financial
+    consumers/investors improve their understanding of financial products, concepts
+    and risks and, through information, instruction and/or objective advice, develop
+    the skills and confidence to become more aware of financial risks and
+    opportunities, to make informed choices, to know where to go for help, and to
+    take other effective actions to improve their financial well-being”.
+
+4. According to OECD, a framework of National Strategy for Financial Education
+    promotes a smoother and more sustainable co-operation between regulators and
+    stakeholders, avoids duplication of resources and allows development of
+    articulated and tailored roadmaps with measurable and realistic objectives based
+    on dedicated national assessments.
+    Globally, countries like Czech Republic, Netherlands, New Zealand, Spain, and
+    the UK have already adopted National Strategy for Financial Education, while
+    many other countries are in the process of formulation and implementation.
+
+5. In India, majority of population is financially excluded and coexists with various
+    other financially included sections of population which invest in capital markets
+    and use other advanced financial products. It, therefore, needs a tiered approach
+    for a national strategy to include spreading awareness about basic financial
+    products and link the excluded to the formal financial sector, educating the
+    existing users of financial products and services to enable them to make
+    informed choices and ensuring consumer protection for all the users of financial
+    products and services. Based on this trilogy of needs, the key components of the
+    national strategy could be a continuum of financial literacy, financial education
+    and consumer protection.
+
+6. The key components of financial literacy efforts could be some of the following
+    simple messages:
+     Why save?
+     Why invest?
+                                                          7
+
+     Why insure?
+     Why financial planning?
+     Why do you need a regular stream of income, like pension, post working life?
+     Why save or invest regularly and consistently?
+     Why insure fully?
+     Why save with banks?
+     Why borrow within limits?
+     Why borrow from banks?
+     What is the difference between saving and investment?
+     Why borrow for income generating purposes?
+     Why repay loans?
+     Why repay loans in time?
+     Why do you need insurance?
+     What is interest? How moneylenders charge very high interest rates?
+     Why and how to evaluate the various product options available?
+     What are the do's and don'ts of investment?
+     What are the rights and responsibilities of an investor?
+     What are the mechanisms available for redressal of grievances?
+
+7. The key components of financial education efforts could be:
+    a) Understanding the key financial products one may need throughout
+         one’s life including bank accounts, insurance, retirement savings plans and
+         securities market investments like stocks, bonds and mutual funds.
+    b) Understanding basic financial concepts like compound interest, present
+         and future value of money, annuity, investment return, risk, protection and
+         diversification.
+    c) Developing skills and confidence to be aware of financial risk and
+         opportunities and to benefit from them.
+    d) Making good financial choices about saving, spending, insurance,
+         investing and managing debt throughout one’s life, for example, for getting
+         education, while starting a job, buying a house, during mid-life, getting ready
+         to retire and during retired life.
+                                                               8
+
+    8. The key components of consumer protection efforts at the higher end of financial
+         education could be:
+        a) Creating awareness at the district, State and national levels through
+              consumer protection fora and providing quick and easy access to these
+              bodies for the users of financial products and services.
+        b) Providing quick and easy access to various financial sector ombudsmen as
+              well as strengthening their network and reach across country.
+         We, thus, need to clearly articulate a national strategy for financial education so
+         that all stakeholders on board.
+
+             B. Vision, Mission, Goals, Strategic Action Plan and Stakeholders
+
+    1. Vision - A financially aware and empowered India
+The vision entails providing financial education to all Indians to enable them, depending
+upon their level of need, to understand the role of money in their life, the need and use
+of savings, the advantages of using the formal financial sector and various options to
+convert their savings into investments, protection available to them through insurance
+and a realistic recognition of the attributes of these options.
+
+    2. Mission - To undertake rigorous financial education campaign to help people
+         manage their money more effectively and achieve financial well being by
+         accessing appropriate financial products and services offered by regulated
+         entities having fair and transparent mechanism for consumer protection and
+         grievance redressal.
+
+The mission envisages conducting financial education campaigns across the country for
+all sections of the population along with awareness campaigns at different levels for
+existing and potential customers so as to improve their knowledge, understanding, skills
+and competence in managing money effectively and to improve their financial status by
+taking informed decision.
+                                                               9
+
+The mission will be accomplished through provision of financial education throughout
+the life cycle of an individual starting from the school level. The endeavour is to ensure
+well being of individuals through financial inclusion.
+
+    3. Goals - National Strategy for Financial Education has been prepared with the
+         following objectives:
+        a) Creating awareness and educating consumers about access to financial
+                 services, availability of various types of products and their features.
+        b) Changing attitudes to translate their knowledge into behaviour.
+        c) Making consumers understand their rights and responsibilities as users of
+                 financial products and services.
+
+    4. Action Plan with Timeframe - The mission will be accomplished only through a
+         strategic action plan to be executed in a five-year period. The Strategic Action
+         Plan for Financial Education could include:
+             a) To set up the structure as envisaged in this document.
+             b) To incorporate basic financial education in school curricula up to senior
+                  secondary level.
+             c) To create awareness about consumer protection and grievance redressal
+                  machinery available to users of financial products and services.
+             d) To deliver financial education by trained persons in a format suitable to
+                  each target group with the content that has been developed after rigorous
+                  research.
+             e) To undertake all these measures through various stakeholders, including
+                  Non-Government Organisations (NGOs) and civil society, and to use all
+                  channels of mass communication.
+             f) To establish initial contact with 500 million adults and to educate them
+                  about key products in savings, protection and investment so that they are
+                  empowered to take prudent financial decisions.
+
+    5. Stakeholders - The strategy recognises the following stakeholders. The list is
+         indicative, not exhaustive.
+         a) Financial consumers - Individuals resident in India
+         b) Financial market players - Financial institutions that act as savings
+             aggregators, namely, banks, non banking financial companies, mutual funds,
+                                                               10
+
+             pension funds, insurance companies, etc., and financial institutions that act as
+             intermediaries, such as, brokers, merchant bankers, registrars, depositories,
+             exchanges, insurance brokers, corporate agents, etc., and professional
+             institutes like ICSI, ICAI, ICWAI, etc.
+         c) Educational institutions
+         d) Non governmental organisations
+         e) Financial sector regulators
+         f) Government – both Central and State
+         g) Multilateral/ international institutions, like OECD, G-20, INFE, etc.
+
+                                                    Section II
+                        Assessment of the Need for Financial Education
+
+                              A. National Survey on Financial Education
+
+1. Several countries, such as, Australia, New Zealand, France and the USA have
+conducted a detailed survey on the state of financial literacy in their own countries.
+These surveys mainly concern topics relating to money management, financial planning
+as well as choosing and buying products. International Network on Financial Education
+(INFE) has also conducted a survey on financial literacy across 12 countries. Further,
+cross country surveys have been carried out for school students and adults. The results
+of the survey serve various purposes, namely,
+Identifying the needs and gaps.
+Establishing the direction of the effort.
+Identifying special groups, such as women and illiterates, that need attention
+Serving as an evaluation and benchmarking standard so that the result of future
+initiatives can be compared with these baseline numbers.
+2. While the groups in India may be different in view of large scale financial exclusion, it
+is necessary that as a very first step towards financial literacy, a nationwide sample
+survey may be conducted through an expert agency to assess the state of financial
+inclusion and financial literacy. The survey should have the following elements:
+                                                               11
+
+The state of financial inclusion, that is, whether the person has savings account, loan
+account, mutual fund investment, insurance policy, pension plan, depository account,
+etc.
+The state of awareness of financial products, that is, whether he/she is aware of many
+types of savings and investments options available to him/her.
+The state of financial competency, that is, whether he/she understands the concept of
+compound interest, present value of money, annuity, etc.
+His/her attitude towards money, that is, whether he/she prepares a budget, or considers
+drawal from credit cards as normal means of financing.
+His/her attitude towards risk.
+Whether the person has any pension coverage for old age and, if so, the nature of
+pension that is available.
+3. Once the initial assessment is done, market players could report their assessment of
+incremental progress to regulators. An effort in this regard is underway across
+regulators through a Technical Group of the Sub Committee of Financial Sector
+Development Council (FSDC).
+
+       B. Assessment through Complaints and Creation of Complaints, Database
+1. The database of complaints available with regulators gives an insight into the areas
+where financial education could improve consumer awareness of various products and
+also help address gaps in consumer protection.
+2. To effectively use this repository, there is a need to systematically collect, monitor
+and analytically study the complaints.
+
+                   C. Assessment of Needs through International Experience
+1. In India, in view of large scale financial exclusion, the needs of financially illiterate
+and excluded may be different from those of other countries where large sections of
+populations are financially included. A cursory look at the literature, however, shows
+that the basic issues in financial education for those already included are not different in
+most countries. The international survey indicates the broad directions that India should
+take. Nevertheless, a systemic study by a dedicated team will be worthwhile.
+Ideally, the work of designing the campaigns should be carried out after the results of
+the survey are available. However, it should be possible to start working in this area as
+we are lagging behind other countries in this field. Even in developed countries, the
+                                                               12
+
+state of financial inclusion is far from satisfactory, the financial knowledge quite limited
+and attitudes either too cavalier or totally risk averse. Some work has already been
+done by regulators, such as, RBI, SEBI, IRDA, PFRDA and FMC and by NGOs and
+microfinance institutions. For determining the initial approach, this existing volume of
+work should be sufficient.
+
+                    D. Efforts made so far in the Field of Financial Education
+1. RBI’s initiatives on Financial Education
+The Reserve Bank of India has undertaken a project titled “Project Financial Literacy”.
+The objective of this project is to disseminate information regarding the central bank and
+general banking concepts to various target groups, including school and college
+students, women, rural and urban poor, defense personnel and senior citizens. The
+project envisages a multi pronged approach. The project has been designed to be
+implemented in two modules - one module focusing on the economy, RBI and its
+activities, and the other module on general banking. The material is created in English
+and other vernacular languages. It is disseminated to the target audience with the help
+of its own offices, banks, local government machinery, schools and colleges, NGOs and
+other voluntary groups through presentations pamphlets, brochures, films and also
+through RBI’s website. Apart from this, RBI also organises town hall and outreach visits
+in which all the top executives participate and disseminate information about economy,
+banking and RBI. It also arranges visits of school and college students to RBI. Since
+last year it has started an annual quiz programme for students of classes VII to XI to
+generate their interest in economy, banking and RBI.
+2. SEBI’s Initiatives on Financial Education
+The Securities Exchange Board of India has embarked upon financial education
+programmes through a nationwide campaign. To impart financial education to various
+target segments, namely, school and college students, working executives, middle
+income group, home makers, retired personnel, self help groups, etc., SEBI has
+empanelled Resource Persons throughout India. The Resource Persons are trained on
+various aspects of finance and equipped with the knowledge of financial markets. These
+SEBI Certified Resource Persons organise workshops for these target segments on
+various aspects, namely, savings, investment, financial planning, banking, insurance,
+retirement planning, etc.
+                                                               13
+
+SEBI also conducts investor education programmes through investor associations all
+over the country. It also conducts regional seminars through various stakeholders,
+namely, stock exchanges, depositories, Association of Mutual Funds in India,
+Association of Merchant Bankers of India, etc. SEBI has a dedicated website for
+investor education in which study material is available on financial markets, products
+and Frequently Asked Questions (FAQs) on various subjects. SEBI also publishes study
+material in English and vernacular languages. Under ‘Visit SEBI’ programme, school
+and college students are encouraged to visit SEBI and understand its functioning. SEBI
+has set up SEBI Helpline such that through a toll free number, investors across the
+country can access and seek information for redressal of their grievances and guidance
+on various issues. SEBI has also launched an investor education campaign through
+media. The service is available in 14 Indian languages.
+SEBI’s Complaint Redress System (SCORES) is web-based, centralised grievance
+redress system where investors can view the action taken and the current status of the
+grievance online. SCORES has also been integrated with the Centralised Public
+Grievance Redress and Monitoring System (CPGRAMS)1.
+3. IRDA’S Initiatives on Financial Education
+The Insurance Regulatory and Development Authority has taken various initiatives in
+the area of financial literacy. Awareness programmes have been conducted to convey
+simple messages about the rights and duties of policyholders, channels available for
+dispute redressal, etc. These have been disseminated through television and radio as
+well as print media in sustained campaigns in English, Hindi and 11 other Indian
+languages. IRDA conducts an annual seminar on policy holder protection and welfare
+and also partially sponsors seminars on insurance by consumer protection bodies.
+IRDA has conducted a pan India survey on awareness levels about insurance which
+was carried out through NCAER in a bid to improve its strategy of creating insurance
+awareness. IRDA has published ‘Policyholder Handbooks’ as well as a comic book
+series on insurance.
+
+1 The Centralised Public Grievance Redress and Monitoring System, is an online web-enabled
+system developed by the National Informatics Centre (NIC) in association with the Department
+of Administrative Reforms and Public Grievances (DARPG) with an objective of speedy redress
+and effective monitoring of grievances by Ministries/Departments/Organisations of Government
+of India.
+                                                               14
+
+As part of its consumer education initiative, IRDA has launched an exclusive website
+(www.policyholder.gov.in) for education of policyholders. The website encompasses
+generic useful information on buying insurance, standard claim procedures/
+documentations, Do’s and Don'ts for a policyholder, general alerts, dealing with
+intermediaries and FAQs, etc. The website has been found to be useful and has
+become quite popular.
+IRDA’s Integrated Grievance Management System (IGMS) creates a central repository
+of grievances received from across the country and provides analyses of data indicating
+areas of concern to the insurance policyholders.
+4. PFRDA’s Initiatives on Financial Education
+The Pension Fund Regulatory and Development Authority has been engaged in
+spreading social security messages to the public. PFRDA has developed FAQs on
+pension related topics which is available on its website. It has been associated with
+various non-government organisations in India for taking pension services to the
+disadvantaged community.
+PFRDA’s initiatives have become more broad-based with direct mass publicity on
+National Pension Scheme (NPS) – both as individual model through Points of Presence
+(POPs)2 and as group model through Aggregators. Aggregators are intermediaries
+appointed by PFRDA who are directly responsible for pension awareness mostly in
+vernacular languages and in line with socio-economic realities . PFRDA directly
+provides information relating to NPS to Aggregators and entities in identified
+occupational groups. PFRDA has issued advertisements in print and electronic media.
+Under Swavalamban, PFRDA regularly provides guidance and training to Aggregators
+on product specifications and operational responsibilities. Standard advertising material
+and training presentations are shared to ensure standardisation of product information.
+5. FMC’s Initiatives on Financial Education
+Forward Markets Commission (FMC) with headquarters at Mumbai, is the regulator of
+the commodity futures market in India. Futures markets enable farmers, producers,
+
+2 An individual can open an NPS account with authorised branches of service providers called ‘Points of
+Presence’ (POPs). One, thus, has the option to shift from one branch to another branch of a POP at
+his/her convenience.
+                                                               15
+
+cooperative societies, corporate bodies, exporters, Micro Medium & Small Enterprises
+etc. to hedge against price volatility.
+During the 11th FYP the Commission initiated various market development programmes
+like awareness programmes, capacity building programmes and stakeholders meetings
+to create awareness and enhance knowledge about the futures market. Apart from
+emphasizing the utility of the markets, the awareness programmes educate the
+participants about how to participate in the market and the precautions to be taken in
+this regard. The programmes conducted at various locations across the country are
+attended by different categories of stakeholders like farmers, traders and members of
+Commodity Exchanges, bankers, teachers, researchers, students of Universities,
+Government functionaries, warehouse professionals, etc. The capacity building efforts
+of the Commission complement the awareness creation activities of the Commission.
+The training programmes, are organized in association with various management and
+cooperative management institutes. Apart from these, sensitization programmes are
+organized by the Commission for senior State Government and Central Government
+officers. Besides, the Commission every year organizes a number of stakeholders’
+meetings at different parts of the country to get to know the views of various
+stakeholders on the various aspects of the commodity futures trading including the
+difficulties faced.
+
+Apart from these, during the 11th FYP the Commission has also launched a Price
+Dissemination Project which is aimed at informing the farmers about spot and future
+prices through the price ticker boards installed at APMCs / Mandis and places with
+frequent farmer footfalls.
+Also as part of the Jago Grahak Jago campaign launched by the Govt. during the 11th
+FYP the Commission conducted client awareness campaigns through various national
+and vernacular newspapers and electronic media. The Commodity Exchanges also
+undertake a number of media campaigns to educate investors as well as other
+stakeholders regarding these markets. The Commission has also produced handbooks
+of FAQs and Do’s and Don’ts in the commodity market. The Commission and
+Exchanges also participate in conferences, seminars, symposiums and exhibitions on
+futures market every year.
+                                                               16
+
+6. Market Players’ Initiatives on Financial Education
+Commercial banks are increasingly realising that they are missing out on a large
+segment of financially illiterate and excluded segment of prospective customers. Also, in
+view of the national emphasis on electronic benefit transfer, commercial banks have
+initiated various measures to create awareness through Financial Literacy and
+Counselling Centers (FLCC) and Rural Self Employment Training Institutes (R-SETI) for
+financial literacy. The objective of these centers is to advise people on how to get
+access to the financial system including banks, creating awareness among the public
+about financial management, counselling people who are struggling to meet their
+repayment obligations and help them resolve their problems of indebtedness and help
+rehabilitate borrowers in distress. Some of these credit counselling centers even train
+farmers/women groups to enable them to start their own income generating activity and
+earn a reasonable livelihood. Even top management of commercial banks is
+undertaking outreach visits to villages with a view to spreading financial literacy.
+Similarly, many stock exchanges, broking houses and mutual funds have taken
+initiatives in the field of financial education that spans conducting of seminars, issuance
+of do’s and don’ts and awareness campaigns in newspapers. Insurance companies too
+undertake campaigns and other educational activities for generic education in
+insurance.
+It will be necessary to collate all the material developed by these institutions and classify
+it in the light of the approach outlined in this strategy paper. The material, suitably
+augmented, should form the kernel of knowledge base envisaged in the strategy.
+
+          E. Mapping of Financial Education Content in the School Curricula
+The most effective way to impart financial education is, however, to weave it into the
+school curriculum. For example, compound interest is taught in Arithmetic but as an
+abstract concept. This can be turned into an opportunity in financial education by
+teaching the concept through live example of calculating interest for a company that has
+borrowed from a bank or for a bank customer who has opened a cumulative deposit
+account vis-à-vis another customer who has a simple fixed deposit account. Similar
+opportunities are available in the syllabi of Social Studies, Moral Science, etc.
+
+                                                   Section III
+                                                 Policy Design
+                                                               17
+
+                                 A. Components of Financial Education
+    1. Basic Financial Education
+The fundamental tenets of financial well being are: importance and advantages of
+savings, necessity of staying out of unproductive loans that are beyond one’s capacity
+to repay, borrowing from formal financial sector, concept of interest and the power of
+compounding, time value of money, inflation, need to insure, retirement planning role of
+major financial sector institutions and agencies, such as Government, regulators, banks,
+stock exchanges, insurance companies and pension funds and basic concept
+regarding relation between risks and returns. These basic concepts have to be
+explained to everyone, especially to those who are at present financially excluded.
+However, the means of communication can be different depending upon who is the
+recipient. School children, for instance, can be reached best through school curricula,
+working class can be reached through employers, home makers through NGOs and so
+on. The content and method of presentation has also to be tailored according to the
+target groups. A large number of financially excluded, rural population will have to be
+reached through the network of rural branches of banks and lead district managers of
+banks. The content, however, has to be sector neutral and should impart general
+lessons in prudent financial behavior.
+Considering the scale of efforts involved, Ministry of Human Resources Development
+(MHRD), Government of India may take the lead in ensuring inclusion of financial
+literacy material in school curriculum across India through coordination with various
+boards, ministries and state governments. The Ministry of Finance (MOF), Government
+of India may be the facilitator for inclusion of course material pertaining to financial
+literacy in school curriculum through MHRD. Support for course content development
+and monitoring may be provided by all concerned as envisaged in Section IV.
+    2. Sector Focussed Financial Education
+This component is targetted at largely already financially included or consumers of
+financial products and services.
+The various sectors including banking, securities market, insurance, retirement planning
+and commodities market can be covered. Information relating to institutions, instruments
+and risks in all these sectors should constitute financial education for financially
+included.
+                                                               18
+
+Bank related financial education, for instance, should consist of details, such as,
+responsibilities under Negotiable Instruments Act, precautions while dealing with ATMs
+and net banking, fundamentals of payment system, lockers and safe custody, loans and
+guarantees, fixed versus floating rates of loans, etc. Similarly, education for actual
+potential investors in securities market may consist of basics of stock exchange
+mechanism, clearing and settlement mechanism, dematerialisation and depositories,
+and role of various intermediaries, such as, brokers, merchant bankers, registrars,
+transfer agents, underwriters, etc. Potentially risky areas, such as, margin trading and
+derivatives need to be flagged. Various instruments, such as, shares, units of mutual
+funds , corporate bonds, pension plans, etc., also need to be explained. Education
+material on insurance has to cover the basic concepts related to insurance sector, life
+and non life insurance including need for adequate cover, need to regularly pay
+premium, etc. Retirement planning should be targeted at all persons in earning age
+bracket and the role of Pension Fund Manager (PFM) / annuity service provider should
+be explained to them. The role and functions of Aggregators in creating awareness
+about the need for retirement planning and old age income security among the target
+groups may need to be highlighted. The advice of ‘not putting all eggs in one basket’
+while making investments needs to be explained.
+Sector focussed financial education has to be totally product neutral. This could be
+achieved by carefully designing the content. The risks of mis-selling and steps to ensure
+understanding of appropriate and suitable products and services also need to be
+highlighted in sector focussed financial education.
+Considering their expertise and mandate, each regulator may be responsible for
+designing/monitoring of study material and implementation of this objective in their
+respective areas. RBI, for instance, may be responsible for banking sector while SEBI
+may be responsible for securities markets. Similarly, IRDA ,PFRDA and FMC may be
+responsible for insurance, pension and commodity futures market related education
+efforts respectively. Support for content development and monitoring may be provided
+as envisaged in Section IV.
+
+    3. Product Education
+                                                               19
+
+Finally, when a financial sector consumer buys a product or is being convinced to buy a
+product, it is necessary that he/she may first be educated about the particular product
+that is being sold. Product education has to be neutral between the various available
+options within that product range. The best agency for delivery of product education
+would be the respective industry association. Thus, Indian Bank’s Association (IBA),
+Association of Mutual Funds in India (AMFI), Association of National Exchanges
+Members of India (ANMI), Stock Exchanges, Depositories, Fixed Income Money Market
+and Derivatives Association (FIMMDA), Foreign Exchange Dealers Association of India
+(FEDAI), Life Insurance Council, General Insurance Council, etc. may have to play an
+important role in financial education by undertaking general awareness campaigns or
+tby ensuring availability of literature comparing the available alternatives at the points of
+sale.
+
+ The crucial part of product education, however, lies with the manufacturer of the
+product. For financial products, it would be banks, insurance companies, mutual funds,
+stock exchanges, pension funds and commodity exchanges who may have to take the
+responsibility of educating the buyers about the appropriateness of the product,
+performance under various possible scenarios, charge structure, etc. through simple
+examples. Product education can be, and should be, delivered primarily at the point of
+sale.
+The role of regulators will be to ensure that product manufacturers under their
+jurisdiction impart product education in general and at points of sale in particular.
+Further, regulators will have to ensure that product education is comprehensive, simple
+and factual.
+
+                                    B. Content of Financial Education
+1. Attitude
+Financial education must seek to impart responsible attitude towards money and
+finance. In certain population groups, not caring for the future and living for the moment
+might be the dominating values. Such attitudes are inimical to long term financial well
+being.
+2. Financial Competencies
+Core financial competencies, such as, interest calculation, compounding, time value of
+money, etc., need to be identified and suitably incorporated in financial education
+                                                               20
+
+material. Achieving core financial competencies should be the primary aim of financial
+education.
+3. Risk Assessment and Confidence
+Most of the time people are not able to achieve financial well being because of their
+inability to properly assess the risk. They lack the confidence to take risk and their
+financial assets consistently underperform. Building such confidence should also be part
+of financial education.
+4. Awareness Regarding Available Grievance Redressal Mechanisms
+Apart from the existence of an effective grievance redressal mechanism, it is important
+that investors/consumers are indeed aware of various consumer protection and
+grievance redressal mechanisms available to them. It is very important that the
+investors are aware of whom and where to approach in case of a dispute/ grievance.
+This would lead to enhancing the confidence of investors and may primarily be the
+responsibility of regulators, Ministry of Finance,Ministry of Consumer Affairs, etc.
+Investor grievance redressal mechanism may be a topic in all the components of
+financial education, that is, in basic financial education in sector focused financial
+education, and in product education.
+
+                                    C. Financial Education for women
+As per the World Bank's latest World Development Report (2012 World Development Report on
+Gender Equality and Development ), women represent 40% of the world’s labor force but hold
+just 1% of the world’s wealth. The women of rural India is no exception and are often left
+behind by the traditional financial system which includes savings at home, loans from
+money lenders etc. It is agreed that improving access to economic opportunities for
+women acts as one of the key priority areas for development of an economy and
+financial inclusion. Hence, as said " You educate a man; you educate a man. You educate a
+woman; you educate a generation", women as a target group will be prioritized during the
+first phase considering that there are matriarchal societies in our country.
+
+                                 D. Financial Education for the Illiterate
+Illiterate persons are in dire need of financial education. Illiterate people need not have
+to wait for alphabet knowledge as money has its own language, in as much as even the
+illiterates understand the importance, value and use of money. The traditional
+                                                               21
+
+curriculum, methodology and delivery channels have to be different and innovative to
+impart financial education to the illiterate. As argued earlier, simple messages
+advocating financial prudence like importance of savings, borrowing within limits and
+using formal financial intermediaries, may be brought out for them. Methodologies
+employed for adult education, such as role play, charts, informal discussions, games,
+and other audiovisual modes of communication, would be ideal for such groups.
+
+                           E. Financial Education for the Differently Abled
+The differently abled account for nearly 10 percent of the Indian population and number
+approximately 100 million. They are possibly the most marginalised section of the
+society with respect to access to, and information on, financial products. It is very
+important to recognise the right of differently abled to financial education and set out
+specific strategy for customisation of financial education programmes, content, delivery
+channels etc. for them.
+
+                            F. Delivery Channels for Financial Education
+1. School Curriculum
+Governments have recognised that financial education should start at school and that
+people should be educated about financial matters as early as possible in their lives.
+OECD has developed guidelines aimed at providing high-level international and non-
+binding guidance to assist policymakers and interested stakeholders in designing,
+introducing and developing efficient financial education programmes in schools. The
+guidelines specify a consistent and suitable framework for integration of financial
+education into school curricula. These guidelines can be adapted as necessary for
+developing curriculum while keeping in mind national requirements and diversity of
+educational systems.
+It needs to be clearly specified that financial education would not be another subject
+taught in schools. Rather, financial education needs to be appropriately integrated into
+the school curriculum. For instance, Arithmetic curriculum in school already has
+elements of financial education as it explains concepts such as percentage, interest,
+compounding, discount, etc. These need to be presented in a setting wherein the
+teachers can make the students identify their day-to-day transactions/financial dealings.
+Similarly, moral science courses could have content which will promote prudent
+financial behavior.
+                                                               22
+
+Financial education is an important life skill. Therefore, students should be equipped
+with these necessary life skills, without which education would be incomplete. In India,
+there are many who do not get an opportunity to study beyond school levels. This is
+truer in case of girl students. One must keep it in mind that for such students, this could
+be the last opportunity in life to get formal inputs on financial education. An annex
+indicating probable topics for school curriculum is enclosed.
+The Central Board of Secondary Education (CBSE) in India has appreciated the need of
+financial literacy in building capacity to handle personal finance in an informed and
+skilful way. It is heartening to note that CBSE has agreed, in principle, to introduce it in
+an integral manner in school education (Post Primary Level) and to facilitate the
+process, a committee of experts has been constituted.
+2. Social Marketing
+Various Ministries of Government of India have undertaken commendable programmes
+of social marketing, such as, polio and small pox eradication, prevention of child
+marriage, preventing female foeticide, etc. These campaigns can serve as models for
+undertaking social marketing initiatives in financial education.
+There is a possibility of making use of -
+
+     Dedicated Financial Education websites
+     Newspapers
+     Radio and Television
+     Use of Social Networking Websites like Facebook and Twitter
+     Books / magazines in ‘Cartoon Format’ for young people
+3. Resource Persons
+SEBI engages Resource Persons across the country to impart financial education to
+various target groups. This initiative needs to be taken further and scaled up
+exponentially. Another easily scalable model as mentioned earlier for large sections of
+poor people could be conducting literacy courses across the country through rural
+branches and Lead District Managers of banks.
+4. Adult Education
+Financial education should form an integral part of adult education.
+5. Self Help Groups
+                                                               23
+
+Self Help Groups (SHGs), by their design, have helped spread financial education. SHG
+discipline requires groups to maintain accounts, make budgets and repay the loans.
+These are basic values in financial education. The good work needs to be carried
+forward and put on a firm basis.
+6. Microfinance Institutions
+Many NGOs have been running successful financial education programmes for their
+borrowers. These programmes need to be dovetailed to the overall strategy for people
+in other areas.
+7. Integrated Communication Channels
+While channels like TV, radio, news papers and internet should be exploited fully for
+financial education, there is a need to also leverage existing extension works and
+projects carried out by various Ministries, such as, the Ministry of Agriculture’s
+efforts to spread knowledge through panchayats, etc., for promoting financial
+education.
+
+8. Helpline
+There is a need for multi lingual, toll free helplines where an investor/ customer / client
+can call and get friendly assistance / support. All regulators can think of a helpline, if
+they have not already done so. It can play an important role in financial education.
+9. Other Channels
+There is a possibility of making use of other established channels, such as, consumer
+associations, investors associations, association of policy holders and depositors’
+association. These associations are already working towards making their members
+aware of their rights and responsibilities in a particular product category. They can
+further the cause of financial education. Stock exchanges, Association of Mutual Funds
+in India (AMFI), Association of National Exchanges Members of India (ANMI),
+depositories, Self Regulatory Organisations (SROs) associated with regulators,
+regulated intermediaries like banks, depository participants, brokers, pension fund
+managers, annuity service providers, etc., can play an important part in making a
+person financially educated. They can make their consumers/ clients / investors aware
+of their rights and responsibilities. This can be done as part of product marketing.
+                                                               24
+
+Professional institutes like Institute of Chartered Accountants of India (ICAI), Institute of
+Company Secretaries of India (ICSI), Institute of Costs Accountants of India (ICAI), etc.
+too can play a significant role in promoting financial education.
+
+                                                   Section IV
+                                               A. Institutional Arrangement
+The national strategy is sought to be implemented through existing institutional
+mechanism. The existing Technical Group of the Sub-Committee of FSDC on Financial
+Inclusion and Financial Literacy could be morphed into this. This group may be
+responsible for periodic monitoring and implementation of National Strategy for
+Financial Education
+A national level institute named, National Centre for Financial Education (NCFE) may
+be established as a specialised institute under National Institute of Securities Markets
+(NISM) to begin with. This institute may report to the Technical Group for
+Implementation of National Strategy for Financial Education.
+Representatives of the regulators may be members of the NCFE. All regulators may
+provide funds and manpower to NCFE for implementation of National Strategy for
+Financial Education
+The main role of NCFE may be to create financial education material for financial
+sector. NCFE may also create and maintain a website exclusively for financial
+education. The websites of all the regulators and the respective Ministries may provide
+a link to the NIFE website. NCFE website may have the details of various education
+programmes conducted across the country, financial education materials, including
+brochures, FAQs, videos, etc. All educative materials prepared by individual
+organisations may also be made available on the NCFE website. The website may be a
+one-stop repository for all financial education activities and materials. The website may
+also be made available in various regional languages.
+                                                               25
+
+The proposed institutional flow chart is:
+
+                                                           FSDC
+                                                    S
+                                           Sub-Committee of FSDC
+
+            Technical Group on Financial Inclusion and Financial Literacy
+
+     MoF for       Other       RBI         Representatives from  SEBI  IRDA              PFRDA  FMC
+  Facilitation /                            CBSE, NCERT and
+   MHRD for        Ministries
+Implementation                                  two SCERTs
+
+  Basic Financial         Basic (FE) for                               Basic (FE) for adults
+  Education (FE)               adults                                  Sector specific
+ through schools
+                          Sector specific
+                                                                       Product specific
+                               Product
+                               specific
+
+                                           NCFE
+
+  Maintenance of               Development       Research              Data collection
+financial education              of content                            and monitoring
+
+       website
+                                                               26
+
+                                                    Section V
+                                                    Guidance
+Guidance to Regulators
+     Extend help to National Centre for Financial Education (NCFE) in designing the
+         content of basic financial literacy programmes.
+     Provide domain expertise to NCFE by deputing experts to NIFE for short
+         duration.
+     Extend help to NCFE by acting as interlocutor and facilitator between NIFE and
+         the regulated entities.
+     Use their resources for spreading financial education, both basic and sector
+         specific through various channels.
+     Create a financial education cell or department to outline the content of the
+         sector specific financial education that would serve as source material for both
+         NCFE and commercial financial institutions.
+     In areas where there is no active industry association, the regulators may also
+         develop the content for financial education.
+     Create clear guidelines for product development by commercial financial
+         institutions and lay down parameters for product education.
+     They should submit reports in prescribed formats to NCFE on a regular basis on
+         their activities in the field of financial education.
+Guidance to Industry Associations
+      Develop the content for sector specific financial education within the framework
+         laid down by the sectoral regulator. The content should be freely shared through
+         a website accessible to all.
+      Use resources to spread financial education, both basic financial literacy and
+         sector specific financial education through various channels on their own accord
+         and through the good offices of their members.
+      While conducting a programme on basic financial literacy, use the content
+         developed by NCFE.
+      Eensure that their resources are not used for promoting specific products.
+                                                               27
+
+      Submit reports in prescribed formats to NIFE on a regular basis on their activities
+         in the field of financial education.
+
+Guidance to Commercial Financial Institutions, including Microfinance Institutions
+      Understand that their most important contribution to financial education is
+         through a professional level product education that will allow the consumers to
+         make informed choices.
+      They may, as a part of their corporate social responsibility, help the industry
+         association in spreading both basic financial literacy and sector specific financial
+         education. However, they have to strictly adhere to the content developed by
+         NCFE and industry associations / sectoral regulator.
+      Submit reports in prescribed formats to NCFE on a regular basis on their
+         activities in the field of financial education.
+
+Guidance to Self Help Groups and Others
+     They may participate in spreading financial education, both basic financial
+         literacy and sector specific education as per their inclination. However, they
+         should strictly use the content developed by the NCFE and the industry
+         association / sectoral regulator.
+     They should submit reports in prescribed formats to NCFE on a regular basis on
+         their activities in the field of financial education.
+
+Guidance to Other Authorities
+     Other authorities, such as, education boards, agricultural and health extension
+         services may also like to participate and extend their infrastructure in spreading
+         financial education. While making these efforts they should, however, use the
+         content developed by NCFE or the industry association/ sectoral regulator.
+                                                               28
+
+                                                   Section VI
+    1. Comments on the draft Indian National strategy on Financial Education - OECD
+
+General Comments:
+
+The document provides a fair and solid analysis of why a national strategy on financial
+education is needed in India, who are the main stakeholders involved so far, who may be
+the main target audiences and content of the national strategy in keeping with the overall
+structure of the OECD/INFE high level principles. The document also usefully defines some
+objectives and time frame for the strategy, a coordination structure as well as stakeholders
+responsible for the implementation of the strategy.
+
+Depending on the objective of this document, it could be further developed and possibly
+more rigorously articulated in order to provide a more operational roadmap which could
+then be used during the implementation phase of the strategy. The detailed comments
+below offer some guidance on how to do this based on the review of other National
+strategies.
+
+Detailed comments
+
+     The document should include a table of contents to guide the reader ( some editing
+         may also be needed)
+
+     Some figures on the level of financial inclusion and literacy as well as households’
+         financial behaviours and status would nicely illustrate the first section.
+
+     There is some discussion about the types of information and knowledge that people
+         require. This could be expanded and used to set specific and predetermined
+         objectives with clearly stated timeframes. It may also be relevant within the list of
+         key components (p5) to list ‘how’ questions, in order to cover essential skills.
+
+     There is some discussion of target groups. Further information could be provided to
+         indicate why these have been chosen as priorities, and how the strategy intends to
+         reach them.
+
+     There is some discussion on objectives and time frame. This section could be
+         developed to provide a more operational action plan for the various involved
+                                                          29
+
+    stakeholders (clear objectives for each stakeholder with a timetable for action). This
+    section can come after the section which defines the institutional mechanisms
+ Product education: this section should highlight the risk of conflict of interest and
+    discuss ways through which financial institutions can effectively deliver education
+    the development of codes of conduct for the industry may be considered. The link
+    with financial consumer protection could be more clearly stressed
+ The section on coordination/institutional mechanisms should be further elaborated
+    as this is an essential part of the strategy and it efficient implementation. The role
+    and composition of the NIFE and how it will be funded should in particular be
+    developed and clarified. In addition, the rationale for the creation of the NIFE should
+    be further elaborated as well as its relation with other regulators activity in the area
+    of financial education. The activity of the NIFE will also have to be monitored and
+    supervised to ensure the high quality of financial education.
+ The proposed institutional flowchart is illustrative. It would benefit from further
+    discussion in the text to explain how the proposed chart was developed and how the
+    structure would be implemented and governed i.e. how contact between the various
+    institutions would be maintained and how supervision would work in practice. The
+    document could further explain how each of these sets of stakeholders could work
+    in a synchronised way.
+ The guidance should also encourage the organisations to set objectives/targets, and
+    evaluate against these.
+ A way to evaluate the efficiency of the National strategy and the activities of the
+    various stakeholders should be discussed. Usually, this is done through regular
+    national surveys on financial literacy or the development of a specific financial
+    literacy indicator (see New Zealand and South Africa).
+
+Implementation could be covered in greater detail:
+
+ There is no discussion of financial resources needed for implementation. This is a
+    critical part of the National strategy and one which would be worth at least
+    mentioning.
+
+ Some delivery methods are mentioned; this could be expanded.
+                                                               30
+
+     Further discussion in relation to training the trainers may be helpful, given the
+         range of stakeholders who may be expected to provide financial education.
+
+    2. Comments on the draft Indian National strategy on Financial Education –
+         Financial Services Board of South Africa
+
+The National Strategy for Financial Education in India is a comprehensive document with a very
+ambitious set of proposals. It provides extensive detail regarding the need to increase the levels of
+financial literacy of people in India, subsequent benefits, some current initiatives, identifying needs,
+who should be involved in the further provision of financial literacy programmes, target groups,
+possible topics, delivery mechanisms and institutional arrangements for driving the
+implementation of the strategy.
+
+The impression gained from reading the document, however, is that is more of a proposal rather
+than a strategy. It suggests what could and should happen, who should be involved, possible topics
+for inclusion in schools, an indicative list of stakeholders, the possibility of a nationwide survey
+being carried out by different regulators under the auspices of NCAER, etc. A final strategy could
+look a lot different once all the stakeholders mentioned have met and identified the strengths and
+weaknesses of the FSDC as a coordinating agency, decided how fund will be sourced, estimated
+what funding will be available. Strategic measures that are feasible, achievable and measurable
+could then be identified that will give a strategic document more credibility and feasibility.
+
+It is not clear whether the proposed agencies have met and if not, this document may be somewhat
+premature and could have more credence if it were compiled once the proposed agencies and
+stakeholders have met and agreed on:
+
+     Who will have ownership of the strategy and be responsible for its implementation i.e. who
+         specifically will coordinate efforts and their roles and responsibilities are clarified.
+
+     Financial education needs are identified and a responsive framework of learning outcomes
+         compiled.
+
+     Sources of funding are identified and availability confirmed.
+     How the sample surveys will be coordinated and how they will be used to form a composite
+
+         national needs analysis.
+     A clear definition of the concepts of financial literacy within an Indian context. A long list of
+
+         topics applicable to both the community and learners in schools currently provided needs
+         to be prioritised and certainty provided as to why these topics are selected. Perhaps an
+                                                           31
+
+      overarching framework of financial literacy competencies needs to be developed that will
+      promote financial inclusion within a regulated financial environment.
+  How the defined financial literacy competencies need to be developed and how they will be
+      used to promote inclusion.
+
+  Key deliverables and their timelines for implementation.
+
+The points raised in the peer reviews are taken on board. It is noted that, most of these or the underlying
+issues have been discussed by the technical committee which has drawn up the National Strategy for Financial
+Education having representation from all regulators and the Government of India along with special invitees
+from boards setting academic standards in schools(CBSE etc.), organisations like NCERT, NCAER etc. and
+National Institute of Securities Markets which will act as the initial agency for implementation of the strategy.
+
+Further, as suggested in the peer reviews, the following changes have been incorporated in the document
+     The document includes a table of content to guide the reader. The said section details the flow and
+         sequence of all the chapters and section of the document
+     Brief details of the genesis of the document and the contributions of the various stakeholders have
+         been highlighted in the 'Acknowledgement' section. This also elaborates on the process followed till
+         date.
+
+It is reiterated that this document is a result of all regulators and Government of India having a common
+agenda of core financial education to all. Regarding the issue of funding, though a consensus has already
+emerged that the same would be contributed by all the regulators. Further, regarding the implementation of
+the strategy, ownership and coordinating the efforts and the role of stakeholders, Core committee formed with
+members from all regulators will be responsible who will finally report to FSDC chaired by Hon'ble Finance
+Minister of the country.
+
+The results of the national survey proposed will help us detailing the strategy to the extent as suggested in the
+peer review to address the concerns regarding target groups, detailed action plan, time frame etc. will get
+redressed. A committee has been formed to look into the various aspects of the survey including the
+questionnaire, sample size, methods of sampling and subsequent evaluation after implementation of the
+strategy.
+

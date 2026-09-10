@@ -24,7 +24,12 @@ export interface DependencyState {
   description: string;
   port: number;
   required: boolean;
+  downMessage?: string;
   up: boolean;
+  /** What it is actually doing, for a dependency that can say more than "the port is open". */
+  detail?: string;
+  /** Listening, but not usable -- Qdrant running with nothing indexed answers every lookup emptily. */
+  degraded?: boolean;
 }
 
 export interface LogLine {
@@ -78,6 +83,51 @@ export function probe(port: number, timeoutMs = 400): Promise<boolean> {
     socket.connect(port, "127.0.0.1");
   });
 }
+
+/** Long enough for a cold start off disk, short enough that a broken one does not hold the stack. */
+const DEPENDENCY_START_TIMEOUT_MS = 20_000;
+
+/** Read from the corpus manifest, so the app and the indexer cannot disagree about the name. */
+function guidanceCollection(): string {
+  const fallback = "jarvis_financial_guidance";
+  try {
+    const raw = fs.readFileSync(path.join(repoRoot(), "corpus", "manifest.json"), "utf8");
+    return (JSON.parse(raw) as { collection?: string }).collection ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Asks a running dependency whether it can actually serve anything.
+ *
+ * Only Qdrant needs this today. It is the one piece of the stack that fails silently: with no
+ * collection, or an empty one, every guidance lookup returns no hits and the assistant simply
+ * stops citing sources -- no error anywhere, and a green dot saying all is well.
+ */
+const DETAIL_PROBES: Record<string, (port: number) => Promise<Partial<DependencyState>>> = {
+  qdrant: async (port) => {
+    const collection = guidanceCollection();
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/collections/${collection}`, {
+        signal: AbortSignal.timeout(1500),
+      });
+      if (res.status === 404) {
+        return { detail: `No "${collection}" collection — run the indexer`, degraded: true };
+      }
+      if (!res.ok) {
+        return { detail: `Qdrant answered ${res.status}`, degraded: true };
+      }
+      const body = (await res.json()) as { result?: { points_count?: number } };
+      const points = body.result?.points_count ?? 0;
+      return points > 0
+        ? { detail: `${points.toLocaleString()} guidance chunks indexed` }
+        : { detail: "Collection is empty — run the indexer", degraded: true };
+    } catch {
+      return { detail: "Listening, but its API did not answer", degraded: true };
+    }
+  },
+};
 
 /**
  * Kill whatever holds a port.
@@ -142,13 +192,23 @@ export class Supervisor extends EventEmitter {
   }
 
   /**
-   * Postgres and Ollama, which the stack needs but does not own. Watched, never started: they are
-   * Windows services in their own right, and starting them is not this window's business.
+   * Postgres, Ollama and Qdrant, which the stack needs but does not own. Watched, never started:
+   * they run in their own right, and starting them is not this window's business.
+   *
+   * An open port is only the first question. Where a dependency can answer the second one -- is it
+   * actually able to serve anything? -- we ask, because a green dot on an empty Qdrant would say
+   * the guidance lookups are fine when every one of them is quietly coming back with nothing.
    */
   async dependencies(): Promise<DependencyState[]> {
     const deps = loadStack().dependencies;
     const up = await Promise.all(deps.map((d) => probe(d.port)));
-    return deps.map((d, i) => ({ ...d, up: up[i] }));
+    return Promise.all(
+      deps.map(async (d, i) => {
+        const state: DependencyState = { ...d, up: up[i] };
+        const detail = up[i] ? DETAIL_PROBES[d.name] : undefined;
+        return detail ? { ...state, ...(await detail(d.port)) } : state;
+      }),
+    );
   }
 
 
@@ -303,21 +363,22 @@ export class Supervisor extends EventEmitter {
    */
   async startAll(): Promise<void> {
     if (this.busy) return;
-
-    // Without Postgres every service dies on its first migration, and eight failing services are a
-    // far worse thing to hand someone than one clear line saying what is missing.
-    const missing = (await this.dependencies()).filter((d) => d.required && !d.up);
-    if (missing.length) {
-      for (const d of missing) {
-        this.log("control-center", `[control-center] ${d.label} is not listening on ${d.port} - nothing started`);
-      }
-      this.emit("state");
-      return;
-    }
-
     this.busy = true;
     this.emit("state");
     try {
+      // Bring up what we know how to start before deciding anything is missing.
+      await this.startDependencies();
+
+      // Without Postgres every service dies on its first migration, and eight failing services are a
+      // far worse thing to hand someone than one clear line saying what is missing.
+      const missing = (await this.dependencies()).filter((d) => d.required && !d.up);
+      if (missing.length) {
+        for (const d of missing) {
+          this.log("control-center", `[control-center] ${d.label} is not listening on ${d.port} - nothing started`);
+        }
+        return;
+      }
+
       const started: Entry[] = [];
       for (const entry of this.entries()) {
         if (await probe(entry.port)) continue;
@@ -333,6 +394,48 @@ export class Supervisor extends EventEmitter {
     } finally {
       this.busy = false;
       this.emit("state");
+    }
+  }
+
+  /**
+   * Start the dependencies that declare how to be started, and only those.
+   *
+   * Started detached and deliberately never stopped again: a store outlives the stack that reads
+   * it, and on this machine Qdrant also holds collections belonging to other projects, so tearing
+   * it down with the stack would take those with it.
+   */
+  private async startDependencies(): Promise<void> {
+    for (const dep of loadStack().dependencies) {
+      if (!dep.start || (await probe(dep.port))) continue;
+
+      const exe = dep.start.command;
+      if (!fs.existsSync(exe)) {
+        this.log("control-center", `[control-center] ${dep.label}: ${exe} not found - skipped`);
+        continue;
+      }
+
+      this.log("control-center", `[control-center] starting ${dep.label} on port ${dep.port}`);
+      try {
+        const child = spawn(exe, dep.start.args ?? [], {
+          cwd: dep.start.cwd ?? path.dirname(exe),
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        child.unref();
+      } catch (e) {
+        this.log("control-center", `[control-center] ${dep.label} would not start: ${String(e)}`);
+        continue;
+      }
+
+      const until = Date.now() + DEPENDENCY_START_TIMEOUT_MS;
+      while (Date.now() < until && !(await probe(dep.port))) await sleep(500);
+      this.log(
+        "control-center",
+        (await probe(dep.port))
+          ? `[control-center] ${dep.label} is up`
+          : `[control-center] ${dep.label} did not open port ${dep.port} - carrying on without it`,
+      );
     }
   }
 
