@@ -46,8 +46,9 @@ jobs:
           TAG="${{ inputs.tag || github.ref_name }}"
           VERSION="${TAG#v}"
           # IST, not the runner's UTC: an evening tag in India would otherwise be titled with
-          # yesterday's date.
-          DATE="$(TZ=Asia/Kolkata date +%Y-%m-%d)"
+          # yesterday's date. Done as offset arithmetic rather than TZ=Asia/Kolkata so it does not
+          # depend on tzdata being present.
+          DATE="$(date -u -d '+5 hours 30 minutes' +%Y-%m-%d)"
           # Android needs a monotonic integer; the run number gives us one for free.
           VERSION_CODE="$(( 1000 + GITHUB_RUN_NUMBER ))"
           # Semver says a hyphen means pre-release - which is also what a throwaway test tag looks like.
