@@ -141,7 +141,7 @@ def write_merged(suites, path):
     ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
 
 
-def write_markdown(suites, path, version):
+def write_markdown(suites, path, tag):
     agg = totals(suites)
     broken_count = agg["failed"] + agg["errored"]
     verdict = "All tests passed" if broken_count == 0 else "Tests failed"
@@ -193,8 +193,8 @@ def write_markdown(suites, path, version):
         lines += ["", "</details>", ""]
 
     lines.append(
-        "Full report: `jarvis-%s-test-report.html` in the assets below, with the raw JUnit XML "
-        "in `jarvis-%s-test-reports.zip`." % (version, version)
+        "Full report: `jarvis-test-report-%s.html` in the assets below, with the raw JUnit XML "
+        "in `jarvis-test-reports-%s.zip`." % (tag, tag)
     )
     lines.append("")
     with open(path, "w", encoding="utf-8") as fh:
@@ -366,7 +366,7 @@ def main():
     if args.html:
         write_html(suites, args.html, args.version, args.tag, args.repo, args.run_url)
     if args.markdown:
-        write_markdown(suites, args.markdown, args.version)
+        write_markdown(suites, args.markdown, args.tag or args.version)
     if args.merged:
         write_merged(suites, args.merged)
 

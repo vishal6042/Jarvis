@@ -109,21 +109,31 @@ jobs:
           path: test-xml/services
           if-no-files-found: error
 
+      # One zip rather than nine loose jars: the stack only runs with all of them, zipping costs
+      # nothing (fat jars are already compressed - 547MB becomes 488MB), and the launchers can
+      # ride along so the archive is runnable as it stands.
       - name: Package the jars
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
-          STAGE="stage/jarvis-services-$VERSION"
-          mkdir -p "$STAGE/jars"
+          TAG="${{ needs.meta.outputs.tag }}"
+          STAGE="stage/jarvis-services-$TAG"
+          mkdir -p "$STAGE/jars" dist
           # Boot jars sit directly in target/; the pre-repackage copies are *.jar.original and
           # do not match this glob.
           find services -type f -name "*.jar" -path "*/target/*" ! -path "*/target/*/*" \
-               ! -name "*-sources.jar" ! -name "*-javadoc.jar" -exec cp {} "$STAGE/jars/" \;
+               ! -name "*-sources.jar" ! -name "*-javadoc.jar" | while read -r jar; do
+            module="$(basename "$(dirname "$(dirname "$jar")")")"
+            case "$module" in
+              # The one module that is a library rather than a runnable service.
+              common-security) out="jarvis-lib-common-security-$TAG.jar" ;;
+              *)               out="jarvis-service-${module%-service}-$TAG.jar" ;;
+            esac
+            cp "$jar" "$STAGE/jars/$out"
+          done
           cp services/services.json services/start-all.ps1 services/service-list.ps1 "$STAGE/"
           cp services/README.md "$STAGE/" 2>/dev/null || true
-          echo "Jarvis $VERSION - built from ${{ needs.meta.outputs.tag }}" > "$STAGE/VERSION.txt"
+          echo "Jarvis $TAG - built from ${{ needs.meta.outputs.tag }}" > "$STAGE/VERSION.txt"
           ls -1 "$STAGE/jars"
-          mkdir -p dist
-          (cd stage && zip -qr "../dist/jarvis-services-$VERSION.zip" "jarvis-services-$VERSION")
+          (cd stage && zip -qr "../dist/jarvis-services-$TAG.zip" "jarvis-services-$TAG")
 
       - uses: actions/upload-artifact@v4
         with:
@@ -156,9 +166,9 @@ jobs:
 
       - name: Package
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
+          TAG="${{ needs.meta.outputs.tag }}"
           mkdir -p dist
-          (cd frontend/dist && zip -qr "$GITHUB_WORKSPACE/dist/jarvis-web-$VERSION.zip" .)
+          (cd frontend/dist && zip -qr "$GITHUB_WORKSPACE/dist/jarvis-web-$TAG.zip" .)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -200,13 +210,13 @@ jobs:
       - name: Name the installer after the release
         shell: bash
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
+          TAG="${{ needs.meta.outputs.tag }}"
           mkdir -p dist
           SETUP="$(find desktop/release -maxdepth 1 -name "*Setup*.exe" | head -1)"
           if [ -z "$SETUP" ]; then
             echo "electron-builder produced no installer:"; ls -la desktop/release; exit 1
           fi
-          cp "$SETUP" "dist/Jarvis-Control-Center-Setup-$VERSION.exe"
+          cp "$SETUP" "dist/jarvis-desktop-$TAG.exe"
           ls -la dist
 
       - uses: actions/upload-artifact@v4
@@ -282,13 +292,13 @@ jobs:
 
       - name: Name the APK after the release
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
+          TAG="${{ needs.meta.outputs.tag }}"
           mkdir -p dist
           APK="$(find android/app/build/outputs/apk -name "*.apk" ! -name "*unsigned*" | head -1)"
           if [ -z "$APK" ]; then
             echo "no installable APK was produced:"; find android/app/build/outputs -type f; exit 1
           fi
-          cp "$APK" "dist/jarvis-sync-$VERSION.apk"
+          cp "$APK" "dist/jarvis-android-$TAG.apk"
           ls -la dist
 
       - uses: actions/upload-artifact@v4
@@ -315,17 +325,17 @@ jobs:
 
       - name: Aggregate every JUnit XML
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
+          TAG="${{ needs.meta.outputs.tag }}"
           mkdir -p report/raw
           # Keep the untouched Surefire/Gradle XML alongside the merged one; that raw form is what
           # other tools ingest.
           cp -r test-xml/. report/raw/
           python3 .github/scripts/junit_report.py test-xml \
-            --version "$VERSION" \
-            --tag "${{ needs.meta.outputs.tag }}" \
+            --version "${{ needs.meta.outputs.version }}" \
+            --tag "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            --html "report/jarvis-$VERSION-test-report.html" \
+            --html "report/jarvis-test-report-$TAG.html" \
             --markdown "report/test-summary.md" \
             --merged "report/raw/junit-merged.xml" \
             --fail-on-failure
@@ -339,11 +349,17 @@ jobs:
       - name: Package the raw JUnit XML
         if: always()
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
-          mkdir -p dist
-          cp "report/jarvis-$VERSION-test-report.html" dist/ 2>/dev/null || true
-          cp report/test-summary.md dist/
-          (cd report/raw && zip -qr "$GITHUB_WORKSPACE/dist/jarvis-$VERSION-test-reports.zip" .)
+          TAG="${{ needs.meta.outputs.tag }}"
+          mkdir -p dist report/raw
+          cp "report/jarvis-test-report-$TAG.html" dist/ 2>/dev/null || true
+          # If the aggregation itself fell over there is nothing to summarise; leave a placeholder
+          # rather than failing here, so the gate step below is what reports the problem.
+          if [ -f report/test-summary.md ]; then
+            cp report/test-summary.md dist/
+          else
+            printf '## Test results\n\nNo JUnit XML reached the report job.\n' > dist/test-summary.md
+          fi
+          (cd report/raw && zip -qr "$GITHUB_WORKSPACE/dist/jarvis-test-reports-$TAG.zip" .)
           ls -la dist
 
       - uses: actions/upload-artifact@v4
@@ -378,12 +394,19 @@ jobs:
       - name: Gather the assets
         id: assets
         run: |
-          VERSION="${{ needs.meta.outputs.version }}"
-          mkdir -p assets
+          TAG="${{ needs.meta.outputs.tag }}"
+          # Deliberately not `assets/` - the repo already has one (the brand SVGs), and staging
+          # into it both sweeps those into the release and breaks the checksum glob on its
+          # subdirectory.
+          OUT=release-assets
+          mkdir -p "$OUT"
           find incoming -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.apk" -o -name "*.html" \) \
-            -exec cp {} assets/ \;
-          (cd assets && sha256sum * > "jarvis-$VERSION-checksums.txt")
-          ls -la assets
+            -exec cp {} "$OUT/" \;
+          # Hashed into RUNNER_TEMP first: redirecting into the directory being hashed would put
+          # the half-written checksum file in its own glob.
+          (cd "$OUT" && sha256sum $(ls) > "$RUNNER_TEMP/checksums.txt")
+          mv "$RUNNER_TEMP/checksums.txt" "$OUT/jarvis-checksums-$TAG.txt"
+          ls -la "$OUT"
 
           # A markdown table of what is attached, for the release body.
           {
@@ -391,18 +414,18 @@ jobs:
             echo
             echo "| File | What it is | Size |"
             echo "|---|---|--:|"
-            for f in assets/*; do
+            for f in "$OUT"/*; do
               name="$(basename "$f")"
               size="$(du -h "$f" | cut -f1)"
               case "$name" in
-                jarvis-services-*.zip)   what="All 9 Spring Boot service jars, plus \`services.json\` and the PowerShell launchers" ;;
-                jarvis-web-*.zip)        what="The React PWA, built for production (static files)" ;;
-                *Setup*.exe)             what="Jarvis Control Center installer (Windows x64, NSIS)" ;;
-                *.apk)                   what="Jarvis Sync for Android (sideload, API 26+)" ;;
-                *test-report.html)       what="Readable test report for this build" ;;
-                *test-reports.zip)       what="Raw JUnit XML from Surefire and Gradle, plus a merged \`junit-merged.xml\`" ;;
-                *checksums.txt)          what="SHA-256 of every file above" ;;
-                *)                       what="—" ;;
+                jarvis-services-*.zip)  what="All 9 Spring Boot service jars, plus \`services.json\` and the PowerShell launchers" ;;
+                jarvis-web-*.zip)       what="The React PWA, built for production (static files)" ;;
+                jarvis-desktop-*.exe)   what="Jarvis Control Center installer (Windows x64, NSIS)" ;;
+                jarvis-android-*.apk)   what="Jarvis Sync for Android (sideload, API 26+)" ;;
+                jarvis-test-report-*)   what="Readable test report for this build" ;;
+                jarvis-test-reports-*)  what="Raw JUnit XML from Surefire and Gradle, plus a merged \`junit-merged.xml\`" ;;
+                jarvis-checksums-*)     what="SHA-256 of every file above" ;;
+                *)                      what="—" ;;
               esac
               echo "| \`$name\` | $what | $size |"
             done
@@ -428,13 +451,17 @@ jobs:
         run: |
           TAG="${{ needs.meta.outputs.tag }}"
           TITLE="${{ needs.meta.outputs.title }}"
+          # Written as an if, not `[ ... ] && FLAGS=...`: the step runs under `set -e`, where a
+          # false test on the last line of a && chain would abort every non-prerelease tag.
           FLAGS=""
-          [ "${{ needs.meta.outputs.prerelease }}" = "true" ] && FLAGS="--prerelease"
+          if [ "${{ needs.meta.outputs.prerelease }}" = "true" ]; then
+            FLAGS="--prerelease"
+          fi
 
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --notes-file notes.md $FLAGS
-            gh release upload "$TAG" assets/* --clobber
+            gh release upload "$TAG" release-assets/* --clobber
           else
-            gh release create "$TAG" --title "$TITLE" --notes-file notes.md $FLAGS assets/*
+            gh release create "$TAG" --title "$TITLE" --notes-file notes.md $FLAGS release-assets/*
           fi
           echo "Published: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG"

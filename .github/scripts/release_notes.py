@@ -123,23 +123,23 @@ def main():
     out.append("## Installing")
     out.append("")
     out.append(
-        "1. **Backend** — needs JDK 21 and PostgreSQL 18. Drop the `*.jar` files from "
-        "`jarvis-services-*.zip` somewhere and start them in the order listed in "
-        "`services/services.json` (Eureka first, gateway last), or just run "
-        "`services/start-all.ps1` from a checkout of this tag."
+        f"1. **Backend** — needs JDK 21 and PostgreSQL 18. Unzip "
+        f"`jarvis-services-{args.tag}.zip`; it carries all nine jars plus `services.json` and the "
+        f"PowerShell launchers, so `./start-all.ps1` beside them brings the stack up in the right "
+        f"order (Eureka first, gateway last)."
     )
     out.append(
-        "2. **Web app** — `jarvis-web-*.zip` is a static build; serve it behind any web server, or "
-        "let the Control Center run the dev server."
+        f"2. **Web app** — `jarvis-web-{args.tag}.zip` is a static build; serve it behind any web "
+        f"server, or let the Control Center run the dev server."
     )
     out.append(
-        "3. **Desktop** — run `Jarvis Control Center Setup *.exe` (Windows x64). It starts, watches "
-        "and restarts the whole stack from one window."
+        f"3. **Desktop** — run `jarvis-desktop-{args.tag}.exe` (Windows x64). It starts, watches "
+        f"and restarts the whole stack from one window."
     )
     out.append(
-        "4. **Android** — sideload the `.apk` onto a phone on the same LAN, then point it at "
-        "`http://<PC-LAN-IP>:8080`. It is not on the Play Store: the SMS permissions it needs "
-        "are not grantable there."
+        f"4. **Android** — sideload `jarvis-android-{args.tag}.apk` onto a phone on the same LAN, "
+        f"then point it at `http://<PC-LAN-IP>:8080`. It is not on the Play Store: the SMS "
+        f"permissions it needs are not grantable there."
     )
     out.append("")
     out.append(

@@ -316,13 +316,17 @@ Attached to every release:
 
 | Asset | What it is |
 |---|---|
-| `jarvis-services-<v>.zip` | All nine service jars + `services.json` + the PowerShell launchers |
-| `jarvis-web-<v>.zip` | The React PWA, built for production |
-| `Jarvis-Control-Center-Setup-<v>.exe` | Windows x64 installer (NSIS, per-machine) |
-| `jarvis-sync-<v>.apk` | The Android app, ready to sideload |
-| `jarvis-<v>-test-report.html` | The readable test report |
-| `jarvis-<v>-test-reports.zip` | Raw JUnit XML + `junit-merged.xml` |
-| `jarvis-<v>-checksums.txt` | SHA-256 of every file above |
+| `jarvis-services-v1.0.0.zip` | All nine jars (`jarvis-service-ingestion-v1.0.0.jar` and friends) + `services.json` + the PowerShell launchers |
+| `jarvis-web-v1.0.0.zip` | The React PWA, built for production |
+| `jarvis-desktop-v1.0.0.exe` | Windows x64 installer (NSIS, per-machine) |
+| `jarvis-android-v1.0.0.apk` | The Android app, ready to sideload |
+| `jarvis-test-report-v1.0.0.html` | The readable test report |
+| `jarvis-test-reports-v1.0.0.zip` | Raw JUnit XML + `junit-merged.xml` |
+| `jarvis-checksums-v1.0.0.txt` | SHA-256 of every file above |
+
+The nine jars ship as one zip rather than nine assets: the stack only runs with all of them,
+compressing already-compressed fat jars saves only ~11% anyway, and the archive carries the
+launchers so it runs as it stands.
 
 Builds are unsigned: Windows SmartScreen and Android's installer will both warn, which is expected
 for a self-hosted personal build. Set `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
