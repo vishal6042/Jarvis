@@ -37,6 +37,9 @@ Thumbs.db
 # Claude Code local config
 .claude/
 
+# Knowledge graph built from the repo by graphify - regenerated on demand, never edited by hand
+graphify-out/
+
 # Local statement files / test data (never commit personal financial data)
 /data/
 
