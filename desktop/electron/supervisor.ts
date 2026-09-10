@@ -179,16 +179,25 @@ export class Supervisor extends EventEmitter {
   async state(): Promise<ServiceState[]> {
     const entries = this.entries();
     const up = await Promise.all(entries.map((e) => probe(e.port)));
-    return entries.map((e, i) => ({
-      name: e.name,
-      label: e.label,
-      description: e.description,
-      port: e.port,
+    return entries.map((e, i) => {
       // A port that answers is running, whoever started it. That includes a stack that was already
       // up before this window opened, which is why status is not read from our bookkeeping first.
-      status: up[i] ? "running" : (this.status.get(e.name) ?? "stopped"),
-      error: up[i] ? undefined : this.errors.get(e.name),
-    }));
+      //
+      // A port that stays shut is not running, whatever we last remembered. Trusting the memory
+      // here is how a service killed behind our back - or one whose JVM died under a wrapper that
+      // is still alive, so no exit ever reached us - went on showing a green "Running" badge.
+      // The only remembered states worth keeping are the ones that explain the silence.
+      const remembered = this.status.get(e.name) ?? "stopped";
+      const silent = remembered === "starting" || remembered === "failed" ? remembered : "stopped";
+      return {
+        name: e.name,
+        label: e.label,
+        description: e.description,
+        port: e.port,
+        status: up[i] ? ("running" as Status) : silent,
+        error: up[i] ? undefined : this.errors.get(e.name),
+      };
+    });
   }
 
   /**
@@ -324,9 +333,11 @@ export class Supervisor extends EventEmitter {
     child.once("error", (e) => this.log(entry.name, `[control-center] ${e.message}`));
     child.once("exit", (code) => {
       this.children.delete(entry.name);
-      // An exit only counts as a failure while we were still waiting for the port. A restart or a
-      // deliberate stop kills the process on purpose and has already set the status.
-      if (this.status.get(entry.name) === "starting") {
+      // A restart or a deliberate stop kills the process on purpose and has already set the
+      // status, so only those two are silent. Everything else is a death worth reporting -
+      // whether it happened while we waited for the port or hours after it opened.
+      const was = this.status.get(entry.name);
+      if (was === "starting" || was === "running") {
         this.status.set(entry.name, "failed");
         this.errors.set(entry.name, `exited with code ${code}`);
       }
