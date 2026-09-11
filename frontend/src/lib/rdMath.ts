@@ -27,6 +27,34 @@ export function monthsBetween(from: string, to: string): number {
   return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + (b.getDate() >= a.getDate() ? 0 : -1));
 }
 
+/** Yearly rise assumed in EPF contributions as salary grows - the figure used in EPFO's own calculator. */
+export const EPF_YEARLY_RAISE = 0.1;
+
+/**
+ * An EPF balance carried forward month by month: the contribution (employee + employer EPF share) is
+ * paid in, interest accrues on the running balance at rate/12 and is credited every 12 months, the way
+ * EPFO credits it once a year, and the contribution rises by EPF_YEARLY_RAISE each year.
+ */
+export function epfFutureValue(balance: number, monthly: number, months: number, annualRatePct: number) {
+  let value = balance;
+  let contributions = 0;
+  let interest = 0;
+  let accrued = 0;
+  let instalment = monthly;
+  for (let m = 1; m <= months; m++) {
+    value += instalment;
+    contributions += instalment;
+    accrued += (value * annualRatePct) / 1200;
+    if (m % 12 === 0 || m === months) {
+      value += accrued;
+      interest += accrued;
+      accrued = 0;
+    }
+    if (m % 12 === 0) instalment *= 1 + EPF_YEARLY_RAISE;
+  }
+  return { value, contributions, interest };
+}
+
 export interface MaturityProjection {
   maturityOn: string;
   totalMonths: number;
@@ -37,11 +65,39 @@ export interface MaturityProjection {
   maturityValue: number;
   interestEarned: number; // at maturity
   valueNow: number; // accrued so far
+  /** EPF only: what is still to be paid in, and the interest still to be credited, from today. */
+  contributionsToCome?: number;
+  interestToCome?: number;
 }
 
-/** Where an RD or FD will end up at maturity, from its own terms. Null when the terms are incomplete. */
+/**
+ * Where an RD or FD will end up at maturity, from its own terms, or an EPF balance at retirement.
+ * Null when the terms are incomplete.
+ */
 export function maturityProjection(inv: Investment, today = new Date()): MaturityProjection | null {
   const rate = inv.rate ?? 0;
+  if (inv.kind === "PF") {
+    // EPF matures at 58: carry today's balance forward rather than work from the account's opening terms.
+    if (!inv.maturityDate) return null;
+    const todayStr = today.toISOString().slice(0, 10);
+    const monthsLeft = monthsBetween(todayStr, inv.maturityDate);
+    if (monthsLeft <= 0) return null;
+    const monthsDone = monthsBetween(inv.commencementDate ?? inv.openingDate ?? todayStr, todayStr);
+    const fv = epfFutureValue(inv.current, inv.sip ?? 0, monthsLeft, rate);
+    return {
+      maturityOn: inv.maturityDate,
+      totalMonths: monthsDone + monthsLeft,
+      monthsDone,
+      monthsLeft,
+      deposited: inv.principal,
+      totalDeposits: inv.principal + fv.contributions,
+      maturityValue: fv.value,
+      interestEarned: fv.value - inv.principal - fv.contributions,
+      valueNow: inv.current,
+      contributionsToCome: fv.contributions,
+      interestToCome: fv.interest,
+    };
+  }
   const start = inv.commencementDate ?? inv.openingDate;
   if (!inv.maturityDate || !start) return null;
   const todayStr = today.toISOString().slice(0, 10);

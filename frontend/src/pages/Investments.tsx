@@ -8,7 +8,7 @@ import {
   type InvestmentKind,
 } from "@/lib/sample";
 import { useFamily, useInvestments } from "@/lib/store";
-import { maturityProjection } from "@/lib/rdMath";
+import { EPF_YEARLY_RAISE, maturityProjection } from "@/lib/rdMath";
 import PortfolioAnalytics from "@/components/PortfolioAnalytics";
 import CardSection from "@/components/CardSection";
 import { formatINR, formatDate } from "@/lib/format";
@@ -156,7 +156,12 @@ function InvestmentCard({
         {inv.sip ? <Row label="SIP / month" value={formatINR(inv.sip)} /> : null}
         {(() => {
           const mp = maturityProjection(inv);
-          return mp ? <Row label="At maturity" value={`${formatINR(Math.round(mp.maturityValue))} · ${formatDate(mp.maturityOn)}`} /> : null;
+          return mp ? (
+            <Row
+              label={inv.kind === "PF" ? "At 58" : "At maturity"}
+              value={`${formatINR(Math.round(mp.maturityValue))} · ${formatDate(mp.maturityOn)}`}
+            />
+          ) : null;
         })()}
         <div className="flex items-center justify-between pt-1">
           <span className="text-muted-foreground">Gain</span>
@@ -245,25 +250,39 @@ function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClo
           const mp = maturityProjection(inv);
           if (!mp) return null;
           const color = KIND_META[inv.kind].color;
+          const epf = inv.kind === "PF";
           return (
             <div className="rounded-xl border bg-card/60 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">Maturity projection</p>
+                <p className="text-sm font-medium">{epf ? "Projection at 58" : "Maturity projection"}</p>
                 <span className="text-xs text-muted-foreground">
                   {mp.monthsLeft} of {mp.totalMonths} months left
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                <Detail label="Matures on" value={formatDate(mp.maturityOn)} />
-                <Detail label="Maturity value" value={formatINR(Math.round(mp.maturityValue))} />
-                <Detail label="Total deposits" value={formatINR(mp.totalDeposits)} />
-                <Detail label="Interest earned" value={formatINR(Math.round(mp.interestEarned))} />
+                {epf ? (
+                  <>
+                    <Detail label="Turns 58 on" value={formatDate(mp.maturityOn)} />
+                    <Detail label="Projected balance" value={formatINR(Math.round(mp.maturityValue))} />
+                    <Detail label="Contributions to come" value={formatINR(Math.round(mp.contributionsToCome ?? 0))} />
+                    <Detail label="Interest to come" value={formatINR(Math.round(mp.interestToCome ?? 0))} />
+                  </>
+                ) : (
+                  <>
+                    <Detail label="Matures on" value={formatDate(mp.maturityOn)} />
+                    <Detail label="Maturity value" value={formatINR(Math.round(mp.maturityValue))} />
+                    <Detail label="Total deposits" value={formatINR(mp.totalDeposits)} />
+                    <Detail label="Interest earned" value={formatINR(Math.round(mp.interestEarned))} />
+                  </>
+                )}
               </div>
               <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div className="h-full rounded-full" style={{ width: `${Math.round((mp.monthsDone / mp.totalMonths) * 100)}%`, backgroundColor: color }} />
               </div>
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Accrued so far ≈ {formatINR(Math.round(mp.valueNow))} · {inv.rate ?? 0}% compounded quarterly
+                {epf
+                  ? `From today's ${formatINR(inv.current)}, with ${formatINR(inv.sip ?? 0)} a month rising ${EPF_YEARLY_RAISE * 100}% a year and ${inv.rate ?? 0}% interest credited yearly. An estimate: raises and rates will vary.`
+                  : `Accrued so far ≈ ${formatINR(Math.round(mp.valueNow))} · ${inv.rate ?? 0}% compounded quarterly`}
               </p>
             </div>
           );
