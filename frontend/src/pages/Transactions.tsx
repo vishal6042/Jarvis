@@ -53,6 +53,7 @@ const currentMonthKey = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 const NONE = "none"; // Select sentinel for "no account"
+const CUSTOM = "custom"; // month-filter sentinel for a from/to date range
 
 /** Category options = the standard set + Card Payment, with the row's own value folded in. */
 function categoryOptions(current?: string | null): string[] {
@@ -61,6 +62,9 @@ function categoryOptions(current?: string | null): string[] {
 }
 
 const isoDay = (iso: string) => iso.slice(0, 10); // ISO instant → yyyy-MM-dd
+const pad2 = (n: number) => String(n).padStart(2, "0");
+/** yyyy-MM-dd in local time — the day the Date column shows, which the UTC slice above is not. */
+const localDay = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 interface Draft {
   id: number | null;
@@ -96,7 +100,12 @@ export default function Transactions() {
   const [cat, setCat] = useState<string>(params.get("category") ?? "all");
   const [acct, setAcct] = useState<string>(params.get("account") ?? "all");
   // Default to the current month — the usual question is "what did I spend this month".
-  const [month, setMonth] = useState<string>(params.get("month") ?? currentMonthKey()); // "all" | "YYYY-MM"
+  // ?from= / ?to= (yyyy-MM-dd) open straight into a custom date range.
+  const [from, setFrom] = useState(params.get("from") ?? "");
+  const [to, setTo] = useState(params.get("to") ?? "");
+  const [month, setMonth] = useState<string>(
+    params.get("month") ?? (params.has("from") || params.has("to") ? CUSTOM : currentMonthKey()),
+  ); // "all" | "custom" | "YYYY-MM"
   const [review, setReview] = useState(params.get("review") === "1"); // only rows needing attention
   const [dups, setDups] = useState<Transaction[][]>([]);
   const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
@@ -146,7 +155,10 @@ export default function Transactions() {
     const needle = q.trim().toLowerCase();
     return txns.filter((t) => {
       if (review && !needsReview(t)) return false;
-      if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
+      if (month === CUSTOM) {
+        const day = localDay(new Date(t.occurredAt));
+        if ((from && day < from) || (to && day > to)) return false;
+      } else if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
       if (dir !== "all" && t.direction !== dir) return false;
       if (cat !== "all" && (t.category ?? "") !== cat) return false;
       if (acct !== "all" && String(t.accountId ?? "") !== acct) return false;
@@ -156,14 +168,14 @@ export default function Transactions() {
       }
       return true;
     });
-  }, [txns, q, dir, cat, acct, month, review]);
+  }, [txns, q, dir, cat, acct, month, from, to, review]);
   const reviewCount = useMemo(() => txns.filter(needsReview).length, [txns]);
 
   // reset to first page whenever the filter set changes
   useEffect(() => {
     setPage(0);
     setSelected(new Set());
-  }, [q, dir, cat, acct, month, review]);
+  }, [q, dir, cat, acct, month, from, to, review]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -197,11 +209,36 @@ export default function Transactions() {
   ];
   const monthItems = [
     { value: "all", label: "All months" },
+    { value: CUSTOM, label: "Custom dates" },
     ...months.map((m) => ({
       value: m,
       label: new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
     })),
   ];
+
+  function pickMonth(v: string) {
+    // Start a new range from the month that was on screen; from "All months" both ends start open.
+    if (v === CUSTOM && month !== CUSTOM) {
+      if (month === "all") {
+        setFrom("");
+        setTo("");
+      } else {
+        setFrom(`${month}-01`);
+        // Day 0 of the following month is the last day of this one.
+        setTo(localDay(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)));
+      }
+    }
+    setMonth(v);
+  }
+  // Moving one end of the range past the other drags the other along, so it never inverts.
+  function pickFrom(v: string) {
+    setFrom(v);
+    if (to && v > to) setTo(v);
+  }
+  function pickTo(v: string) {
+    setTo(v);
+    if (from && v < from) setFrom(v);
+  }
 
   function openAdd() {
     setEditing(emptyDraft());
@@ -357,7 +394,7 @@ export default function Transactions() {
 
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative flex-1 sm:min-w-[220px] sm:max-w-xs">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={q}
@@ -366,7 +403,14 @@ export default function Transactions() {
             className="pl-9"
           />
         </div>
-        <FilterSelect value={month} onChange={setMonth} items={monthItems} width="w-[150px]" />
+        <FilterSelect value={month} onChange={pickMonth} items={monthItems} width="w-[150px]" />
+        {month === CUSTOM && (
+          <div className="flex items-center gap-2">
+            <DatePicker value={from} onChange={pickFrom} placeholder="From" className="sm:w-[150px]" />
+            <span className="shrink-0 text-sm text-muted-foreground">to</span>
+            <DatePicker value={to} onChange={pickTo} placeholder="To" className="sm:w-[150px]" />
+          </div>
+        )}
         <FilterSelect value={dir} onChange={(v) => setDir(v as "all" | Direction)} items={dirItems} width="w-[150px]" />
         <FilterSelect value={cat} onChange={setCat} items={catItems} width="w-[180px]" />
         <FilterSelect value={acct} onChange={setAcct} items={acctItems} width="w-[190px]" />
