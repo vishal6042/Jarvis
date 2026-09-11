@@ -10,6 +10,7 @@ import {
 import { useFamily, useInvestments } from "@/lib/store";
 import { maturityProjection } from "@/lib/rdMath";
 import PortfolioAnalytics from "@/components/PortfolioAnalytics";
+import CardSection from "@/components/CardSection";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,14 @@ import {
 } from "@/components/ui/chart";
 
 const KINDS = Object.keys(KIND_META) as InvestmentKind[];
+/** Section headings where KIND_META's label, written for a single card, doesn't read as a group. */
+const SECTION_TITLE: Partial<Record<InvestmentKind, string>> = {
+  FD: "Fixed deposits",
+  RD: "Recurring deposits",
+  NSC: "National Savings Certificates",
+  LIC: "LIC policies",
+  MF: "Mutual funds & SIPs",
+};
 const histConfig = {
   value: { label: "Value", color: "var(--chart-1)" },
   contributed: { label: "Invested", color: "var(--chart-3)" },
@@ -155,8 +164,9 @@ function InvestmentCard({
             {formatINR(gain)} ({pct}%)
           </span>
         </div>
-        {canDelete && (
-          <div className="flex justify-end pt-1">
+        {/* Always there, so the hover-only Edit pill has a row of its own instead of covering "Gain". */}
+        <div className="flex h-9 items-center justify-end pt-1">
+          {canDelete && (
             <Button
               variant="ghost"
               size="sm"
@@ -168,8 +178,8 @@ function InvestmentCard({
             >
               <Trash2 className="size-3.5" /> Delete
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -405,17 +415,44 @@ export default function Investments() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((inv) => (
-            <InvestmentCard
-              key={inv.id}
-              inv={inv}
-              onOpen={() => setDetails(inv)}
-              onEdit={() => openEdit(inv)}
-              onDelete={() => setToDelete(inv)}
-              canDelete={!isAll}
-            />
-          ))}
+        <div className="space-y-8">
+          {KINDS.map((kind) => {
+            const group = items.filter((i) => i.kind === kind);
+            if (group.length === 0) return null;
+            const groupInvested = group.reduce((s, i) => s + i.principal, 0);
+            const groupCurrent = group.reduce((s, i) => s + i.current, 0);
+            const groupGain = groupCurrent - groupInvested;
+            return (
+              <CardSection
+                key={kind}
+                title={SECTION_TITLE[kind] ?? KIND_META[kind].label}
+                count={group.length}
+                color={KIND_META[kind].color}
+                icon={kind === "MF" ? <TrendingUp className="size-4" /> : <PiggyBank className="size-4" />}
+                summary={
+                  <>
+                    Invested {formatINR(groupInvested)} · Current{" "}
+                    <span className="font-semibold text-foreground">{formatINR(groupCurrent)}</span> ·{" "}
+                    <span className={groupGain >= 0 ? "text-emerald-500" : "text-rose-500"}>
+                      {groupGain >= 0 ? "+" : ""}
+                      {formatINR(groupGain)}
+                    </span>
+                  </>
+                }
+              >
+                {group.map((inv) => (
+                  <InvestmentCard
+                    key={inv.id}
+                    inv={inv}
+                    onOpen={() => setDetails(inv)}
+                    onEdit={() => openEdit(inv)}
+                    onDelete={() => setToDelete(inv)}
+                    canDelete={!isAll}
+                  />
+                ))}
+              </CardSection>
+            );
+          })}
         </div>
       )}
 

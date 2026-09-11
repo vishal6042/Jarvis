@@ -3,6 +3,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import LoanAnalytics from "@/components/LoanAnalytics";
+import CardSection from "@/components/CardSection";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
 import { useFamily, useLoans } from "@/lib/store";
 import { formatINR, formatDate } from "@/lib/format";
@@ -37,6 +38,8 @@ import {
 } from "@/components/ui/chart";
 
 const KINDS = Object.keys(LOAN_META) as LoanKind[];
+const loanIcon = (kind: LoanKind) =>
+  kind === "HOME" ? Home : kind === "CAR" ? Car : kind === "EDUCATION" ? GraduationCap : Banknote;
 const histConfig = {
   balance: { label: "Outstanding", color: "var(--chart-2)" },
 } satisfies ChartConfig;
@@ -124,10 +127,7 @@ function LoanCard({
       >
         <Pencil className="size-3" /> Edit
       </button>
-      <CardArt
-        color={color}
-        icon={loan.kind === "HOME" ? Home : loan.kind === "CAR" ? Car : loan.kind === "EDUCATION" ? GraduationCap : Banknote}
-      />
+      <CardArt color={color} icon={loanIcon(loan.kind)} />
       <CardHeader className="relative z-10 flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-start gap-2">
           <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
@@ -154,8 +154,9 @@ function LoanCard({
             <div className="h-full rounded-full" style={{ width: `${paidPct}%`, backgroundColor: color }} />
           </div>
         </div>
-        {canDelete && (
-          <div className="mt-auto flex justify-end pt-2">
+        {/* Always there, so the hover-only Edit pill has a row of its own instead of covering the repaid bar. */}
+        <div className="mt-auto flex h-10 items-center justify-end pt-2">
+          {canDelete && (
             <Button
               variant="ghost"
               size="sm"
@@ -167,8 +168,8 @@ function LoanCard({
             >
               <Trash2 className="size-3.5" /> Delete
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -352,17 +353,42 @@ export default function Loans() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((loan) => (
-            <LoanCard
-              key={loan.id}
-              loan={loan}
-              onOpen={() => setDetails(loan)}
-              onEdit={() => openEdit(loan)}
-              onDelete={() => setToDelete(loan)}
-              canDelete={!isAll}
-            />
-          ))}
+        <div className="space-y-8">
+          {KINDS.map((kind) => {
+            const group = items.filter((l) => l.kind === kind);
+            if (group.length === 0) return null;
+            const Icon = loanIcon(kind);
+            return (
+              <CardSection
+                key={kind}
+                title={LOAN_META[kind].label.replace(/ Loan$/, " loans")}
+                count={group.length}
+                color={LOAN_META[kind].color}
+                icon={<Icon className="size-4" />}
+                summary={
+                  <>
+                    Outstanding{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatINR(group.reduce((s, l) => s + l.outstanding, 0))}
+                    </span>{" "}
+                    of {formatINR(group.reduce((s, l) => s + l.sanctioned, 0))} · EMI{" "}
+                    {formatINR(group.reduce((s, l) => s + l.emi, 0))} / month
+                  </>
+                }
+              >
+                {group.map((loan) => (
+                  <LoanCard
+                    key={loan.id}
+                    loan={loan}
+                    onOpen={() => setDetails(loan)}
+                    onEdit={() => openEdit(loan)}
+                    onDelete={() => setToDelete(loan)}
+                    canDelete={!isAll}
+                  />
+                ))}
+              </CardSection>
+            );
+          })}
         </div>
       )}
 

@@ -9,6 +9,7 @@ import { useSession } from "@/lib/session";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import CardArt, { networkColor } from "@/components/CardArt";
 import BestCardCard from "@/components/BestCardCard";
+import CardSection from "@/components/CardSection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -37,6 +38,13 @@ const ACCOUNT_TYPE_COLOR: Record<AccountType, string> = {
   CREDIT_CARD: "#8b5cf6", // violet
   DEBIT_CARD: "#3b82f6", // blue
 };
+
+/** The page's sections, in the same order as the summary tiles above them. */
+const ACCOUNT_SECTIONS: { type: AccountType; title: string; icon: typeof Landmark }[] = [
+  { type: "SAVINGS", title: "Bank accounts", icon: Landmark },
+  { type: "CREDIT_CARD", title: "Credit cards", icon: CreditCard },
+  { type: "DEBIT_CARD", title: "Debit cards", icon: Wallet },
+];
 
 type FormState = {
   bank: string;
@@ -432,17 +440,43 @@ export default function Accounts() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((a) => (
-            <AccountCard
-              key={a.id}
-              account={a}
-              onOpen={() => setDetails(a)}
-              onEdit={() => openEdit(a)}
-              onDelete={() => setToDelete(a)}
-              canEdit={admin}
-            />
-          ))}
+        <div className="space-y-8">
+          {ACCOUNT_SECTIONS.map(({ type, title, icon: Icon }) => {
+            const group = visible.filter((a) => a.type === type);
+            if (group.length === 0) return null;
+            // Only bank accounts carry a balance. Card limits aren't summed: cards can share one limit.
+            const withBalance = group.filter((a) => a.balance != null);
+            return (
+              <CardSection
+                key={type}
+                title={title}
+                count={group.length}
+                color={ACCOUNT_TYPE_COLOR[type]}
+                icon={<Icon className="size-4" />}
+                summary={
+                  withBalance.length > 0 ? (
+                    <>
+                      Total balance{" "}
+                      <span className="font-semibold text-foreground">
+                        {formatINR(withBalance.reduce((s, a) => s + (a.balance ?? 0), 0))}
+                      </span>
+                    </>
+                  ) : undefined
+                }
+              >
+                {group.map((a) => (
+                  <AccountCard
+                    key={a.id}
+                    account={a}
+                    onOpen={() => setDetails(a)}
+                    onEdit={() => openEdit(a)}
+                    onDelete={() => setToDelete(a)}
+                    canEdit={admin}
+                  />
+                ))}
+              </CardSection>
+            );
+          })}
         </div>
       )}
 
