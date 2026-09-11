@@ -73,6 +73,16 @@
     --chart-3: oklch(0.62 0.19 250);
     --chart-4: oklch(0.79 0.16 75);
     --chart-5: oklch(0.62 0.22 300);
+    /* Category identity: 8 slots in a fixed order - neighbouring slots are the colour-blind-checked pairs. */
+    --cat-1: #2a78d6;
+    --cat-2: #eb6834;
+    --cat-3: #1baf7a;
+    --cat-4: #eda100;
+    --cat-5: #e87ba4;
+    --cat-6: #008300;
+    --cat-7: #4a3aa7;
+    --cat-8: #e34948;
+    --cat-other: oklch(0.708 0 0);
     --radius: 0.75rem;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
@@ -108,6 +118,16 @@
     --chart-3: oklch(0.68 0.18 250);
     --chart-4: oklch(0.82 0.16 75);
     --chart-5: oklch(0.70 0.20 300);
+    /* The same eight category hues, stepped for the dark card. */
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+    --cat-5: #d55181;
+    --cat-6: #008300;
+    --cat-7: #9085e9;
+    --cat-8: #e66767;
+    --cat-other: oklch(0.556 0 0);
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);

@@ -43,6 +43,25 @@ export function periodLabel(period: Period, offset = 0): string {
   return String(from.getFullYear());
 }
 
+/**
+ * The previous period cut off where the current one has got to (1–12 Aug on 12 Sept), so a period still in
+ * progress is compared like for like. Weeks are rolling seven days, so theirs is already whole.
+ */
+export function previousToDate(period: Period): { from: Date; to: Date; label: string } {
+  const prev = periodWindow(period, 1);
+  if (period === "day" || period === "week") return { ...prev, label: periodLabel(period, 1) };
+  const now = new Date();
+  if (period === "month") {
+    const day = Math.min(now.getDate(), prev.to.getDate());
+    const to = new Date(prev.from.getFullYear(), prev.from.getMonth(), day, 23, 59, 59, 999);
+    const month = prev.from.toLocaleDateString("en-IN", { month: "short" });
+    return { from: prev.from, to, label: day === 1 ? `1 ${month}` : `1–${day} ${month}` };
+  }
+  const to = new Date(prev.from.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const end = to.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return { from: prev.from, to, label: `1 Jan – ${end} ${prev.from.getFullYear()}` };
+}
+
 function bucketsFor(period: Period, to: Date): { labels: string[]; indexOf: (d: Date) => number } {
   if (period === "day") {
     return { labels: Array.from({ length: 24 }, (_, i) => `${pad2(i)}:00`), indexOf: (d) => d.getHours() };

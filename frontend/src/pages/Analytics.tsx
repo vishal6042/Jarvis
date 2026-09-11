@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, RadialBar, RadialBarChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
 import { analyticsByCategory, analyticsIncomeBySource, listRecurring, listTransactions } from "@/api";
 import type { CategorySpend, RecurringPayment, Transaction } from "@/types";
 import { ChevronLeft, ChevronRight, Layers, TrendingUp, Trophy, Wallet, X } from "lucide-react";
@@ -8,9 +8,10 @@ import MerchantBreakdownCard from "@/components/MerchantBreakdownCard";
 import { AnomaliesCard, BehaviourCard, BudgetVsActualCard, PeriodComparisonCard } from "@/components/AnalyticsDepth";
 import TrendsCard from "@/components/TrendsCard";
 import RecurringIntelligenceCard from "@/components/RecurringIntelligenceCard";
+import SpendByCategoryCard, { categoryColors } from "@/components/SpendByCategoryCard";
 import { useThresholds } from "@/lib/store";
 import { PERIOD_LABEL, type Period } from "@/lib/sample";
-import { categorySeries, categorySpend, periodLabel, periodWindow } from "@/lib/txnseries";
+import { categorySeries, categorySpend, periodLabel, periodWindow, previousToDate } from "@/lib/txnseries";
 import { formatINR, formatDate } from "@/lib/format";
 import PeriodTabs from "@/components/PeriodTabs";
 import { Button } from "@/components/ui/button";
@@ -39,18 +40,6 @@ import {
 } from "@/components/ui/table";
 
 const cfg = { value: { label: "Spent", color: "var(--chart-2)" } } satisfies ChartConfig;
-const CAT_COLORS = ["#10b981", "#8b5cf6", "#3b82f6", "#f59e0b", "#ec4899", "#14b8a6", "#ef4444", "#a855f7"];
-// [light → deep] gradient stops per category, hue-matched to CAT_COLORS.
-const CAT_GRAD: [string, string][] = [
-  ["#34d399", "#059669"],
-  ["#a78bfa", "#7c3aed"],
-  ["#60a5fa", "#2563eb"],
-  ["#fbbf24", "#d97706"],
-  ["#f472b6", "#db2777"],
-  ["#2dd4bf", "#0d9488"],
-  ["#fb7185", "#e11d48"],
-  ["#c084fc", "#9333ea"],
-];
 
 export default function Analytics() {
   const [period, setPeriod] = useState<Period>("month");
@@ -60,6 +49,8 @@ export default function Analytics() {
   // Real spend-by-category from expense-service for the selected window.
   const [remote, setRemote] = useState<CategorySpend[]>([]);
   const [prevRemote, setPrevRemote] = useState<CategorySpend[]>([]);
+  // While the period is still running, category changes compare against the same stretch of the previous one.
+  const [prevSameRemote, setPrevSameRemote] = useState<CategorySpend[]>([]);
   const [income, setIncome] = useState<CategorySpend[]>([]);
   const { items: budgets } = useThresholds();
   // Recent transactions back the drill-down + per-category trend (all from the DB).
@@ -77,6 +68,12 @@ export default function Analytics() {
     analyticsByCategory(prev.from.toISOString(), prev.to.toISOString())
       .then((rows) => alive && setPrevRemote(rows ?? []))
       .catch(() => alive && setPrevRemote([]));
+    if (offset === 0) {
+      const same = previousToDate(period);
+      analyticsByCategory(same.from.toISOString(), same.to.toISOString())
+        .then((rows) => alive && setPrevSameRemote(rows ?? []))
+        .catch(() => alive && setPrevSameRemote([]));
+    }
     return () => {
       alive = false;
     };
@@ -113,6 +110,10 @@ export default function Analytics() {
     () => prevRemote.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
     [prevRemote]
   );
+  const prevSameData = useMemo(
+    () => prevSameRemote.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
+    [prevSameRemote]
+  );
 
   const incomeData = useMemo(
     () => income.map((r) => ({ name: r.category, value: Math.round(Number(r.total)) })),
@@ -133,14 +134,15 @@ export default function Analytics() {
     ...data.map((c) => ({ value: c.name, label: c.name })),
   ];
   const trend = useMemo(() => {
+    // Same colour per category as the Spend by category rings.
+    const colors = categoryColors([...data].sort((a, b) => b.value - a.value).map((c) => c.name));
+    const colorOf = (name: string) => colors.get(name) ?? "var(--cat-other)";
     if (trendCat === "all") {
       // one bar per category
-      return data.map((c, i) => ({ name: c.name, value: c.value, fill: CAT_COLORS[i % CAT_COLORS.length] }));
+      return data.map((c) => ({ name: c.name, value: c.value, fill: colorOf(c.name) }));
     }
     // a specific category → its real spend bucketed across the period
-    const idx = data.findIndex((c) => c.name === trendCat);
-    const color = CAT_COLORS[(idx < 0 ? 0 : idx) % CAT_COLORS.length];
-    return categorySeries(txns, trendCat, period, offset).map((p) => ({ name: p.label, value: p.value, fill: color }));
+    return categorySeries(txns, trendCat, period, offset).map((p) => ({ name: p.label, value: p.value, fill: colorOf(trendCat) }));
   }, [trendCat, data, txns, period, offset]);
   const trendInterval = trendCat === "all" ? 0 : period === "day" ? 2 : period === "month" ? 4 : 0;
 
@@ -217,81 +219,16 @@ export default function Analytics() {
         <>
       <Separator />
 
-      <Card className="relative isolate overflow-hidden">
-        <CardArt color="#8b5cf6" subtle />
-        <CardHeader>
-          <CardTitle>Spend by category</CardTitle>
-          <CardDescription>Click a ring or a legend row to see every expenditure.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,260px)_1fr]">
-            <div className="relative mx-auto h-[260px] w-full max-w-[260px]">
-            <ChartContainer config={cfg} className="h-full w-full">
-              <RadialBarChart
-                data={data.map((c, i) => ({ ...c, fill: CAT_COLORS[i % CAT_COLORS.length] }))}
-                innerRadius="38%"
-                outerRadius="100%"
-                startAngle={90}
-                endAngle={-270}
-              >
-                <defs>
-                  {data.map((_, i) => {
-                    const [from, to] = CAT_GRAD[i % CAT_GRAD.length];
-                    return (
-                      <linearGradient key={i} id={`cat-grad-${i}`} x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={from} />
-                        <stop offset="100%" stopColor={to} />
-                      </linearGradient>
-                    );
-                  })}
-                </defs>
-                <ChartTooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
-                <RadialBar
-                  dataKey="value"
-                  background={{ fill: "var(--muted)", opacity: 0.4 }}
-                  cornerRadius={6}
-                  isAnimationActive={false}
-                >
-                  {data.map((c, i) => (
-                    <Cell
-                      key={i}
-                      fill={`url(#cat-grad-${i})`}
-                      cursor="pointer"
-                      onClick={() => setSelected(c.name)}
-                    />
-                  ))}
-                </RadialBar>
-              </RadialBarChart>
-            </ChartContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xs text-muted-foreground">Total</span>
-                <span className="text-lg font-bold tracking-tight">{formatINR(total)}</span>
-              </div>
-            </div>
+      <SpendByCategoryCard
+        now={data}
+        prev={offset === 0 ? prevSameData : prevData}
+        compareLabel={offset === 0 ? previousToDate(period).label : periodLabel(period, offset + 1)}
+        period={period}
+        offset={offset}
+        onSelect={setSelected}
+      />
 
-            {/* Legend — identifies each ring */}
-            <div className="space-y-1">
-              {data.map((c, i) => {
-                const share = total ? Math.round((c.value / total) * 100) : 0;
-                return (
-                  <button
-                    key={c.name}
-                    onClick={() => setSelected(c.name)}
-                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent"
-                  >
-                    <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: CAT_COLORS[i % CAT_COLORS.length] }} />
-                    <span className="flex-1 truncate text-sm font-medium">{c.name}</span>
-                    <span className="w-9 text-right text-xs text-muted-foreground">{share}%</span>
-                    <span className="w-20 text-right text-sm font-semibold tabular-nums">{formatINR(c.value)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {selected ? (
+      {selected && (
         <Card className="relative isolate overflow-hidden">
           <CardArt color="var(--primary)" subtle />
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -328,45 +265,6 @@ export default function Analytics() {
             </Table>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold">Category breakdown</h2>
-            <p className="text-sm text-muted-foreground">Click a category to see its expenditures.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.map((c, i) => {
-              const color = CAT_COLORS[i % CAT_COLORS.length];
-              const share = total ? Math.round((c.value / total) * 100) : 0;
-              return (
-                <Card
-                  key={c.name}
-                  className="relative cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
-                  onClick={() => setSelected(c.name)}
-                >
-                  <span className="absolute top-0 left-0 h-full w-1.5" style={{ backgroundColor: color }} />
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardDescription className="flex items-center gap-2">
-                        <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
-                        {c.name}
-                      </CardDescription>
-                      <span className="inline-flex items-center text-xs text-muted-foreground">
-                        {share}% <ChevronRight className="size-4" />
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-xl font-bold tracking-tight">{formatINR(c.value)}</div>
-                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full" style={{ width: `${share}%`, backgroundColor: color }} />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
       )}
 
       <MerchantBreakdownCard txns={txns} period={period} offset={offset} />
