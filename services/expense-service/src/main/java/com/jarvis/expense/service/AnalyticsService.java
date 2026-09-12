@@ -13,6 +13,9 @@ import com.jarvis.expense.domain.Transaction;
 import com.jarvis.expense.repo.AccountRepository;
 import com.jarvis.expense.repo.TransactionRepository;
 import com.jarvis.expense.web.dto.CategorySpend;
+import com.jarvis.expense.web.dto.DaySpend;
+import com.jarvis.expense.web.dto.MerchantSpend;
+import com.jarvis.expense.web.dto.TransactionDto;
 import com.jarvis.expense.web.dto.NetWorthPoint;
 import com.jarvis.expense.web.dto.PeriodSummary;
 import java.math.BigDecimal;
@@ -24,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -284,5 +288,92 @@ public class AnalyticsService {
             out.add(new NetWorthPoint(monthList.get(i).toString(), endBalance[i]));
         }
         return out;
+    }
+
+    /*
+     * Below: the fine-grained reads the assistant needs to answer an ordinary question — "how much
+     * yesterday", "where did it go last week", "what did I buy at Swiggy". All three bucket the
+     * same query in Java, so a day total, a merchant total and the list of purchases behind them
+     * always add up to each other.
+     */
+
+    /** The purchases inside [from, to) for one member (null = the whole household), newest first. */
+    private List<Transaction> spendBetween(Long member, Instant from, Instant to) {
+        return transactions.findSpendBetween(from, to, member == null, scope.accountIdsOf(member));
+    }
+
+    /**
+     * Spend for each day inside [from, to), most recent first. Days with nothing on them are left
+     * out rather than returned as zeroes — the caller can see which dates are missing, and a run of
+     * empty rows only crowds out the days that matter.
+     */
+    @Transactional(readOnly = true)
+    public List<DaySpend> dailySpendFor(Long member, Instant from, Instant to) {
+        ZoneId zone = ZoneId.systemDefault();
+        Map<LocalDate, BigDecimal> totals = new HashMap<>();
+        Map<LocalDate, Integer> counts = new HashMap<>();
+        for (Transaction t : spendBetween(member, from, to)) {
+            LocalDate day = t.getOccurredAt().atZone(zone).toLocalDate();
+            totals.merge(day, t.getAmount(), BigDecimal::add);
+            counts.merge(day, 1, Integer::sum);
+        }
+        return totals.entrySet().stream()
+            .sorted(Map.Entry.<LocalDate, BigDecimal>comparingByKey().reversed())
+            .map(e -> new DaySpend(e.getKey(), e.getValue(), counts.get(e.getKey())))
+            .toList();
+    }
+
+    /** The merchants that took the most inside [from, to), biggest first. */
+    @Transactional(readOnly = true)
+    public List<MerchantSpend> topMerchantsFor(Long member, Instant from, Instant to, int limit) {
+        Map<String, BigDecimal> totals = new HashMap<>();
+        Map<String, Integer> counts = new HashMap<>();
+        for (Transaction t : spendBetween(member, from, to)) {
+            String name = merchantName(t);
+            totals.merge(name, t.getAmount(), BigDecimal::add);
+            counts.merge(name, 1, Integer::sum);
+        }
+        return totals.entrySet().stream()
+            .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+            .limit(Math.max(1, Math.min(limit, 50)))
+            .map(e -> new MerchantSpend(e.getKey(), e.getValue(), counts.get(e.getKey())))
+            .toList();
+    }
+
+    /**
+     * The individual purchases inside [from, to), newest first, optionally narrowed to those whose
+     * merchant, category, note or tags contain {@code search}. Matching happens here rather than in
+     * SQL so that the cleaned-up merchant name counts too: someone asking about "Swiggy" means the
+     * name they see in the app, not whatever the bank's alert called it.
+     */
+    @Transactional(readOnly = true)
+    public List<TransactionDto> spendTransactionsFor(
+        Long member, Instant from, Instant to, String search, int limit) {
+        String needle = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        return spendBetween(member, from, to).stream()
+            .filter(t -> needle.isEmpty() || matches(t, needle))
+            .limit(Math.max(1, Math.min(limit, 100)))
+            .map(TransactionDto::from)
+            .toList();
+    }
+
+    /** The name a person would recognise: the cleaned one where known, the raw alert text if not. */
+    private static String merchantName(Transaction t) {
+        if (t.getMerchantNorm() != null && !t.getMerchantNorm().isBlank()) {
+            return t.getMerchantNorm();
+        }
+        return t.getMerchant() != null && !t.getMerchant().isBlank() ? t.getMerchant() : "Unknown";
+    }
+
+    private static boolean matches(Transaction t, String needle) {
+        return contains(t.getMerchantNorm(), needle)
+            || contains(t.getMerchant(), needle)
+            || contains(t.getNote(), needle)
+            || contains(t.getTags(), needle)
+            || (t.getCategory() != null && contains(t.getCategory().getName(), needle));
+    }
+
+    private static boolean contains(String haystack, String needle) {
+        return haystack != null && haystack.toLowerCase(Locale.ROOT).contains(needle);
     }
 }

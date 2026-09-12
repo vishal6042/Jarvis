@@ -281,4 +281,32 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @Param("direction") Direction direction,
         @Param("from") Instant from,
         @Param("to") Instant to);
+
+    /**
+     * The individual purchases behind the spend figure, inside [from, to): DEBITs on savings,
+     * credit-card and debit-card accounts, with transfers, card-bill settlements and anything
+     * categorised "Card Payment" left out — paying a bill is not a new purchase, and the card's
+     * own debits already counted it.
+     *
+     * <p>Day-by-day, per-merchant and transaction-level answers are all bucketed in Java from this
+     * one query, so the assistant can never give three figures that disagree with each other.
+     */
+    @Query(
+        """
+        select t from Transaction t left join t.category c
+        where t.direction = com.jarvis.expense.domain.Direction.DEBIT
+          and t.occurredAt >= :from and t.occurredAt < :to
+          and t.transfer = false and t.settlement = false
+          and t.account.type in (com.jarvis.expense.domain.AccountType.SAVINGS,
+                                 com.jarvis.expense.domain.AccountType.CREDIT_CARD,
+                                 com.jarvis.expense.domain.AccountType.DEBIT_CARD)
+          and (c is null or c.name <> 'Card Payment')
+          and (:all = true or t.account.id in :accountIds)
+        order by t.occurredAt desc
+        """)
+    List<Transaction> findSpendBetween(
+        @Param("from") Instant from,
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 }
