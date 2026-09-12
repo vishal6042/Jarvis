@@ -70,7 +70,14 @@ function Stat({ visual }: { visual: Visual }) {
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         {rest.map((p) => (
           <span key={p.label} className="text-xs text-muted-foreground">
-            {p.label} <span className="font-medium tabular-nums text-foreground/80">{formatINR(p.value)}</span>
+            {p.label}{" "}
+            <span
+              className="font-medium tabular-nums text-foreground/80"
+              // Spending more than came in is the one figure here worth flinching at.
+              style={{ color: (p.value ?? 0) < 0 ? SPEND : undefined }}
+            >
+              {formatINR(p.value)}
+            </span>
           </span>
         ))}
       </div>

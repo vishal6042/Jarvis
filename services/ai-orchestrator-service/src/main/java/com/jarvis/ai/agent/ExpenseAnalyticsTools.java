@@ -68,14 +68,18 @@ public class ExpenseAnalyticsTools {
             return who.refusal();
         }
         ExpenseClient.Summary s = expense.summary(p.from(), p.to(), who.memberId());
-        // No caption: the two points below the headline already say what the second figure is.
+        // What was saved is the question behind half of these, and subtracting it in prose is how
+        // the model gets it wrong. Worked out here, and on the card next to the other two.
+        BigDecimal saved = s.earning().subtract(s.spend());
         ChatVisuals.add(new Visual(
             Visual.STAT, "Spent", subtitle(who, p), s.spend(), null,
             List.of(
                 Visual.Point.of("Spent", s.spend()),
-                Visual.Point.of("Earned", s.earning()))));
-        return "%s, %s — spent INR %s, earned INR %s"
-            .formatted(who.label(), p.label(), Money.inr(s.spend()), Money.inr(s.earning()));
+                Visual.Point.of("Earned", s.earning()),
+                Visual.Point.of("Saved", saved))));
+        return "%s, %s — spent INR %s, earned INR %s, saved INR %s"
+            .formatted(who.label(), p.label(), Money.inr(s.spend()), Money.inr(s.earning()),
+                Money.inr(saved));
     }
 
     @Tool(description = """
