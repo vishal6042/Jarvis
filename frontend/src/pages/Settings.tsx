@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Check, ShieldCheck, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Check, Info, ShieldCheck, Smartphone, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useReserve } from "@/lib/prefs";
 import CardArt from "@/components/CardArt";
 import HouseholdAccounts from "@/components/HouseholdAccounts";
 import { useSession } from "@/lib/session";
-import { analyticsByCategory, forgetDevice, listDevices, type ConnectedDevice } from "@/api";
+import { analyticsByCategory, apiBase, forgetDevice, listDevices, type ConnectedDevice } from "@/api";
 import { CATEGORIES } from "@/lib/sample";
 import { useThresholds } from "@/lib/store";
 import { formatINR } from "@/lib/format";
@@ -249,6 +249,40 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="relative isolate overflow-hidden">
+        <CardArt color="#64748b" subtle />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="size-5 text-muted-foreground" /> About
+          </CardTitle>
+          <CardDescription>Which build of the web app you are looking at.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
+            <dt className="text-muted-foreground">Version</dt>
+            <dd className="font-medium tabular-nums">{__APP_VERSION__}</dd>
+            {/* Two builds of one release are the case where a version number stops helping. */}
+            <dt className="text-muted-foreground">Built</dt>
+            <dd className="font-medium">{formatBuildTime(__BUILT_AT__)}</dd>
+            <dt className="text-muted-foreground">Backend</dt>
+            <dd className="font-medium break-all">{apiBase()}</dd>
+          </dl>
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+/** The build stamp as a local date and time; the raw ISO string helps nobody reading a page. */
+function formatBuildTime(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  return at.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

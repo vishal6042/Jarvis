@@ -41,6 +41,11 @@ function resolveApiBase(): string {
 
 const API_BASE = resolveApiBase();
 
+/** Which backend this page is talking to — worth showing when something looks stale or wrong. */
+export function apiBase(): string {
+  return API_BASE;
+}
+
 const TOKEN_KEY = "jarvis_token";
 
 const api = axios.create({
