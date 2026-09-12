@@ -2,7 +2,7 @@
   "name": "jarvis-control-center",
   "productName": "Jarvis Control Center",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Start, watch and restart the Jarvis stack from one window.",
   "author": "Vishal Bharti",
   "main": "dist-electron/main.js",
