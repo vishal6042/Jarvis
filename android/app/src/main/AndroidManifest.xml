@@ -19,10 +19,16 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.JarvisSync">
 
+        <!--
+            Resize, don't pan. Without this the window slides the whole screen upwards when the
+            keyboard opens — on Ask, the title and the first half of the conversation went off the
+            top. Resizing lets the message list shrink and keeps everything else where it was.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.JarvisSync">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

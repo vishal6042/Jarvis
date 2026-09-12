@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -312,6 +314,7 @@ private fun fieldColours() = androidx.compose.material3.OutlinedTextFieldDefault
 
 /* ------------------------------------------------------------------ scaffold */
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun MainScaffold(
     vm: AppViewModel,
@@ -353,9 +356,13 @@ private fun MainScaffold(
             }
         },
         bottomBar = {
-            Column {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.hairline))
-                JarvisNavBar(tabs, selected) { selected = it }
+            // Gone while the keyboard is up. Left in place it is invisible behind the keyboard but
+            // still reserves its height, which floats the Ask input a tab-bar's gap above the keys.
+            if (!WindowInsets.isImeVisible) {
+                Column {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(Ink.hairline))
+                    JarvisNavBar(tabs, selected) { selected = it }
+                }
             }
         },
     ) { padding ->
@@ -414,17 +421,18 @@ private fun DashboardScreen(vm: AppViewModel, onOpenAlerts: () -> Unit) {
 
             // The one number the screen is about, before anything competes with it.
             //
-            // The cached figure is savings cash alone — that is what the repository sums — so what
-            // it is worth in total has to be put together here: what is in the bank, plus what is
-            // invested, less what is still owed. Showing the cash and calling it net worth left
-            // ₹67 lakh of deposits out of the headline.
+            // Cash plus investments, matching the web app (Goals.tsx builds the trend and the
+            // forecast the same way). The cached figure is savings alone — that is all the
+            // repository sums — so the deposits have to be added here or ₹67 lakh goes missing
+            // from the headline. The loan is deliberately NOT subtracted: both apps report what is
+            // owned, and what is owed keeps its own card below.
             val cash = c.netWorth
             val invested = x?.investmentValue ?: 0.0
             val owed = x?.loanOutstanding ?: 0.0
             Column(Modifier.padding(horizontal = 20.dp)) {
                 SectionLabel("Net worth")
                 Spacer(Modifier.height(7.dp))
-                Money(money(cash + invested - owed), size = 36, weight = FontWeight.ExtraBold)
+                Money(money(cash + invested), size = 36, weight = FontWeight.ExtraBold)
                 if (invested > 0 || owed > 0) {
                     Spacer(Modifier.height(14.dp))
                     NetWorthParts(cash, invested, owed)

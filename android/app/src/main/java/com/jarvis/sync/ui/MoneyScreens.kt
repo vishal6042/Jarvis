@@ -376,8 +376,11 @@ fun AskScreen(vm: AppViewModel) {
         "Where did my money go this month?",
     )
 
-    Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize()) {
+        // The header stays put; only the thread and the input give way to the keyboard. Padding the
+        // whole screen took the title up with it, which is not what a chat should do.
         ScreenHeader("Ask")
+        Column(Modifier.weight(1f).fillMaxWidth().imePadding()) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             items(vm.chat) { m -> ChatBubble(m) }
             if (vm.chatBusy) {
@@ -460,6 +463,7 @@ fun AskScreen(vm: AppViewModel) {
                 )
             }
         }
+        }
     }
 }
 
@@ -499,7 +503,8 @@ private fun ChatBubble(m: AppViewModel.ChatMessage) {
                     tint = Ink.accentSoft, modifier = Modifier.size(14.dp),
                 )
             }
-            Text(m.text, color = Ink.text, fontSize = 14.5.sp, lineHeight = 22.sp)
+            // The agent answers in Markdown; without this the asterisks and dashes were printed.
+            MarkdownText(m.text, Modifier.weight(1f))
         }
     }
 }
