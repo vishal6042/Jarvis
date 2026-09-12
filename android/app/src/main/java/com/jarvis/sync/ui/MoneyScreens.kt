@@ -1,6 +1,7 @@
 package com.jarvis.sync.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,16 +25,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,12 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jarvis.sync.data.CardSummaryDto
+import com.jarvis.sync.ui.theme.Ink
 import com.jarvis.sync.data.InvestmentDto
 import com.jarvis.sync.data.TransactionDto
 import java.time.LocalDate
@@ -94,14 +99,26 @@ fun MoneyScreen(vm: AppViewModel) {
     val listState = rememberLazyListState()
 
     Column(Modifier.fillMaxSize()) {
+        ScreenHeader("Money")
         OutlinedTextField(
             value = vm.txnQuery,
             onValueChange = { vm.txnQuery = it },
-            leadingIcon = { Icon(Icons.Filled.Search, null) },
-            placeholder = { Text("Search merchant, category, account") },
+            leadingIcon = { Icon(Icons.Filled.Search, null, tint = Ink.dim, modifier = Modifier.size(18.dp)) },
+            placeholder = { Text("Search merchant, category, account", color = Ink.dim, fontSize = 14.sp) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Ink.surface,
+                unfocusedContainerColor = Ink.surface,
+                focusedBorderColor = Ink.accentLift,
+                unfocusedBorderColor = Ink.hairline,
+                cursorColor = Ink.accentLift,
+                focusedTextColor = Ink.text,
+                unfocusedTextColor = Ink.text,
+            ),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         )
+        Spacer(Modifier.height(14.dp))
         // Someone confined to one person has nothing to choose between: everything they can see is
         // already theirs, so the chips would only offer empty answers.
         val admin by vm.isAdmin.collectAsState()
@@ -111,18 +128,8 @@ fun MoneyScreen(vm: AppViewModel) {
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                FilterChip(
-                    selected = vm.member == null,
-                    onClick = { vm.member = null },
-                    label = { Text("Everyone") },
-                )
-                members.forEach { m ->
-                    FilterChip(
-                        selected = vm.member == m.id,
-                        onClick = { vm.member = m.id },
-                        label = { Text(m.name) },
-                    )
-                }
+                Chip("Everyone", vm.member == null) { vm.member = null }
+                members.forEach { m -> Chip(m.name, vm.member == m.id) { vm.member = m.id } }
             }
             Spacer(Modifier.height(6.dp))
         }
@@ -130,18 +137,8 @@ fun MoneyScreen(vm: AppViewModel) {
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilterChip(
-                selected = vm.txnMonth == "all",
-                onClick = { vm.txnMonth = "all" },
-                label = { Text("All") },
-            )
-            vm.months().take(12).forEach { m ->
-                FilterChip(
-                    selected = vm.txnMonth == m,
-                    onClick = { vm.txnMonth = m },
-                    label = { Text(monthLabel(m)) },
-                )
-            }
+            Chip("All", vm.txnMonth == "all") { vm.txnMonth = "all" }
+            vm.months().take(12).forEach { m -> Chip(monthLabel(m), vm.txnMonth == m) { vm.txnMonth = m } }
         }
         Spacer(Modifier.height(8.dp))
 
@@ -160,7 +157,7 @@ fun MoneyScreen(vm: AppViewModel) {
                             inr(holdings.sumOf { it.current }),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF10B981),
+                            color = Ink.in_,
                         )
                     }
                 }
@@ -176,7 +173,7 @@ fun MoneyScreen(vm: AppViewModel) {
                             rows.size.toString(),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = Ink.dim,
                         )
                     }
                 }
@@ -184,7 +181,7 @@ fun MoneyScreen(vm: AppViewModel) {
             if (rows.isEmpty() && !vm.txnsBusy) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
-                        Text("Nothing here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Nothing here.", color = Ink.dim)
                     }
                 }
             }
@@ -201,25 +198,9 @@ fun MoneyScreen(vm: AppViewModel) {
 @Composable
 private fun SectionHeader(title: String, trailing: @Composable (() -> Unit)? = null) {
     Column(Modifier.fillMaxWidth()) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                title.uppercase(),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f),
-            )
-            trailing?.invoke()
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        HorizontalDivider(color = Ink.hairline)
+        SectionBand(title, trailing = trailing)
+        HorizontalDivider(color = Ink.hairline)
     }
 }
 
@@ -230,9 +211,9 @@ private fun CardBillRow(c: CardSummaryDto) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(c.displayName, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text(
-                if (due) inr(c.billDue) else "Nothing pending",
+                if (due) inr(c.billDue) else "Nothing due",
                 fontWeight = FontWeight.Bold,
-                color = if (due) Color(0xFFF43F5E) else Color(0xFF10B981),
+                color = if (due) Ink.out else Ink.in_,
             )
         }
         Row {
@@ -243,11 +224,11 @@ private fun CardBillRow(c: CardSummaryDto) {
                     if (c.billingGroup != null) append(" · shared bill")
                 },
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Ink.dim,
                 modifier = Modifier.weight(1f),
             )
             c.utilisationPct?.let {
-                Text(it.toString() + "% used", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(it.toString() + "% used", fontSize = 12.sp, color = Ink.dim)
             }
         }
     }
@@ -279,16 +260,16 @@ private fun HoldingRow(i: InvestmentDto) {
                     }
                 },
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Ink.dim,
                 modifier = Modifier.weight(1f),
             )
             if (unvalued) {
-                Text("not valued yet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("not valued yet", fontSize = 12.sp, color = Ink.dim)
             } else {
                 Text(
                     (if (gain >= 0) "+" else "") + inr(gain) + " (" + String.format(java.util.Locale.US, "%.1f", pct) + "%)",
                     fontSize = 12.sp,
-                    color = if (gain >= 0) Color(0xFF10B981) else Color(0xFFF43F5E),
+                    color = if (gain >= 0) Ink.in_ else Ink.out,
                 )
             }
         }
@@ -299,28 +280,42 @@ private fun HoldingRow(i: InvestmentDto) {
 @Composable
 private fun TransactionRow(t: TransactionDto, onClick: () -> Unit) {
     val income = t.direction == "CREDIT"
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(t.merchantNorm ?: t.merchant ?: "—", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text(
-                (if (income) "+" else "") + inr(t.amount),
-                fontWeight = FontWeight.Bold,
-                color = if (income) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurface,
+    val on = runCatching { LocalDate.parse(t.occurredAt.take(10)) }.getOrNull()
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (on != null) {
+            DayStamp(
+                on.dayOfMonth.toString().padStart(2, '0'),
+                on.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()),
             )
+            Spacer(Modifier.width(12.dp))
         }
-        Spacer(Modifier.height(2.dp))
-        Text(
-            buildString {
-                append(shortDate(t.occurredAt))
-                append(" · ").append(t.category ?: "Uncategorised")
-                t.accountName?.let { append(" · ").append(it) }
-                if (t.settlement) append(" · bill payment") else if (t.transfer) append(" · transfer")
-            },
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Column(Modifier.weight(1f)) {
+            Text(
+                t.merchantNorm ?: t.merchant ?: "—",
+                fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink.text, maxLines = 1,
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Tag(t.category ?: "Uncategorised")
+                val aside = when {
+                    t.settlement -> "bill payment"
+                    t.transfer -> "transfer"
+                    else -> t.accountName
+                }
+                if (aside != null) Text(aside, fontSize = 11.sp, color = Ink.dim, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Money(
+            (if (income) "+" else "−") + inr(t.amount).removePrefix("-"),
+            size = 14,
+            color = if (income) Ink.in_ else Ink.text,
         )
     }
-    HorizontalDivider()
+    Rule(startInset = 72)
 }
 
 @Composable
@@ -362,43 +357,63 @@ fun AskScreen(vm: AppViewModel) {
     )
 
     Column(Modifier.fillMaxSize().imePadding()) {
+        ScreenHeader("Ask")
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             items(vm.chat) { m -> ChatBubble(m) }
             if (vm.chatBusy) {
                 item {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp)
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Ink.accentLift)
                         Spacer(Modifier.width(10.dp))
-                        Text("Thinking…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("Thinking…", color = Ink.dim, fontSize = 13.sp)
                     }
                 }
             }
             if (vm.chat.size <= 1) {
                 item {
-                    Column(Modifier.padding(16.dp)) {
+                    Column(
+                        Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         suggestions.forEach { s ->
-                            Surface(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.padding(bottom = 8.dp).clickable { vm.ask(s) },
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .border(1.dp, Ink.accentLift.copy(alpha = 0.3f), RoundedCornerShape(999.dp))
+                                    .clickable { vm.ask(s) }
+                                    .padding(horizontal = 14.dp, vertical = 9.dp),
                             ) {
-                                Text(s, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+                                Text(s, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Ink.accentSoft)
                             }
                         }
                     }
                 }
             }
+            item { Spacer(Modifier.height(8.dp)) }
         }
-        HorizontalDivider()
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
-                placeholder = { Text("Ask about your money…") },
+                placeholder = { Text("Ask about your money…", color = Ink.dim, fontSize = 14.sp) },
                 singleLine = true,
+                shape = RoundedCornerShape(23.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Ink.surface,
+                    unfocusedContainerColor = Ink.surface,
+                    focusedBorderColor = Ink.accentLift,
+                    unfocusedBorderColor = Ink.hairlineStrong,
+                    cursorColor = Ink.accentLift,
+                    focusedTextColor = Ink.text,
+                    unfocusedTextColor = Ink.text,
+                ),
                 modifier = Modifier.weight(1f),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
@@ -406,34 +421,65 @@ fun AskScreen(vm: AppViewModel) {
                     input = ""
                 }),
             )
-            IconButton(
-                onClick = {
-                    vm.ask(input)
-                    input = ""
-                },
-                enabled = input.isNotBlank() && !vm.chatBusy,
-            ) { Icon(Icons.Filled.Send, "Send") }
+            val ready = input.isNotBlank() && !vm.chatBusy
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(if (ready) Ink.accent else Ink.well)
+                    .clickable(enabled = ready) {
+                        vm.ask(input)
+                        input = ""
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.Send, "Send",
+                    tint = if (ready) Color.White else Ink.dim,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
         }
     }
 }
 
+/**
+ * A turn in the thread. What the user said is a violet bubble tucked to the right; what Jarvis
+ * says is not a bubble at all — an answer that runs to several sentences reads better as text on
+ * the page, with the mark beside it to say who is speaking.
+ */
 @Composable
 private fun ChatBubble(m: AppViewModel.ChatMessage) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = if (m.fromUser) Arrangement.End else Arrangement.Start,
-    ) {
-        Surface(
-            color = if (m.fromUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth(0.86f),
+    if (m.fromUser) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.End,
         ) {
-            Text(
-                m.text,
-                color = if (m.fromUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(12.dp),
-            )
+            Box(
+                Modifier
+                    .fillMaxWidth(0.82f)
+                    .clip(RoundedCornerShape(18.dp, 18.dp, 5.dp, 18.dp))
+                    .background(Ink.accent)
+                    .padding(horizontal = 15.dp, vertical = 11.dp),
+            ) {
+                Text(m.text, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, lineHeight = 21.sp)
+            }
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+        ) {
+            Box(
+                Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(Ink.accentWell),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.AutoAwesome, null,
+                    tint = Ink.accentSoft, modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(m.text, color = Ink.text, fontSize = 14.5.sp, lineHeight = 22.sp)
         }
     }
 }
