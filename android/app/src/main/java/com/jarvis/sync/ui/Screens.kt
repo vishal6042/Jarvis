@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -76,6 +77,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -411,10 +413,22 @@ private fun DashboardScreen(vm: AppViewModel, onOpenAlerts: () -> Unit) {
             val x = vm.extras(c)
 
             // The one number the screen is about, before anything competes with it.
+            //
+            // The cached figure is savings cash alone — that is what the repository sums — so what
+            // it is worth in total has to be put together here: what is in the bank, plus what is
+            // invested, less what is still owed. Showing the cash and calling it net worth left
+            // ₹67 lakh of deposits out of the headline.
+            val cash = c.netWorth
+            val invested = x?.investmentValue ?: 0.0
+            val owed = x?.loanOutstanding ?: 0.0
             Column(Modifier.padding(horizontal = 20.dp)) {
                 SectionLabel("Net worth")
                 Spacer(Modifier.height(7.dp))
-                Money(money(c.netWorth), size = 40, weight = FontWeight.ExtraBold)
+                Money(money(cash + invested - owed), size = 36, weight = FontWeight.ExtraBold)
+                if (invested > 0 || owed > 0) {
+                    Spacer(Modifier.height(14.dp))
+                    NetWorthParts(cash, invested, owed)
+                }
             }
 
             Spacer(Modifier.height(22.dp))
@@ -479,6 +493,28 @@ private fun DashboardScreen(vm: AppViewModel, onOpenAlerts: () -> Unit) {
 
             Spacer(Modifier.height(96.dp)) // clear of the FAB and the tab bar
         }
+    }
+}
+
+/**
+ * What the headline is made of. Three figures rather than one is the difference between a number
+ * to trust and a number to wonder about — and the loan is the part most easily forgotten.
+ */
+@Composable
+private fun NetWorthParts(cash: Double, invested: Double, owed: Double) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        NetWorthPart("Cash", money(cash), Ink.text, Modifier.weight(1f))
+        if (invested > 0) NetWorthPart("Invested", money(invested), Ink.in_, Modifier.weight(1f))
+        if (owed > 0) NetWorthPart("Owed", "−" + money(owed), Ink.out, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun NetWorthPart(label: String, value: String, colour: Color, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, fontSize = 11.sp, color = Ink.dim)
+        Spacer(Modifier.height(3.dp))
+        Money(value, size = 13, color = colour, weight = FontWeight.SemiBold)
     }
 }
 
@@ -708,22 +744,33 @@ private fun AccountTile(a: AccountDto) {
         a.network.equals("MASTERCARD", true) -> Color(0xFFF97316)
         else -> Ink.accentLift
     }
-    Panel(Modifier.width(190.dp)) {
-        Column(Modifier.height(84.dp)) {
+    // The name and the last four are two facts, not one string: joined, "Amazon Pay ICICI •••• 4008"
+    // ran off the end of the tile and was cut. Split over two lines, each one fits.
+    val name = a.displayName?.substringBefore(" ••••")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: a.bank?.takeIf { it.isNotBlank() }
+        ?: if (savings) "Savings" else "Card"
+    Panel(Modifier.width(210.dp)) {
+        Column(Modifier.heightIn(min = 88.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        a.displayName ?: ((a.bank ?: "") + " •••• " + (a.last4 ?: "")),
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Ink.muted, maxLines = 1,
+                        name,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Ink.text,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        if (savings) "Savings" else (a.network ?: "Card"),
-                        fontSize = 11.sp, color = Ink.dim,
+                        listOfNotNull(
+                            a.last4?.takeIf { it.isNotBlank() }?.let { "•••• $it" },
+                            if (savings) "Savings" else a.network,
+                        ).joinToString(" · "),
+                        fontSize = 11.sp, color = Ink.dim, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Spacer(Modifier.width(8.dp))
                 Box(Modifier.width(24.dp).height(3.dp).clip(RoundedCornerShape(999.dp)).background(edge))
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
             Text(if (savings) "Balance" else "Limit", fontSize = 11.sp, color = Ink.dim)
             Spacer(Modifier.height(2.dp))
             Money(

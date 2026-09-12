@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -209,10 +210,21 @@ private fun CardBillRow(c: CardSummaryDto) {
     val due = c.billDue > 0
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(c.displayName, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            // A long card name and a long amount cannot both have the row: the name gives way with
+            // an ellipsis, because the amount is the thing being read.
+            Text(
+                c.displayName,
+                fontWeight = FontWeight.SemiBold,
+                color = Ink.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(10.dp))
             Text(
                 if (due) inr(c.billDue) else "Nothing due",
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
                 color = if (due) Ink.out else Ink.in_,
             )
         }
@@ -245,8 +257,16 @@ private fun HoldingRow(i: InvestmentDto) {
     val yearly = i.contributionFrequency == "yearly"
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(i.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text(inr(i.current), fontWeight = FontWeight.Bold)
+            Text(
+                i.name,
+                fontWeight = FontWeight.SemiBold,
+                color = Ink.text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(inr(i.current), fontWeight = FontWeight.Bold, color = Ink.text, maxLines = 1)
         }
         Row {
             Text(
