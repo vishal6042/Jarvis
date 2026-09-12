@@ -1,9 +1,13 @@
 package com.jarvis.expense.web.internal;
 
 import com.jarvis.expense.service.AnalyticsService;
+import com.jarvis.expense.service.RecurringService;
+import com.jarvis.expense.web.dto.CardSummary;
 import com.jarvis.expense.web.dto.CategorySpend;
 import com.jarvis.expense.web.dto.DaySpend;
 import com.jarvis.expense.web.dto.MerchantSpend;
+import com.jarvis.expense.web.dto.NetWorthPoint;
+import com.jarvis.expense.web.dto.RecurringPayment;
 import com.jarvis.expense.web.dto.PeriodSummary;
 import com.jarvis.expense.web.dto.TransactionDto;
 import java.time.Instant;
@@ -32,11 +36,15 @@ import org.springframework.web.server.ResponseStatusException;
 public class InternalAnalyticsController {
 
     private final AnalyticsService analytics;
+    private final RecurringService recurring;
     private final String internalKey;
 
     public InternalAnalyticsController(
-        AnalyticsService analytics, @Value("${jarvis.internal.key}") String internalKey) {
+        AnalyticsService analytics,
+        RecurringService recurring,
+        @Value("${jarvis.internal.key}") String internalKey) {
         this.analytics = analytics;
+        this.recurring = recurring;
         this.internalKey = internalKey;
     }
 
@@ -104,6 +112,47 @@ public class InternalAnalyticsController {
         checkKey(key);
         Instant[] w = window(from, to, days);
         return analytics.spendTransactionsFor(memberId, w[0], w[1], q, limit);
+    }
+
+    /** Income grouped by where it came from — the mirror of by-category, on the money coming in. */
+    @GetMapping("/income-by-source")
+    public List<CategorySpend> incomeBySource(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(defaultValue = "30") int days,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+        @RequestParam(required = false) Long memberId) {
+        checkKey(key);
+        Instant[] w = window(from, to, days);
+        return analytics.incomeBySourceFor(memberId, w[0], w[1]);
+    }
+
+    /** Every credit card's cycle: unbilled, what is due and when, and how much of the limit is used. */
+    @GetMapping("/cards")
+    public List<CardSummary> cards(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(required = false) Long memberId) {
+        checkKey(key);
+        return analytics.cardsFor(memberId);
+    }
+
+    /** Savings cash at the end of each of the last N months — the direction of travel. */
+    @GetMapping("/net-worth-trend")
+    public List<NetWorthPoint> netWorthTrend(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(defaultValue = "12") int months,
+        @RequestParam(required = false) Long memberId) {
+        checkKey(key);
+        return analytics.netWorthTrendFor(memberId, months);
+    }
+
+    /** Payments that repeat on a regular cadence — subscriptions, EMIs, rent. */
+    @GetMapping("/recurring")
+    public List<RecurringPayment> recurring(
+        @RequestHeader(value = "X-Internal-Key", required = false) String key,
+        @RequestParam(required = false) Long memberId) {
+        checkKey(key);
+        return recurring.detectFor(memberId);
     }
 
     /**

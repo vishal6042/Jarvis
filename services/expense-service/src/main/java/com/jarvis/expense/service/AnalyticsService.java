@@ -49,7 +49,12 @@ public class AnalyticsService {
 
     /** The accounts the caller may see; an administrator sees them all. */
     private List<Account> visibleAccounts() {
-        return scope.all() ? accounts.findAll() : accounts.findByMemberId(scope.memberId());
+        return accountsOf(scope.memberId());
+    }
+
+    /** The accounts of one named member; null means every account in the household. */
+    private List<Account> accountsOf(Long member) {
+        return member == null ? accounts.findAll() : accounts.findByMemberId(member);
     }
 
     @Transactional(readOnly = true)
@@ -80,12 +85,18 @@ public class AnalyticsService {
     /** Per-card cycle view: unbilled spend, the last bill and what's still due, next dates. */
     @Transactional(readOnly = true)
     public List<CardSummary> cards() {
+        return cardsFor(scope.memberId());
+    }
+
+    /** As {@link #cards} but for a named member; null means the whole household's cards. */
+    @Transactional(readOnly = true)
+    public List<CardSummary> cardsFor(Long member) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         Instant now = Instant.now();
 
         // Pass 1: each card's own cycle and figures.
         List<CardCycle> cycles = new ArrayList<>();
-        for (Account a : visibleAccounts()) {
+        for (Account a : accountsOf(member)) {
             if (a.getType() != AccountType.CREDIT_CARD) {
                 continue;
             }
@@ -236,8 +247,14 @@ public class AnalyticsService {
 
     @Transactional(readOnly = true)
     public List<CategorySpend> incomeBySource(Instant from, Instant to) {
+        return incomeBySourceFor(scope.memberId(), from, to);
+    }
+
+    /** As {@link #incomeBySource} but for a named member (null = the whole household). */
+    @Transactional(readOnly = true)
+    public List<CategorySpend> incomeBySourceFor(Long member, Instant from, Instant to) {
         // Money into the savings account (CREDITs), grouped by category → income sources.
-        return transactions.incomeBySourceDetail(from, to, scope.all(), scope.accountIds()).stream()
+        return transactions.incomeBySourceDetail(from, to, member == null, scope.accountIdsOf(member)).stream()
             .map(row -> new CategorySpend((String) row[0], (BigDecimal) row[1]))
             .toList();
     }
@@ -250,6 +267,12 @@ public class AnalyticsService {
      */
     @Transactional(readOnly = true)
     public List<NetWorthPoint> netWorthTrend(int months) {
+        return netWorthTrendFor(scope.memberId(), months);
+    }
+
+    /** As {@link #netWorthTrend} but for a named member (null = the whole household). */
+    @Transactional(readOnly = true)
+    public List<NetWorthPoint> netWorthTrendFor(Long member, int months) {
         int span = Math.max(1, Math.min(months, 36));
         ZoneId zone = ZoneId.systemDefault();
         YearMonth current = YearMonth.now(zone);
@@ -259,13 +282,13 @@ public class AnalyticsService {
 
         // Net savings flow per month within the window.
         Map<YearMonth, BigDecimal> flow = new HashMap<>();
-        for (Transaction t : transactions.findSavingsBetween(from, to, scope.all(), scope.accountIds())) {
+        for (Transaction t : transactions.findSavingsBetween(from, to, member == null, scope.accountIdsOf(member))) {
             YearMonth ym = YearMonth.from(t.getOccurredAt().atZone(zone));
             BigDecimal signed = t.getDirection() == Direction.CREDIT ? t.getAmount() : t.getAmount().negate();
             flow.merge(ym, signed, BigDecimal::add);
         }
 
-        BigDecimal currentBalance = visibleAccounts().stream()
+        BigDecimal currentBalance = accountsOf(member).stream()
             .filter(a -> a.getType() == AccountType.SAVINGS && a.getBalance() != null)
             .map(Account::getBalance)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -369,7 +392,25 @@ public class AnalyticsService {
             || contains(t.getMerchant(), needle)
             || contains(t.getNote(), needle)
             || contains(t.getTags(), needle)
-            || (t.getCategory() != null && contains(t.getCategory().getName(), needle));
+            || (t.getCategory() != null && contains(t.getCategory().getName(), needle))
+            || isAmount(t, needle);
+    }
+
+    /**
+     * "What was that 2,375 payment?" — a figure read off a statement is a perfectly good way to
+     * name a transaction, so a search that parses as a number matches the amount too. Compared by
+     * value, because 2375 and 2375.00 are the same payment to the person asking.
+     */
+    private static boolean isAmount(Transaction t, String needle) {
+        String digits = needle.replace(",", "").replace("₹", "").replace("rs", "").trim();
+        if (digits.isEmpty() || t.getAmount() == null) {
+            return false;
+        }
+        try {
+            return t.getAmount().compareTo(new BigDecimal(digits)) == 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private static boolean contains(String haystack, String needle) {

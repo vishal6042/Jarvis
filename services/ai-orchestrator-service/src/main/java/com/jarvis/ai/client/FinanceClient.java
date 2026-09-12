@@ -3,6 +3,7 @@ package com.jarvis.ai.client;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.core.ParameterizedTypeReference;
@@ -37,6 +38,21 @@ public class FinanceClient {
             .header("X-Internal-Key", internalKey)
             .retrieve()
             .bodyToMono(new ParameterizedTypeReference<List<Member>>() {})
+            .block();
+    }
+
+    /**
+     * The monthly spending limits set per category, keyed by category name.
+     *
+     * <p>Household-wide: a threshold carries no member, so a limit is the family's rather than one
+     * person's. Anything comparing spend against these has to compare household spend.
+     */
+    public Map<String, BigDecimal> thresholds() {
+        return web.get()
+            .uri("/internal/thresholds")
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<Map<String, BigDecimal>>() {})
             .block();
     }
 

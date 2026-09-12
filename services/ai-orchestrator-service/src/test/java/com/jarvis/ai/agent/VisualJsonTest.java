@@ -21,7 +21,7 @@ class VisualJsonTest {
     @Test
     @DisplayName("a visual serialises to exactly the keys the web app reads")
     void keysAreStable() throws Exception {
-        Visual visual = new Visual(
+        Visual visual = Visual.spend(
             Visual.SERIES, "Spend by day", "the whole household together · this month so far",
             new BigDecimal("1141.82"), "12 days with spending",
             List.of(Visual.Point.of("Fri 11 Sep", new BigDecimal("633"), "2 purchases")));
@@ -29,8 +29,10 @@ class VisualJsonTest {
         JsonNode node = JSON.readTree(JSON.writeValueAsString(visual));
 
         assertThat(node.fieldNames()).toIterable()
-            .containsExactlyInAnyOrder("kind", "title", "subtitle", "amount", "caption", "points");
+            .containsExactlyInAnyOrder(
+                "kind", "title", "subtitle", "amount", "caption", "tone", "points");
         assertThat(node.get("kind").asText()).isEqualTo("series");
+        assertThat(node.get("tone").asText()).isEqualTo("spend");
         assertThat(node.get("amount").decimalValue()).isEqualByComparingTo("1141.82");
 
         JsonNode point = node.get("points").get(0);
@@ -45,7 +47,7 @@ class VisualJsonTest {
     @Test
     @DisplayName("a goal carries what it is out of, so the bar has something to fill against")
     void progressCarriesItsTarget() throws Exception {
-        Visual visual = new Visual(
+        Visual visual = Visual.spend(
             Visual.PROGRESS, "Goals", "Neha Rani (Spouse)", null, null,
             List.of(new Visual.Point(
                 "Emergency fund", new BigDecimal("340000"), new BigDecimal("600000"), "by 2027-03-31")));
@@ -54,5 +56,20 @@ class VisualJsonTest {
 
         assertThat(point.get("value").decimalValue()).isEqualByComparingTo("340000");
         assertThat(point.get("of").decimalValue()).isEqualByComparingTo("600000");
+    }
+
+    @Test
+    @DisplayName("money coming in is marked as such, and a missing tone defaults to spending")
+    void toneSurvives() throws Exception {
+        Visual earning = new Visual(
+            Visual.TREND, "Savings balance", "the whole household together",
+            new BigDecimal("1273831"), "up ₹2,40,000 over 12 months", Visual.EARN,
+            List.of(Visual.Point.of("Sep 26", new BigDecimal("1273831"))));
+
+        assertThat(JSON.readTree(JSON.writeValueAsString(earning)).get("tone").asText()).isEqualTo("earn");
+
+        // Almost everything here measures spending, so that is what a visual is unless it says.
+        Visual unstated = new Visual(Visual.LIST, "Coming up", null, null, null, null, List.of());
+        assertThat(JSON.readTree(JSON.writeValueAsString(unstated)).get("tone").asText()).isEqualTo("spend");
     }
 }

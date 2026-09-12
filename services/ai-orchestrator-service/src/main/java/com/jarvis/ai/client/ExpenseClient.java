@@ -75,6 +75,61 @@ public class ExpenseClient {
             .block();
     }
 
+    /** Income grouped by where it came from — the mirror of {@link #byCategory}. */
+    public List<CategorySpend> incomeBySource(LocalDate from, LocalDate to, Long memberId) {
+        return get("/internal/analytics/income-by-source", from, to, memberId, b -> b)
+            .bodyToMono(new ParameterizedTypeReference<List<CategorySpend>>() {})
+            .block();
+    }
+
+    /** Every credit card's current cycle. Not a windowed read: a cycle is where it is today. */
+    public List<Card> cards(Long memberId) {
+        return web.get()
+            .uri(uri -> {
+                var b = uri.path("/internal/analytics/cards");
+                if (memberId != null) {
+                    b.queryParam("memberId", memberId);
+                }
+                return b.build();
+            })
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Card>>() {})
+            .block();
+    }
+
+    /** Savings cash at the end of each of the last {@code months} months, oldest first. */
+    public List<NetWorthPoint> netWorthTrend(int months, Long memberId) {
+        return web.get()
+            .uri(uri -> {
+                var b = uri.path("/internal/analytics/net-worth-trend").queryParam("months", months);
+                if (memberId != null) {
+                    b.queryParam("memberId", memberId);
+                }
+                return b.build();
+            })
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<NetWorthPoint>>() {})
+            .block();
+    }
+
+    /** Payments detected as repeating on a regular cadence, biggest monthly cost first. */
+    public List<Recurring> recurring(Long memberId) {
+        return web.get()
+            .uri(uri -> {
+                var b = uri.path("/internal/analytics/recurring");
+                if (memberId != null) {
+                    b.queryParam("memberId", memberId);
+                }
+                return b.build();
+            })
+            .header("X-Internal-Key", internalKey)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Recurring>>() {})
+            .block();
+    }
+
     /** One GET with the window, the member and the internal key already on it. */
     private WebClient.ResponseSpec get(
         String path,
@@ -99,6 +154,59 @@ public class ExpenseClient {
     public record CategorySpend(String category, BigDecimal total) {}
 
     public record DaySpend(LocalDate day, BigDecimal total, int count) {}
+
+    /**
+     * One credit card's cycle.
+     *
+     * @param unbilled   spent since the last statement, not yet on a bill
+     * @param billDue    what is still owed on the last statement
+     * @param utilisationPct percent of the limit in use, null when no limit is recorded
+     */
+    public record Card(
+        String displayName,
+        String bank,
+        String last4,
+        BigDecimal creditLimit,
+        LocalDate nextStatementOn,
+        LocalDate dueOn,
+        BigDecimal unbilled,
+        BigDecimal billDue,
+        Integer utilisationPct,
+        String billingGroup) {
+
+        /** What the card is carrying right now: the unpaid bill plus what has since been spent. */
+        public BigDecimal owed() {
+            BigDecimal bill = billDue == null ? BigDecimal.ZERO : billDue;
+            return unbilled == null ? bill : bill.add(unbilled);
+        }
+
+        /**
+         * Cards billed together each report the whole group's bill, so adding {@link #owed()} up
+         * across them would count that bill once per card. This is the part that is only this
+         * card's; the group's bill is added once, separately.
+         */
+        public BigDecimal ownUnbilled() {
+            return unbilled == null ? BigDecimal.ZERO : unbilled;
+        }
+
+        /** Cards on one statement share a key; a card billed alone is a group of one. */
+        public String groupKey() {
+            return billingGroup == null ? "card:" + last4 : "group:" + billingGroup;
+        }
+    }
+
+    /** @param month "2026-09". */
+    public record NetWorthPoint(String month, BigDecimal netWorth) {}
+
+    public record Recurring(
+        String merchant,
+        String category,
+        BigDecimal amount,
+        String cadence,
+        LocalDate lastPaid,
+        LocalDate nextExpected,
+        int occurrences,
+        BigDecimal monthlyEstimate) {}
 
     public record MerchantSpend(String merchant, BigDecimal total, int count) {}
 

@@ -32,17 +32,23 @@ public class QueryAgent {
         the tool works out the dates. Do not do date arithmetic yourself. If a tool says it did not
         understand the period, call it again with one of the forms it lists.
 
-        Pick the tool that matches the question: spendingSummary for one period's total,
-        spendByCategory for what it went on, dailySpend for day by day, topMerchants for who was
-        paid, findTransactions for the individual purchases, portfolio for investments, loans and
-        goals. Answer with the figure the tool returned and say which period it covers. If a tool
-        reports nothing recorded, say the data shows nothing for that period rather than that you
-        cannot look.
+        Pick the tool that matches the question. What already went out: spendingSummary for one
+        period's total, spendByCategory for what it went on, dailySpend for day by day,
+        topMerchants for who was paid, findTransactions for the purchases themselves (it also
+        matches on an amount, so "what was that 2375" works). What came in: incomeBySource.
+        What is owned or owed: portfolio for investments, loans and goals, creditCards for what the
+        cards are carrying and when a bill is due, netWorthTrend for which way the balance is going,
+        recurringPayments for what repeats every month.
+
+        Answer with the figure the tool returned and say which period it covers. If a tool reports
+        nothing recorded, say the data shows nothing for that period rather than that you cannot
+        look.
 
         Questions about what is left rather than what has gone — "how much should I spend", "can I
-        afford this", "what is coming up" — are answered by safeToSpend and upcomingBills. Call
-        them. The snapshot below may hold the same figures, but quoting it from memory shows the
-        user a paragraph where the tool would have shown them the number.
+        afford this", "what is coming up" — are answered by safeToSpend and upcomingBills, and
+        anything naming a budget or a limit by budgetStatus. Call them. The snapshot below may hold
+        the same figures, but quoting it from memory shows the user a paragraph where the tool would
+        have shown them the number.
 
         This is a household, and the tools can answer about any member of it. When the user names
         nobody, leave the person out: the tools then answer for the household — everyone's money
@@ -73,6 +79,7 @@ public class QueryAgent {
     private final ExpenseAnalyticsTools tools;
     private final HouseholdTools household;
     private final BudgetTools budget;
+    private final AccountTools accounts;
     private final GuidanceTools guidance;
     private final String agentModel;
 
@@ -81,12 +88,14 @@ public class QueryAgent {
         ExpenseAnalyticsTools tools,
         HouseholdTools household,
         BudgetTools budget,
+        AccountTools accounts,
         GuidanceTools guidance,
         @Value("${jarvis.ai.agent-model}") String agentModel) {
         this.chatClient = chatClientBuilder.build();
         this.tools = tools;
         this.household = household;
         this.budget = budget;
+        this.accounts = accounts;
         this.guidance = guidance;
         this.agentModel = agentModel;
     }
@@ -115,7 +124,7 @@ public class QueryAgent {
             .prompt()
             .system(system.toString())
             .user(message)
-            .tools(tools, household, budget, guidance)
+            .tools(tools, household, budget, accounts, guidance)
             .options(OllamaChatOptions.builder().model(agentModel).build())
             .call()
             .content();

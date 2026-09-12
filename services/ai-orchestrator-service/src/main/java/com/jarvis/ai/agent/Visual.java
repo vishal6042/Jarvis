@@ -16,6 +16,7 @@ import java.util.List;
  * @param subtitle whose money and over what window
  * @param amount  the headline figure, null where a list has no meaningful total
  * @param caption a line of context under the figure
+ * @param tone    which way is good: money going out, money coming in, or neither
  * @param points  the rows, in the order they should be drawn
  */
 public record Visual(
@@ -24,7 +25,14 @@ public record Visual(
     String subtitle,
     BigDecimal amount,
     String caption,
+    String tone,
     List<Point> points) {
+
+    /** Money going out — the default, and the app's rose. */
+    public static final String SPEND = "spend";
+
+    /** Money coming in or building up: income, net worth, a goal filling. Emerald. */
+    public static final String EARN = "earn";
 
     /** Kinds the web app knows how to draw. */
     public static final String STAT = "stat";
@@ -33,6 +41,19 @@ public record Visual(
     public static final String COMPARISON = "comparison";
     public static final String LIST = "list";
     public static final String PROGRESS = "progress";
+    /** A line over months rather than bars over days: net worth, where direction is the point. */
+    public static final String TREND = "trend";
+
+    /** Spend is what almost everything here measures, so it is what a visual is unless it says. */
+    public Visual {
+        tone = tone == null ? SPEND : tone;
+    }
+
+    /** The common case: an outgoing figure. */
+    public static Visual spend(
+        String kind, String title, String subtitle, BigDecimal amount, String caption, List<Point> points) {
+        return new Visual(kind, title, subtitle, amount, caption, SPEND, points);
+    }
 
     /**
      * One row.

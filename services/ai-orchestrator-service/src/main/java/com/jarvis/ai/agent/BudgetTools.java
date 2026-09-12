@@ -1,12 +1,19 @@
 package com.jarvis.ai.agent;
 
+import com.jarvis.ai.client.ExpenseClient;
+import com.jarvis.ai.client.FinanceClient;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 /**
@@ -28,6 +35,85 @@ public class BudgetTools {
     private static final String NO_SNAPSHOT =
         "The app did not send a forecast with this question, so I cannot say. Answer from the "
             + "spending figures instead, and say the forecast was unavailable.";
+
+    private final ExpenseClient expense;
+    private final FinanceClient finance;
+
+    public BudgetTools(ExpenseClient expense, FinanceClient finance) {
+        this.expense = expense;
+        this.finance = finance;
+    }
+
+    @Tool(description = """
+        Spending against the limits set per category, for a period. Use this for "am I over budget",
+        "how am I doing on food", "which budgets have I blown", or any question naming a budget or a
+        limit. Only categories with a limit set appear.""")
+    public String budgetStatus(
+        @ToolParam(
+            description = "the period to check, usually this_month. Also accepts: " + Period.ACCEPTED)
+        String period) {
+        Period p = Period.resolve(period, LocalDate.now(ZoneId.systemDefault()));
+        if (p == null) {
+            return "I could not read '%s' as a period. Call again with one of: %s."
+                .formatted(period, Period.ACCEPTED);
+        }
+
+        Map<String, BigDecimal> limits;
+        try {
+            limits = finance.thresholds();
+        } catch (Exception e) {
+            return "The budget limits are unavailable right now.";
+        }
+        if (limits == null || limits.isEmpty()) {
+            return "No category budgets have been set, so there is nothing to measure against. "
+                + "Spending by category still works.";
+        }
+
+        // Limits belong to the household, not to a person, so the spend measured against them has
+        // to be the household's too — comparing one member's spend to a family limit means nothing.
+        List<ExpenseClient.CategorySpend> spent = expense.byCategory(p.from(), p.to(), null);
+        Map<String, BigDecimal> byCategory = spent == null
+            ? Map.of()
+            : spent.stream().collect(Collectors.toMap(
+                ExpenseClient.CategorySpend::category, ExpenseClient.CategorySpend::total, BigDecimal::add));
+
+        List<Visual.Point> points = new ArrayList<>();
+        List<String> said = new ArrayList<>();
+        int over = 0;
+        for (Map.Entry<String, BigDecimal> limit : limits.entrySet()) {
+            BigDecimal used = byCategory.getOrDefault(limit.getKey(), BigDecimal.ZERO);
+            boolean blown = used.compareTo(limit.getValue()) > 0;
+            if (blown) {
+                over++;
+            }
+            points.add(new Visual.Point(
+                limit.getKey(), used, limit.getValue(),
+                blown
+                    ? Money.rupees(used.subtract(limit.getValue())) + " over"
+                    : Money.rupees(limit.getValue().subtract(used)) + " left"));
+            said.add("%s: INR %s of INR %s%s".formatted(
+                limit.getKey(), Money.inr(used), Money.inr(limit.getValue()), blown ? " — OVER" : ""));
+        }
+        points.sort((a, b) -> share(b).compareTo(share(a)));
+
+        ChatVisuals.add(new Visual(
+            Visual.PROGRESS, "Budgets", "the household · " + p.label(), null,
+            over == 0
+                ? "all %d within their limit".formatted(points.size())
+                : "%d of %d over".formatted(over, points.size()),
+            Visual.SPEND, points));
+        return "Budgets are set for the household as a whole. %s — %s."
+            .formatted(p.label(), String.join("; ", said));
+    }
+
+    /** How much of a limit is used, so the tightest budget sorts to the top. */
+    private static BigDecimal share(Visual.Point p) {
+        BigDecimal limit = p.of();
+        if (limit == null || limit.signum() == 0) {
+            return BigDecimal.ZERO;
+        }
+        return p.value().divide(limit, 4, RoundingMode.HALF_UP);
+    }
 
     @Tool(description = """
         How much is safe to spend for the rest of this month, after the bills already known about
@@ -66,7 +152,7 @@ public class BudgetTools {
             said.add("the balance dips to INR " + Money.inr(s.minBalance()) + " on " + s.minOn());
         }
 
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.STAT, "Safe to spend", "the rest of this month", s.safeToSpend(), caption, points));
         return "Already worked out by the app — " + String.join(", ", said) + ".";
     }
@@ -90,7 +176,7 @@ public class BudgetTools {
             .map(BigDecimal::abs)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.LIST, "Coming up", "the next few weeks", out,
             "going out, across %d %s".formatted(due.size(), due.size() == 1 ? "item" : "items"),
             due.stream()

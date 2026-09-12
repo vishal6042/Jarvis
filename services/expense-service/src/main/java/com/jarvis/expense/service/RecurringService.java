@@ -38,11 +38,20 @@ public class RecurringService {
 
     @Transactional(readOnly = true)
     public List<RecurringPayment> detect() {
+        return detectFor(scope.memberId());
+    }
+
+    /**
+     * As {@link #detect} but for a named member — the assistant asks on behalf of whoever is
+     * chatting, over the internal channel where there is no caller. Null means the whole household.
+     */
+    @Transactional(readOnly = true)
+    public List<RecurringPayment> detectFor(Long member) {
         ZoneId zone = ZoneId.systemDefault();
         Instant from = LocalDate.now(zone).minusMonths(LOOKBACK_MONTHS).atStartOfDay(zone).toInstant();
 
         Map<String, List<Transaction>> groups = new LinkedHashMap<>();
-        for (Transaction t : transactions.findDebitsSince(from, scope.all(), scope.accountIds())) {
+        for (Transaction t : transactions.findDebitsSince(from, member == null, scope.accountIdsOf(member))) {
             String category = t.getCategory() != null ? t.getCategory().getName() : null;
             if ("Card Payment".equals(category)) {
                 continue; // a transfer to the card, not a subscription

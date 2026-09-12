@@ -71,7 +71,7 @@ public class ExpenseAnalyticsTools {
         // What was saved is the question behind half of these, and subtracting it in prose is how
         // the model gets it wrong. Worked out here, and on the card next to the other two.
         BigDecimal saved = s.earning().subtract(s.spend());
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.STAT, "Spent", subtitle(who, p), s.spend(), null,
             List.of(
                 Visual.Point.of("Spent", s.spend()),
@@ -122,7 +122,7 @@ public class ExpenseAnalyticsTools {
         // leave the model to divide two large numbers, which is where it would go wrong.
         BigDecimal first = points.get(0).value();
         BigDecimal second = points.get(1).value();
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.COMPARISON, "Spending compared", who.label(), first, change(first, second), points));
         return "%s — %s. %s".formatted(who.label(), String.join("; ", said), change(first, second));
     }
@@ -145,9 +145,39 @@ public class ExpenseAnalyticsTools {
         if (rows == null || rows.isEmpty()) {
             return nothing(who, p);
         }
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.BREAKDOWN, "Spend by category", subtitle(who, p), total(rows, ExpenseClient.CategorySpend::total),
             rows.size() + (rows.size() == 1 ? " category" : " categories"),
+            rows.stream().map(c -> Visual.Point.of(c.category(), c.total())).toList()));
+        return header(who, p) + rows.stream()
+            .map(c -> "%s: INR %s".formatted(c.category(), Money.inr(c.total())))
+            .collect(Collectors.joining("; "));
+    }
+
+    @Tool(description = """
+        Income grouped by where it came from (highest first, INR) over a period — salary, interest,
+        refunds, anything paid in. Use this for "where does my money come from", "how much did I
+        earn from X", or any breakdown of money coming in rather than going out.""")
+    public String incomeBySource(
+        @ToolParam(description = PERIOD_DOC) String period,
+        @ToolParam(description = PERSON_DOC, required = false) String person) {
+        Period p = Period.resolve(period, today());
+        if (p == null) {
+            return unknown(period);
+        }
+        People.Choice who = people.resolve(person);
+        if (who.refused()) {
+            return who.refusal();
+        }
+        List<ExpenseClient.CategorySpend> rows = expense.incomeBySource(p.from(), p.to(), who.memberId());
+        if (rows == null || rows.isEmpty()) {
+            return "No income recorded for %s, %s.".formatted(who.label(), p.label());
+        }
+        ChatVisuals.add(new Visual(
+            Visual.BREAKDOWN, "Income by source", subtitle(who, p),
+            total(rows, ExpenseClient.CategorySpend::total),
+            rows.size() + (rows.size() == 1 ? " source" : " sources"),
+            Visual.EARN,
             rows.stream().map(c -> Visual.Point.of(c.category(), c.total())).toList()));
         return header(who, p) + rows.stream()
             .map(c -> "%s: INR %s".formatted(c.category(), Money.inr(c.total())))
@@ -175,7 +205,7 @@ public class ExpenseAnalyticsTools {
         }
         BigDecimal total = total(days, ExpenseClient.DaySpend::total);
         // Oldest first: a chart of days that runs backwards reads as a different story.
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.SERIES, "Spend by day", subtitle(who, p), total,
             "%d %s with spending".formatted(days.size(), days.size() == 1 ? "day" : "days"),
             days.stream()
@@ -212,7 +242,7 @@ public class ExpenseAnalyticsTools {
         if (rows == null || rows.isEmpty()) {
             return nothing(who, p);
         }
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.BREAKDOWN, "Top merchants", subtitle(who, p), total(rows, ExpenseClient.MerchantSpend::total),
             "the biggest " + rows.size() + " of them",
             rows.stream()
@@ -253,7 +283,7 @@ public class ExpenseAnalyticsTools {
                 : "No purchases matching %s for %s, %s.".formatted(search, who.label(), p.label());
         }
         ZoneId zone = ZoneId.systemDefault();
-        ChatVisuals.add(new Visual(
+        ChatVisuals.add(Visual.spend(
             Visual.LIST,
             search == null || search.isBlank() ? "Purchases" : "Purchases matching " + search.trim(),
             subtitle(who, p),

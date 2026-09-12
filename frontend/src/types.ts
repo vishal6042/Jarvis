@@ -151,7 +151,17 @@ export interface VisualPoint {
   note?: string | null;
 }
 
-export type VisualKind = "stat" | "series" | "breakdown" | "comparison" | "list" | "progress";
+export type VisualKind =
+  | "stat"
+  | "series"
+  | "breakdown"
+  | "comparison"
+  | "list"
+  | "progress"
+  | "trend";
+
+/** Which way is good: money going out, or money coming in and building up. */
+export type VisualTone = "spend" | "earn";
 
 export interface Visual {
   kind: VisualKind;
@@ -160,6 +170,7 @@ export interface Visual {
   /** The headline figure; null where a list has no meaningful total. */
   amount?: number | null;
   caption?: string | null;
+  tone?: VisualTone;
   points: VisualPoint[];
 }
 

@@ -86,7 +86,7 @@ public class HouseholdTools {
                 .map(FinanceClient.Investment::invested)
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-            ChatVisuals.add(new Visual(
+            ChatVisuals.add(Visual.spend(
                 Visual.BREAKDOWN, "Investments", who.label(), current,
                 "%s put in, worth %s now".formatted(Money.rupees(invested), Money.rupees(current)),
                 p.investments().stream()
@@ -113,7 +113,7 @@ public class HouseholdTools {
                 .map(FinanceClient.Loan::emi)
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-            ChatVisuals.add(new Visual(
+            ChatVisuals.add(Visual.spend(
                 Visual.BREAKDOWN, "Loans outstanding", who.label(), outstanding,
                 "%s a month in EMI".formatted(Money.rupees(emi)),
                 p.loans().stream()
@@ -131,7 +131,7 @@ public class HouseholdTools {
                     .collect(Collectors.joining("; "))));
         }
         if (p.goals() != null && !p.goals().isEmpty()) {
-            ChatVisuals.add(new Visual(
+            ChatVisuals.add(Visual.spend(
                 // No caption: the goals themselves are right underneath, and counting them adds nothing.
                 Visual.PROGRESS, "Goals", who.label(), null, null,
                 p.goals().stream()
