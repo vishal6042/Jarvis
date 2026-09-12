@@ -40,7 +40,9 @@ export function ServiceCard({ service, onChanged }: { service: ServiceState; onC
           <Glyph size={19} />
         </span>
         <div style={{ minWidth: 0 }}>
-          <div className="card-title">{service.label}</div>
+          <div className="card-title">
+            {service.label} <span className="port">:{service.port}</span>
+          </div>
           <div className="card-sub">{service.description}</div>
         </div>
       </div>

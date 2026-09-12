@@ -42,6 +42,11 @@ export interface Settings {
   repoRoot?: string;
   /** Close button hides to the tray instead of quitting. On by default. */
   minimiseToTray?: boolean;
+  /**
+   * Where PostgreSQL keeps pg_dump and friends, when they are not in a standard install path.
+   * Only needed by backup and restore, and only on an unusual install.
+   */
+  pgBin?: string;
 }
 
 export function readSettings(): Settings {

@@ -763,3 +763,168 @@ select {
   overflow-y: auto;
   padding-right: 4px;
 }
+
+/* ---------------------------------------------------------------- ports and backup */
+
+/* The port beside a service name, matching the dependency strip so both read the same way. */
+.port {
+  color: var(--dim);
+  font-weight: 400;
+  font-size: 12.5px;
+}
+
+.backup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+/* Two panels side by side need a single column before the text inside them starts wrapping oddly. */
+@media (max-width: 1080px) {
+  .backup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-body {
+  padding: 4px 18px 18px;
+}
+
+.prose {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.prose.dim {
+  color: var(--dim);
+}
+
+.panel-body code,
+.notice code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  background: #ffffff10;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.backup-go {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* A target big enough to drop onto without aiming, and clickable for anyone who would rather not. */
+.dropzone {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 18px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--line);
+  background: #ffffff06;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms, color 120ms;
+}
+
+.dropzone:hover:not(.disabled),
+.dropzone.over {
+  border-color: var(--violet);
+  background: #8585ff14;
+  color: var(--text);
+}
+
+.dropzone.disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.drop-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.drop-sub {
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.notice.ok {
+  color: var(--green);
+  box-shadow: inset 0 0 0 1px #10b98155;
+}
+
+.notice.warn {
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px #fbbf2455;
+}
+
+/* The icon should not shrink when the message beside it runs to several lines. */
+.notice > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.notice .link {
+  display: block;
+  margin-top: 6px;
+}
+
+.warn-text {
+  color: var(--amber);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 18px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.kv .k {
+  color: var(--dim);
+}
+
+/* Long paths wrap rather than stretching the grid past the panel. */
+.kv .v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.kv .dim {
+  color: var(--dim);
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid #ffffff26;
+  border-top-color: var(--violet);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

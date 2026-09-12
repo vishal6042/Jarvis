@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Supervisor } from "./supervisor.js";
 import { readHealth } from "./health.js";
 import { repoRoot, repoRootIsValid, writeSettings, readSettings, loadStack } from "./config.js";
+import { backup, findPgBin, restore, suggestedFileName, toolInfo } from "./backup.js";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -133,6 +134,63 @@ function registerIpc(): void {
     minimiseToTray = on;
     writeSettings({ minimiseToTray: on });
     return minimiseToTray;
+  });
+
+  ipcMain.handle("jarvis:backup-info", () => toolInfo());
+
+  /**
+   * Where the zip goes is the person's choice, every time — a backup nobody can find is not a
+   * backup. Progress goes back on its own channel so the window can say what is happening during
+   * what is, on a real database, a visible pause.
+   */
+  ipcMain.handle("jarvis:backup", async () => {
+    const picked = await dialog.showSaveDialog({
+      title: "Save the Jarvis backup",
+      defaultPath: path.join(app.getPath("documents"), suggestedFileName()),
+      filters: [{ name: "Zip archive", extensions: ["zip"] }],
+      properties: ["createDirectory", "showOverwriteConfirmation"],
+    });
+    if (picked.canceled || !picked.filePath) return { cancelled: true };
+    try {
+      const result = await backup(picked.filePath, app.getVersion(), (p) =>
+        window?.webContents.send("jarvis:backup-progress", p),
+      );
+      return { ok: true, ...result };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  /** @param dropped a path the window got from a drag-and-drop; absent means open the chooser. */
+  ipcMain.handle("jarvis:restore", async (_e, dropped?: string) => {
+    let file = dropped;
+    if (!file) {
+      const picked = await dialog.showOpenDialog({
+        title: "Choose a Jarvis backup",
+        filters: [{ name: "Zip archive", extensions: ["zip"] }],
+        properties: ["openFile"],
+      });
+      if (picked.canceled || !picked.filePaths[0]) return { cancelled: true };
+      file = picked.filePaths[0];
+    }
+    try {
+      const result = await restore(file, (p) =>
+        window?.webContents.send("jarvis:backup-progress", p),
+      );
+      return { ok: true, ...result };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  ipcMain.handle("jarvis:choose-pg-bin", async () => {
+    const picked = await dialog.showOpenDialog({
+      title: "Where is PostgreSQL's bin folder?",
+      properties: ["openDirectory"],
+      defaultPath: findPgBin() ?? "C:\\Program Files\\PostgreSQL",
+    });
+    if (!picked.canceled && picked.filePaths[0]) writeSettings({ pgBin: picked.filePaths[0] });
+    return toolInfo();
   });
 
   ipcMain.handle("jarvis:choose-repo-root", async () => {

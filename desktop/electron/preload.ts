@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 /**
  * The whole surface the window is allowed to touch. Node stays out of the renderer: it only ever
@@ -19,10 +19,27 @@ const api = {
   chooseRepoRoot: () => ipcRenderer.invoke("jarvis:choose-repo-root"),
   setMinimiseToTray: (on: boolean) => ipcRenderer.invoke("jarvis:set-minimise-to-tray", on),
 
+  getBackupInfo: () => ipcRenderer.invoke("jarvis:backup-info"),
+  backup: () => ipcRenderer.invoke("jarvis:backup"),
+  restore: (file?: string) => ipcRenderer.invoke("jarvis:restore", file),
+  choosePgBin: () => ipcRenderer.invoke("jarvis:choose-pg-bin"),
+
+  /**
+   * The path behind a dropped file. Electron removed File.path, so the renderer cannot read it
+   * itself; this is the sanctioned way to turn a drop into something the main process can open.
+   */
+  pathForFile: (file: File) => webUtils.getPathForFile(file),
+
   onChanged: (fn: () => void) => {
     const listener = () => fn();
     ipcRenderer.on("jarvis:changed", listener);
     return () => ipcRenderer.removeListener("jarvis:changed", listener);
+  },
+
+  onBackupProgress: (fn: (step: string) => void) => {
+    const listener = (_e: unknown, p: { step: string }) => fn(p.step);
+    ipcRenderer.on("jarvis:backup-progress", listener);
+    return () => ipcRenderer.removeListener("jarvis:backup-progress", listener);
   },
 };
 

@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { api, formatUptime, useHealth, useSettings, useStack, type DependencyState, type ServiceState } from "./api";
+import {
+  api,
+  formatBytes,
+  formatUptime,
+  useHealth,
+  useSettings,
+  useStack,
+  type BackupInfo,
+  type DependencyState,
+  type ServiceState,
+} from "./api";
 import { DependencyStrip, LogPanel, Ring, ServiceCard } from "./components";
 import * as Icon from "./icons";
 import JarvisLogo from "./logo";
 
-type Page = "home" | "services" | "logs" | "settings" | "about";
+type Page = "home" | "services" | "logs" | "backup" | "settings" | "about";
 
 const NAV: { id: Page; label: string; icon: (p: { size?: number }) => ReactElement }[] = [
   { id: "home", label: "Home", icon: Icon.Home },
   { id: "services", label: "Services", icon: Icon.Stack },
   { id: "logs", label: "Logs", icon: Icon.Doc },
+  { id: "backup", label: "Backup", icon: Icon.Archive },
   { id: "settings", label: "Settings", icon: Icon.Gear },
   { id: "about", label: "About", icon: Icon.Info },
 ];
@@ -70,6 +81,7 @@ export default function App() {
           <Services services={services} dependencies={dependencies} busy={busy} onChanged={refresh} />
         )}
         {page === "logs" && <Logs services={services} logs={logs} />}
+        {page === "backup" && <Backup />}
         {page === "settings" && <Settings settings={settings} reload={reloadSettings} />}
         {page === "about" && <About settings={settings} />}
       </main>
@@ -85,7 +97,7 @@ function summarise(
 ) {
   if (!loaded) {
     return {
-      title: "Checking2026",
+      title: "Checking…",
       sub: "Reading the ports to see what is already up.",
       pill: "busy" as const,
       pillText: "Checking",
@@ -97,10 +109,10 @@ function summarise(
   if (blocking.length) {
     const names = blocking.map((d) => d.label).join(" and ");
     return {
-      title: ` is not running`,
-      sub: `Start  first 2014 every service needs it before it can come up.`,
+      title: `${names} is not running`,
+      sub: `Start ${names} first — every service needs it before it can come up.`,
       pill: "warn" as const,
-      pillText: ` down`,
+      pillText: `${names} down`,
     };
   }
   const running = services.filter((s) => s.status === "running").length;
@@ -307,6 +319,236 @@ function Logs({ services, logs }: { services: ServiceState[]; logs: ReturnType<t
         </div>
       </div>
       <LogPanel logs={logs} services={services} tall />
+    </>
+  );
+}
+
+/**
+ * Take a copy of everything, and put a copy back.
+ *
+ * <p>A restore never touches the database in use: it builds a new one beside it. Someone reaching
+ * for this page is usually already having a bad day, and the worst thing it could do is make that
+ * day worse by overwriting the only copy they had left.
+ */
+function Backup() {
+  const [info, setInfo] = useState<BackupInfo | null>(null);
+  const [busy, setBusy] = useState<"backup" | "restore" | null>(null);
+  const [step, setStep] = useState("");
+  const [done, setDone] = useState<ReactElement | null>(null);
+  const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    void api().getBackupInfo().then(setInfo);
+    return api().onBackupProgress(setStep);
+  }, []);
+
+  const reset = () => {
+    setDone(null);
+    setError("");
+    setStep("");
+  };
+
+  const runBackup = async () => {
+    reset();
+    setBusy("backup");
+    try {
+      const result = await api().backup();
+      if ("error" in result) setError(result.error);
+      else if ("ok" in result) {
+        setDone(
+          <>
+            Saved <strong>{result.file}</strong> — {formatBytes(result.bytes)} from the{" "}
+            <code>{result.database}</code> database.
+          </>,
+        );
+      }
+    } finally {
+      setBusy(null);
+      setStep("");
+    }
+  };
+
+  const runRestore = async (file?: string) => {
+    reset();
+    setBusy("restore");
+    try {
+      const result = await api().restore(file);
+      if ("error" in result) setError(result.error);
+      else if ("ok" in result) {
+        setDone(
+          <>
+            Restored <strong>{result.from}</strong> into a new database, <code>{result.database}</code>.
+            Your live database was not touched. To run the stack against the restored copy, set{" "}
+            <code>JARVIS_DB_URL</code> to{" "}
+            <code>
+              jdbc:postgresql://{info?.host ?? "localhost"}:{info?.port ?? 5432}/{result.database}
+            </code>{" "}
+            and start the services again.
+          </>,
+        );
+      }
+    } finally {
+      setBusy(null);
+      setStep("");
+    }
+  };
+
+  /** A drop is only a restore when it is one zip; anything else is almost certainly a mis-drop. */
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (busy) return;
+    const files = Array.from(e.dataTransfer.files);
+    const zip = files.find((f) => f.name.toLowerCase().endsWith(".zip"));
+    if (!zip) {
+      setError("Drop the backup .zip itself — that was not one.");
+      return;
+    }
+    void runRestore(api().pathForFile(zip));
+  };
+
+  const ready = !!info?.bin;
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <h1>Backup</h1>
+          <p className="subtitle">
+            Every service keeps its data in one Postgres database, so one file holds all of it —
+            accounts, transactions, investments, loans, reminders and saved conversations.
+          </p>
+        </div>
+      </div>
+
+      {info && !ready && (
+        <div className="notice warn">
+          <Icon.Alert size={17} />
+          <div>
+            PostgreSQL's command-line tools were not found, so nothing here can run. Install
+            PostgreSQL 18, or point the Control Center at the bin folder.
+            <button className="link" onClick={() => void api().choosePgBin().then(setInfo)}>
+              Choose the bin folder <Icon.Arrow size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="backup-grid">
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Back up</h2>
+          </div>
+          <div className="panel-body">
+            <p className="prose">
+              Writes a zip you choose the place for: the whole database, plus a small manifest
+              saying when it was taken and by what.
+            </p>
+            <p className="prose dim">
+              The guidance index in Qdrant is left out on purpose — it is rebuilt from{" "}
+              <code>corpus/</code>, so a copy of it could only go stale.
+            </p>
+            <button
+              className="action primary backup-go"
+              disabled={!ready || busy !== null}
+              onClick={() => void runBackup()}
+            >
+              <span className="action-icon">
+                <Icon.Download size={20} />
+              </span>
+              <span>
+                <span className="action-title">
+                  {busy === "backup" ? "Backing up…" : "Back up now"}
+                </span>
+                <br />
+                <span className="action-sub">Choose where to save the zip</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Restore</h2>
+          </div>
+          <div className="panel-body">
+            <p className="prose">
+              Reads a backup zip into a <strong>new</strong> database named for the day it was
+              taken. Nothing in use is overwritten, so it is safe to try.
+            </p>
+            <div
+              className={`dropzone${dragging ? " over" : ""}${busy ? " disabled" : ""}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!busy) setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              onClick={() => !busy && ready && void runRestore()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if ((e.key === "Enter" || e.key === " ") && !busy && ready) void runRestore();
+              }}
+            >
+              <Icon.Upload size={22} />
+              <div>
+                <div className="drop-title">
+                  {busy === "restore" ? "Restoring…" : "Drop a backup zip here"}
+                </div>
+                <div className="drop-sub">or click to choose one</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {busy && step && (
+        <div className="notice">
+          <span className="spinner" />
+          {step}
+        </div>
+      )}
+      {error && (
+        <div className="notice warn">
+          <Icon.Alert size={17} />
+          <div>{error}</div>
+        </div>
+      )}
+      {done && (
+        <div className="notice ok">
+          <Icon.Check size={17} />
+          <div>{done}</div>
+        </div>
+      )}
+
+      {info && (
+        <div className="panel">
+          <div className="panel-head">
+            <h2>What it reads</h2>
+          </div>
+          <div className="panel-body kv">
+            <div className="k">Database</div>
+            <div className="v">
+              <code>
+                {info.user}@{info.host}:{info.port}/{info.database}
+              </code>
+            </div>
+            <div className="k">PostgreSQL tools</div>
+            <div className="v">
+              {info.bin ? (
+                <>
+                  <code>{info.bin}</code>
+                  {info.version && <span className="dim"> · {info.version}</span>}
+                </>
+              ) : (
+                <span className="warn-text">not found</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

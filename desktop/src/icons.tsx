@@ -48,6 +48,30 @@ export const Info = ({ size }: Props) => (
   </svg>
 );
 
+export const Archive = ({ size }: Props) => (
+  <svg {...svg(size)}>
+    <rect x="3" y="4" width="18" height="4.5" rx="1.4" />
+    <path d="M5 8.5V19a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5" />
+    <path d="M10 12.5h4" />
+  </svg>
+);
+
+export const Download = ({ size }: Props) => (
+  <svg {...svg(size)}>
+    <path d="M12 3v11" />
+    <path d="m7.5 10 4.5 4.5L16.5 10" />
+    <path d="M4 17.5V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2.5" />
+  </svg>
+);
+
+export const Upload = ({ size }: Props) => (
+  <svg {...svg(size)}>
+    <path d="M12 15.5V4" />
+    <path d="M7.5 8.5 12 4l4.5 4.5" />
+    <path d="M4 17.5V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2.5" />
+  </svg>
+);
+
 export const Play = ({ size }: Props) => (
   <svg {...svg(size)}>
     <path d="M7 4.5v15l13-7.5z" fill="currentColor" stroke="none" />

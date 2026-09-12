@@ -51,6 +51,27 @@ export interface Settings {
   electron: string;
 }
 
+/** Where the backup tools are, and which database they would act on. */
+export interface BackupInfo {
+  /** PostgreSQL's bin folder, or null when it could not be found — backup is impossible without it. */
+  bin: string | null;
+  version: string | null;
+  database: string;
+  host: string;
+  port: number;
+  user: string;
+}
+
+export type BackupOutcome =
+  | { ok: true; file: string; bytes: number; database: string }
+  | { cancelled: true }
+  | { error: string };
+
+export type RestoreOutcome =
+  | { ok: true; database: string; createdAt: string; from: string }
+  | { cancelled: true }
+  | { error: string };
+
 interface JarvisApi {
   getState(): Promise<{ services: ServiceState[]; dependencies: DependencyState[]; busy: boolean }>;
   getLogs(): Promise<LogLine[]>;
@@ -64,7 +85,13 @@ interface JarvisApi {
   openExternal(url: string): Promise<void>;
   chooseRepoRoot(): Promise<{ repoRoot: string; repoRootValid: boolean }>;
   setMinimiseToTray(on: boolean): Promise<boolean>;
+  getBackupInfo(): Promise<BackupInfo>;
+  backup(): Promise<BackupOutcome>;
+  restore(file?: string): Promise<RestoreOutcome>;
+  choosePgBin(): Promise<BackupInfo>;
+  pathForFile(file: File): string;
   onChanged(fn: () => void): () => void;
+  onBackupProgress(fn: (step: string) => void): () => void;
 }
 
 declare global {
@@ -125,6 +152,18 @@ export function useSettings() {
   const reload = useCallback(() => void api().getSettings().then(setSettings), []);
   useEffect(reload, [reload]);
   return { settings, reload };
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`;
 }
 
 export function formatUptime(seconds: number): string {
