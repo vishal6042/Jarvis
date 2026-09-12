@@ -19,7 +19,7 @@ import {
   type ChatSummary,
   type ChatTurn,
 } from "@/api";
-import type { Transaction, Visual } from "@/types";
+import type { ChatSnapshot, Transaction, Visual } from "@/types";
 import AssistantVisuals from "@/components/AssistantVisuals";
 import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { getGoals, type ApiGoal } from "@/lib/api/finance";
@@ -126,6 +126,28 @@ export default function Assistant() {
     listTransactions(0, 500).then(setTxns).catch(() => setTxns([]));
     cardSummaries().then(setCards).catch(() => setCards([]));
   }, []);
+  /**
+   * The same forecast the prose snapshot describes, structured — so the safe-to-spend tools answer
+   * with these figures instead of the model retyping the paragraph, and the chat can draw them.
+   */
+  const snapshot = useMemo<ChatSnapshot>(() => {
+    const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns: activeMember.earns });
+    return {
+      safeToSpend: fc.safeToSpend,
+      reserve,
+      savings: f.savings,
+      spentThisMonth: f.spend,
+      projected: fc.projected,
+      projectedOn: fc.projectedOn,
+      minBalance: fc.minBalance,
+      minOn: fc.minOn,
+      upcoming: fc.events
+        .filter((e) => e.kind !== "start" && e.kind !== "end")
+        .slice(0, 12)
+        .map((e) => ({ on: e.on, label: e.label, amount: e.amount, estimate: !!e.unknownAmount })),
+    };
+  }, [f.savings, f.spend, txns, reminders, cards, reserve, paidKeys, activeMember.earns]);
+
   const contextText = useMemo(() => {
     const fc = buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns: activeMember.earns });
     const pf = portfolioReturn(investments);
@@ -310,7 +332,7 @@ export default function Assistant() {
         }
       }
       // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
-      const reply = await aiChat(q, contextText);
+      const reply = await aiChat(q, contextText, snapshot);
       say({ role: "assistant", text: reply.answer, visuals: reply.visuals });
     } catch {
       // Backend unavailable → quick local heuristic over the on-device data.

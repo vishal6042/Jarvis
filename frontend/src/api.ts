@@ -5,6 +5,7 @@ import type {
   ApiNotification,
   CategorySpend,
   ChatReply,
+  ChatSnapshot,
   ConfirmStatementRequest,
   CreateTransactionRequest,
   CreateUserPayload,
@@ -361,9 +362,19 @@ export async function aiPlan(message: string): Promise<import("@/lib/actions").P
   return (await api.post<import("@/lib/actions").PlannedAction>("/api/ai/plan", { message }, { timeout: 120000 })).data;
 }
 
-/** The prose answer plus the figures behind it, which the chat draws as cards and charts. */
-export async function aiChat(message: string, context?: string): Promise<ChatReply> {
-  return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data;
+/**
+ * The prose answer plus the figures behind it, which the chat draws as cards and charts.
+ *
+ * `context` is the forecast as prose, for background the tools do not cover; `snapshot` is the
+ * same forecast structured, so the safe-to-spend tools can hand back figures rather than have the
+ * model retype a paragraph.
+ */
+export async function aiChat(
+  message: string,
+  context?: string,
+  snapshot?: ChatSnapshot,
+): Promise<ChatReply> {
+  return (await api.post<ChatReply>("/api/ai/chat", { message, context, snapshot }, { timeout: 120000 })).data;
 }
 
 /* ── Saved conversations ────────────────────────────────────────────────────────────────────

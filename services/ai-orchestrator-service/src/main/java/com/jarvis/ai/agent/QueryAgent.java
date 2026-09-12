@@ -39,6 +39,11 @@ public class QueryAgent {
         reports nothing recorded, say the data shows nothing for that period rather than that you
         cannot look.
 
+        Questions about what is left rather than what has gone — "how much should I spend", "can I
+        afford this", "what is coming up" — are answered by safeToSpend and upcomingBills. Call
+        them. The snapshot below may hold the same figures, but quoting it from memory shows the
+        user a paragraph where the tool would have shown them the number.
+
         This is a household, and the tools can answer about any member of it. When the user names
         nobody, leave the person out: the tools then answer for the household — everyone's money
         together — which is what an unqualified question means here. Only when they single someone
@@ -67,6 +72,7 @@ public class QueryAgent {
     private final ChatClient chatClient;
     private final ExpenseAnalyticsTools tools;
     private final HouseholdTools household;
+    private final BudgetTools budget;
     private final GuidanceTools guidance;
     private final String agentModel;
 
@@ -74,11 +80,13 @@ public class QueryAgent {
         ChatClient.Builder chatClientBuilder,
         ExpenseAnalyticsTools tools,
         HouseholdTools household,
+        BudgetTools budget,
         GuidanceTools guidance,
         @Value("${jarvis.ai.agent-model}") String agentModel) {
         this.chatClient = chatClientBuilder.build();
         this.tools = tools;
         this.household = household;
+        this.budget = budget;
         this.guidance = guidance;
         this.agentModel = agentModel;
     }
@@ -107,7 +115,7 @@ public class QueryAgent {
             .prompt()
             .system(system.toString())
             .user(message)
-            .tools(tools, household, guidance)
+            .tools(tools, household, budget, guidance)
             .options(OllamaChatOptions.builder().model(agentModel).build())
             .call()
             .content();

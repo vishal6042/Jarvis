@@ -1,12 +1,14 @@
 package com.jarvis.ai.web;
 
 import com.jarvis.ai.agent.ActionPlanner;
+import com.jarvis.ai.agent.ChatSnapshot;
 import com.jarvis.ai.agent.ChatVisuals;
 import com.jarvis.ai.agent.FinanceScore;
 import com.jarvis.ai.agent.MerchantEnricher;
 import com.jarvis.ai.agent.FinanceScoreAgent;
 import com.jarvis.ai.agent.ParsedTransaction;
 import com.jarvis.ai.agent.QueryAgent;
+import com.jarvis.ai.agent.Snapshot;
 import com.jarvis.ai.agent.StatementParseResult;
 import com.jarvis.ai.agent.StatementParserAgent;
 import com.jarvis.ai.agent.TransactionParser;
@@ -84,11 +86,13 @@ public class AiController {
     @PostMapping("/api/ai/chat")
     public ChatReply chat(@Valid @RequestBody ChatRequest req) {
         ChatVisuals.begin();
+        ChatSnapshot.set(req.snapshot());
         try {
             String answer = queryAgent.ask(req.message(), req.context());
             return new ChatReply(answer, ChatVisuals.take());
         } finally {
             ChatVisuals.take();
+            ChatSnapshot.clear();
         }
     }
 
@@ -130,8 +134,12 @@ public class AiController {
 
     public record ParseRequest(@NotBlank String text) {}
 
-    /** {@code context}: optional snapshot the web app computed (safe-to-spend, upcoming bills …). */
-    public record ChatRequest(@NotBlank String message, String context) {}
+    /**
+     * @param context  background the web app computed, as prose, for anything not covered by a tool
+     * @param snapshot the same forecast structured, so safeToSpend and upcomingBills can return it
+     *     as figures the chat can draw rather than a paragraph the model retypes
+     */
+    public record ChatRequest(@NotBlank String message, String context, Snapshot snapshot) {}
 
     /** {@code visuals}: the figures behind the answer, for the web app to draw. Empty when none. */
     public record ChatReply(String answer, List<Visual> visuals) {}

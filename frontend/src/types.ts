@@ -163,6 +163,24 @@ export interface Visual {
   points: VisualPoint[];
 }
 
+/**
+ * The forecast the app has already computed, sent with a question so the assistant answers "how
+ * much can I spend" with the same figure the dashboard shows rather than one of its own.
+ */
+export interface ChatSnapshot {
+  safeToSpend: number;
+  reserve: number;
+  savings: number;
+  spentThisMonth: number;
+  projected: number;
+  /** ISO date. */
+  projectedOn: string;
+  minBalance: number;
+  /** ISO date. */
+  minOn: string;
+  upcoming: { on: string; label: string; amount: number; estimate: boolean }[];
+}
+
 export interface ChatReply {
   answer: string;
   visuals?: Visual[];
