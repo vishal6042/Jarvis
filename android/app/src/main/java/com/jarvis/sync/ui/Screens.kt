@@ -84,6 +84,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jarvis.sync.BuildConfig
 import com.jarvis.sync.R
 import com.jarvis.sync.data.AccountDto
 import com.jarvis.sync.data.DashboardExtras
@@ -1364,7 +1365,8 @@ private fun SettingsScreen(
 
         Spacer(Modifier.height(20.dp))
         Box(Modifier.fillMaxWidth(), Alignment.Center) {
-            Text("Jarvis Sync 1.1.0", fontSize = 11.5.sp, color = Ink.faint)
+            // Read from the build rather than typed here, so it cannot drift out of step.
+            Text("Jarvis Sync " + BuildConfig.VERSION_NAME, fontSize = 11.5.sp, color = Ink.faint)
         }
         Spacer(Modifier.height(28.dp))
     }
