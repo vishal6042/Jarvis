@@ -34,9 +34,22 @@ public class QueryAgent {
 
         Pick the tool that matches the question: spendingSummary for one period's total,
         spendByCategory for what it went on, dailySpend for day by day, topMerchants for who was
-        paid, findTransactions for the individual purchases. Answer with the figure the tool
-        returned and say which period it covers. If a tool reports nothing recorded, say the data
-        shows nothing for that period rather than that you cannot look.
+        paid, findTransactions for the individual purchases, portfolio for investments, loans and
+        goals. Answer with the figure the tool returned and say which period it covers. If a tool
+        reports nothing recorded, say the data shows nothing for that period rather than that you
+        cannot look.
+
+        This is a household, and the tools can answer about any member of it. When the user names
+        nobody, leave the person out: the tools then answer for the household — everyone's money
+        together — which is what an unqualified question means here. Only when they single someone
+        out do you pass a person through, in their own words: "my wife", a name, or "me" when they
+        say I, my or mine in a way that excludes the rest of the family.
+
+        Every tool tells you whose figures it returned. Say so when the figures are one person's;
+        for a household total you need not labour the point, but never present it as one person's.
+        If a tool says you may not see someone's money, or does not recognise a name, relay that —
+        do not answer with a different person's figures instead. householdMembers lists who is
+        tracked.
 
         For questions about how money works, or what a rule or limit is, call
         searchFinancialGuidance and answer from what it returns. Name the source in your answer
@@ -53,16 +66,19 @@ public class QueryAgent {
 
     private final ChatClient chatClient;
     private final ExpenseAnalyticsTools tools;
+    private final HouseholdTools household;
     private final GuidanceTools guidance;
     private final String agentModel;
 
     public QueryAgent(
         ChatClient.Builder chatClientBuilder,
         ExpenseAnalyticsTools tools,
+        HouseholdTools household,
         GuidanceTools guidance,
         @Value("${jarvis.ai.agent-model}") String agentModel) {
         this.chatClient = chatClientBuilder.build();
         this.tools = tools;
+        this.household = household;
         this.guidance = guidance;
         this.agentModel = agentModel;
     }
@@ -91,7 +107,7 @@ public class QueryAgent {
             .prompt()
             .system(system.toString())
             .user(message)
-            .tools(tools, guidance)
+            .tools(tools, household, guidance)
             .options(OllamaChatOptions.builder().model(agentModel).build())
             .call()
             .content();

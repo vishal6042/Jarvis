@@ -202,26 +202,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @Param("from") Instant from,
         @Param("to") Instant to);
 
-    /** Total in a direction across several account types (spend = savings + card debits). */
-    @Query(
-        """
-        select coalesce(sum(t.amount), 0) from Transaction t
-        where t.direction = :direction and t.account.type in :types
-          and t.occurredAt >= :from and t.occurredAt < :to
-          and t.transfer = false and t.settlement = false
-          and (:all = true or t.account.id in :accountIds)
-        """)
-    BigDecimal sumByDirectionAndAccountTypes(
-        @Param("direction") Direction direction,
-        @Param("types") Collection<AccountType> types,
-        @Param("from") Instant from,
-        @Param("to") Instant to,
-        @Param("all") boolean all,
-        @Param("accountIds") Collection<Long> accountIds);
-
     /**
-     * Spend-by-category for the breakdown: DEBITs on savings + credit-card accounts, EXCLUDING the
-     * "Card Payment" category (savings→card bill payments, already covered by the card's own debits).
+     * Spend-by-category for the breakdown, on the same footing as {@link #sumSpendBetween}: DEBITs
+     * on savings, credit-card and debit-card accounts, EXCLUDING the "Card Payment" category
+     * (savings→card bill payments, already covered by the card's own debits).
      * Rows of [categoryName, total].
      */
     @Query(
@@ -232,7 +216,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
           and t.occurredAt >= :from and t.occurredAt < :to
           and t.transfer = false and t.settlement = false
           and t.account.type in (com.jarvis.expense.domain.AccountType.SAVINGS,
-                                 com.jarvis.expense.domain.AccountType.CREDIT_CARD)
+                                 com.jarvis.expense.domain.AccountType.CREDIT_CARD,
+                                 com.jarvis.expense.domain.AccountType.DEBIT_CARD)
           and (c is null or c.name <> 'Card Payment')
           and (:all = true or t.account.id in :accountIds)
         group by c.name
@@ -281,6 +266,29 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @Param("direction") Direction direction,
         @Param("from") Instant from,
         @Param("to") Instant to);
+
+    /**
+     * The spend total for a window, on exactly the rows {@link #findSpendBetween} returns. Every
+     * spend figure in the app comes from this definition or that one, so the headline total, the
+     * category breakdown, a day and a merchant are all measuring the same thing.
+     */
+    @Query(
+        """
+        select coalesce(sum(t.amount), 0) from Transaction t left join t.category c
+        where t.direction = com.jarvis.expense.domain.Direction.DEBIT
+          and t.occurredAt >= :from and t.occurredAt < :to
+          and t.transfer = false and t.settlement = false
+          and t.account.type in (com.jarvis.expense.domain.AccountType.SAVINGS,
+                                 com.jarvis.expense.domain.AccountType.CREDIT_CARD,
+                                 com.jarvis.expense.domain.AccountType.DEBIT_CARD)
+          and (c is null or c.name <> 'Card Payment')
+          and (:all = true or t.account.id in :accountIds)
+        """)
+    BigDecimal sumSpendBetween(
+        @Param("from") Instant from,
+        @Param("to") Instant to,
+        @Param("all") boolean all,
+        @Param("accountIds") Collection<Long> accountIds);
 
     /**
      * The individual purchases behind the spend figure, inside [from, to): DEBITs on savings,

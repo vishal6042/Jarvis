@@ -65,6 +65,8 @@ jarvis:
     public-paths: /internal/**
   internal:
     key: ${JARVIS_INTERNAL_KEY:dev-internal-key-change-me}
+  finance:
+    base-url: ${FINANCE_BASE_URL:lb://finance-service}
   expense:
     base-url: ${EXPENSE_BASE_URL:lb://expense-service}
   cors:

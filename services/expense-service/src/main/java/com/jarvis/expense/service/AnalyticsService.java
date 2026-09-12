@@ -66,15 +66,14 @@ public class AnalyticsService {
     public PeriodSummary summaryFor(Long member, Instant from, Instant to) {
         // Earning = money into savings. Spend = every purchase, whether from savings or on a card.
         // Card bill payments are "settlement" pairs and own-account moves are "transfer" pairs —
-        // both excluded, so nothing is counted twice.
+        // both excluded, so nothing is counted twice. Anything filed under "Card Payment" goes too:
+        // an unflagged bill payment would otherwise land here as a second copy of a month of card
+        // purchases, and on the day it was paid the total would read as several lakh of "spending".
         boolean all = member == null;
         List<Long> ids = scope.accountIdsOf(member);
         BigDecimal earning = transactions.sumByDirectionAndAccountType(
             Direction.CREDIT, AccountType.SAVINGS, from, to, all, ids);
-        BigDecimal spend = transactions.sumByDirectionAndAccountTypes(
-            Direction.DEBIT,
-            List.of(AccountType.SAVINGS, AccountType.CREDIT_CARD, AccountType.DEBIT_CARD),
-            from, to, all, ids);
+        BigDecimal spend = transactions.sumSpendBetween(from, to, all, ids);
         return new PeriodSummary(from, to, earning, spend);
     }
 
