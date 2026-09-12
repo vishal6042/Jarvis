@@ -19,4 +19,9 @@ final class Money {
             new DecimalFormat("##,##,##0.##", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
         return format.format(amount == null ? BigDecimal.ZERO : amount);
     }
+
+    /** The same, with the symbol — for a card caption, which is read rather than parsed. */
+    static String rupees(BigDecimal amount) {
+        return "₹" + inr(amount);
+    }
 }

@@ -63,7 +63,7 @@ public class ChatHistoryController {
     @PostMapping("/{id}/messages")
     public Turn append(@PathVariable Long id, @Valid @RequestBody TurnRequest req) {
         return toTurn(history.append(
-            id, req.role(), req.body(), req.actionJson(), req.status(), req.result()));
+            id, req.role(), req.body(), req.actionJson(), req.visualsJson(), req.status(), req.result()));
     }
 
     @PatchMapping("/{id}/messages/{messageId}")
@@ -79,22 +79,25 @@ public class ChatHistoryController {
 
     private static Turn toTurn(ChatMessage m) {
         return new Turn(
-            m.getId(), m.getRole(), m.getBody(), m.getActionJson(), m.getStatus(), m.getResult(),
-            m.getCreatedAt());
+            m.getId(), m.getRole(), m.getBody(), m.getActionJson(), m.getVisualsJson(), m.getStatus(),
+            m.getResult(), m.getCreatedAt());
     }
 
     public record ChatSummary(Long id, String title, Instant updatedAt, long messages) {}
 
     public record ChatTranscript(Long id, String title, Instant updatedAt, List<Turn> messages) {}
 
-    /** {@code actionJson} is the proposed action verbatim, so the card can be rebuilt as it was. */
+    /**
+     * {@code actionJson} is the proposed action verbatim and {@code visualsJson} the cards the turn
+     * showed, so a reopened chat rebuilds both exactly as they were rather than as they would be now.
+     */
     public record Turn(
-        Long id, String role, String body, String actionJson, String status, String result,
-        Instant at) {}
+        Long id, String role, String body, String actionJson, String visualsJson, String status,
+        String result, Instant at) {}
 
     public record TurnRequest(
-        @NotBlank String role, @NotBlank String body, String actionJson, String status,
-        String result) {}
+        @NotBlank String role, @NotBlank String body, String actionJson, String visualsJson,
+        String status, String result) {}
 
     public record SettleRequest(String status, String result) {}
 }

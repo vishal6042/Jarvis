@@ -361,8 +361,9 @@ export async function aiPlan(message: string): Promise<import("@/lib/actions").P
   return (await api.post<import("@/lib/actions").PlannedAction>("/api/ai/plan", { message }, { timeout: 120000 })).data;
 }
 
-export async function aiChat(message: string, context?: string): Promise<string> {
-  return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data.answer;
+/** The prose answer plus the figures behind it, which the chat draws as cards and charts. */
+export async function aiChat(message: string, context?: string): Promise<ChatReply> {
+  return (await api.post<ChatReply>("/api/ai/chat", { message, context }, { timeout: 120000 })).data;
 }
 
 /* ── Saved conversations ────────────────────────────────────────────────────────────────────
@@ -383,6 +384,8 @@ export interface ChatTurn {
   body: string;
   /** A proposed action, verbatim, so a reopened chat can rebuild the card it showed. */
   actionJson?: string | null;
+  /** The cards and charts the turn showed, verbatim, for the same reason. */
+  visualsJson?: string | null;
   status?: string | null;
   result?: string | null;
   at: string;
@@ -409,7 +412,7 @@ export async function getChat(id: number): Promise<ChatTranscript> {
 
 export async function appendChatTurn(
   id: number,
-  turn: { role: string; body: string; actionJson?: string; status?: string; result?: string },
+  turn: { role: string; body: string; actionJson?: string; visualsJson?: string; status?: string; result?: string },
 ): Promise<ChatTurn> {
   return (await api.post<ChatTurn>(`/api/ai/chats/${id}/messages`, turn)).data;
 }

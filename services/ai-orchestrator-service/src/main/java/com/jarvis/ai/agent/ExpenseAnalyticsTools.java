@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -22,6 +23,9 @@ import org.springframework.stereotype.Component;
  * and {@link Period} turns it into whole calendar days. The model is never asked to do date
  * arithmetic, and every answer names both the window it measured and whose money it was, so a
  * figure can always be checked against the page it came from.
+ *
+ * <p>Each also leaves its figures with {@link ChatVisuals} on the way past, so the web app can draw
+ * the answer as a card or a chart rather than print the model's paragraph of digits.
  */
 @Component
 public class ExpenseAnalyticsTools {
@@ -64,8 +68,59 @@ public class ExpenseAnalyticsTools {
             return who.refusal();
         }
         ExpenseClient.Summary s = expense.summary(p.from(), p.to(), who.memberId());
+        // No caption: the two points below the headline already say what the second figure is.
+        ChatVisuals.add(new Visual(
+            Visual.STAT, "Spent", subtitle(who, p), s.spend(), null,
+            List.of(
+                Visual.Point.of("Spent", s.spend()),
+                Visual.Point.of("Earned", s.earning()))));
         return "%s, %s — spent INR %s, earned INR %s"
             .formatted(who.label(), p.label(), Money.inr(s.spend()), Money.inr(s.earning()));
+    }
+
+    @Tool(description = """
+        Compare the spend across two or more periods, for one person or the whole household. Use
+        this whenever the user asks to compare, or says "versus", "against last month", "how does
+        this month look next to last month", or asks whether spending is up or down.""")
+    public String compareSpending(
+        @ToolParam(
+            description = "the periods to put side by side, comma separated, e.g. "
+                + "'this_month,last_month' or 'last_week,this_week'. Each one: " + Period.ACCEPTED)
+        String periods,
+        @ToolParam(description = PERSON_DOC, required = false) String person) {
+        if (periods == null || periods.isBlank()) {
+            return "Name the periods to compare, comma separated, e.g. 'this_month,last_month'.";
+        }
+        People.Choice who = people.resolve(person);
+        if (who.refused()) {
+            return who.refusal();
+        }
+
+        List<Visual.Point> points = new ArrayList<>();
+        List<String> said = new ArrayList<>();
+        for (String each : periods.split(",")) {
+            if (each.isBlank()) {
+                continue;
+            }
+            Period p = Period.resolve(each, today());
+            if (p == null) {
+                return unknown(each.trim());
+            }
+            BigDecimal spend = expense.summary(p.from(), p.to(), who.memberId()).spend();
+            points.add(Visual.Point.of(p.label(), spend));
+            said.add("%s: INR %s".formatted(p.label(), Money.inr(spend)));
+        }
+        if (points.size() < 2) {
+            return "Give at least two periods to compare, comma separated.";
+        }
+
+        // The change between the first two is the thing being asked about; say it rather than
+        // leave the model to divide two large numbers, which is where it would go wrong.
+        BigDecimal first = points.get(0).value();
+        BigDecimal second = points.get(1).value();
+        ChatVisuals.add(new Visual(
+            Visual.COMPARISON, "Spending compared", who.label(), first, change(first, second), points));
+        return "%s — %s. %s".formatted(who.label(), String.join("; ", said), change(first, second));
     }
 
     @Tool(description = """
@@ -86,6 +141,10 @@ public class ExpenseAnalyticsTools {
         if (rows == null || rows.isEmpty()) {
             return nothing(who, p);
         }
+        ChatVisuals.add(new Visual(
+            Visual.BREAKDOWN, "Spend by category", subtitle(who, p), total(rows, ExpenseClient.CategorySpend::total),
+            rows.size() + (rows.size() == 1 ? " category" : " categories"),
+            rows.stream().map(c -> Visual.Point.of(c.category(), c.total())).toList()));
         return header(who, p) + rows.stream()
             .map(c -> "%s: INR %s".formatted(c.category(), Money.inr(c.total())))
             .collect(Collectors.joining("; "));
@@ -110,9 +169,17 @@ public class ExpenseAnalyticsTools {
         if (days == null || days.isEmpty()) {
             return nothing(who, p);
         }
-        BigDecimal total = days.stream()
-            .map(ExpenseClient.DaySpend::total)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = total(days, ExpenseClient.DaySpend::total);
+        // Oldest first: a chart of days that runs backwards reads as a different story.
+        ChatVisuals.add(new Visual(
+            Visual.SERIES, "Spend by day", subtitle(who, p), total,
+            "%d %s with spending".formatted(days.size(), days.size() == 1 ? "day" : "days"),
+            days.stream()
+                .sorted((a, b) -> a.day().compareTo(b.day()))
+                .map(d -> Visual.Point.of(
+                    d.day().format(DAY), d.total(),
+                    d.count() + (d.count() == 1 ? " purchase" : " purchases")))
+                .toList()));
         String rows = days.stream()
             .map(d -> "%s (%s): INR %s across %d %s".formatted(
                 d.day(), d.day().format(DAY), Money.inr(d.total()), d.count(),
@@ -141,6 +208,13 @@ public class ExpenseAnalyticsTools {
         if (rows == null || rows.isEmpty()) {
             return nothing(who, p);
         }
+        ChatVisuals.add(new Visual(
+            Visual.BREAKDOWN, "Top merchants", subtitle(who, p), total(rows, ExpenseClient.MerchantSpend::total),
+            "the biggest " + rows.size() + " of them",
+            rows.stream()
+                .map(m -> Visual.Point.of(
+                    m.merchant(), m.total(), m.count() + (m.count() == 1 ? " payment" : " payments")))
+                .toList()));
         return header(who, p) + rows.stream()
             .map(m -> "%s: INR %s (%d)".formatted(m.merchant(), Money.inr(m.total()), m.count()))
             .collect(Collectors.joining("; "));
@@ -175,6 +249,19 @@ public class ExpenseAnalyticsTools {
                 : "No purchases matching %s for %s, %s.".formatted(search, who.label(), p.label());
         }
         ZoneId zone = ZoneId.systemDefault();
+        ChatVisuals.add(new Visual(
+            Visual.LIST,
+            search == null || search.isBlank() ? "Purchases" : "Purchases matching " + search.trim(),
+            subtitle(who, p),
+            total(rows, ExpenseClient.Txn::amount),
+            rows.size() + (rows.size() == 1 ? " purchase" : " purchases"),
+            rows.stream()
+                .map(t -> Visual.Point.of(
+                    t.name(), t.amount(),
+                    "%s%s".formatted(
+                        t.occurredAt().atZone(zone).toLocalDate().format(DAY),
+                        t.category() == null ? "" : " · " + t.category())))
+                .toList()));
         return header(who, p) + rows.stream()
             .map(t -> "%s %s: INR %s%s%s".formatted(
                 t.occurredAt().atZone(zone).toLocalDate(),
@@ -188,6 +275,35 @@ public class ExpenseAnalyticsTools {
     /** Whose money, over what window — every answer says both, so neither can be assumed wrong. */
     private static String header(People.Choice who, Period p) {
         return who.label() + ", " + p.label() + " — ";
+    }
+
+    /** The same pair, as a card's second line. */
+    private static String subtitle(People.Choice who, Period p) {
+        return who.label() + " · " + p.label();
+    }
+
+    private static <T> BigDecimal total(
+        List<T> rows, java.util.function.Function<T, BigDecimal> amount) {
+        return rows.stream()
+            .map(amount)
+            .filter(v -> v != null)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** "Up 12% on the last" — worked out here, because the model is unreliable at dividing. */
+    private static String change(BigDecimal now, BigDecimal before) {
+        if (before == null || before.signum() == 0) {
+            return "nothing recorded in the second period to compare against";
+        }
+        BigDecimal diff = now.subtract(before);
+        BigDecimal pct = diff.abs()
+            .multiply(BigDecimal.valueOf(100))
+            .divide(before.abs(), 0, java.math.RoundingMode.HALF_UP);
+        if (diff.signum() == 0) {
+            return "exactly the same";
+        }
+        return "%s %s (%s%%) on the second period"
+            .formatted(diff.signum() > 0 ? "Up" : "Down", Money.rupees(diff.abs()), pct);
     }
 
     private static String nothing(People.Choice who, Period p) {

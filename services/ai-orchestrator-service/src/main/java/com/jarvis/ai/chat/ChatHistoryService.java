@@ -78,7 +78,8 @@ public class ChatHistoryService {
      */
     @Transactional
     public ChatMessage append(
-        Long sessionId, String role, String body, String actionJson, String status, String result) {
+        Long sessionId, String role, String body, String actionJson, String visualsJson,
+        String status, String result) {
 
         ChatSession session = mine(sessionId);
 
@@ -87,6 +88,7 @@ public class ChatHistoryService {
         message.setRole(role);
         message.setBody(body);
         message.setActionJson(actionJson);
+        message.setVisualsJson(visualsJson);
         message.setStatus(status);
         message.setResult(result);
         ChatMessage saved = messages.save(message);

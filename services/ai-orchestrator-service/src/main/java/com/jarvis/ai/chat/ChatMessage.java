@@ -40,6 +40,10 @@ public class ChatMessage {
     @Column(name = "action_json", columnDefinition = "text")
     private String actionJson;
 
+    /** The cards and charts the turn showed, as the web app received them. */
+    @Column(name = "visuals_json", columnDefinition = "text")
+    private String visualsJson;
+
     /** pending | done | cancelled | failed — only set on a turn that proposed an action. */
     @Column(length = 16)
     private String status;

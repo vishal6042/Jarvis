@@ -139,8 +139,33 @@ export interface RecurringPayment {
   monthlyEstimate: number;
 }
 
+/**
+ * The figures behind an assistant answer, as the tools produced them — so a reply can be drawn as
+ * a card or a chart instead of read as a paragraph of digits.
+ */
+export interface VisualPoint {
+  label: string;
+  value: number | null;
+  /** What `value` is out of, for a progress bar; null everywhere else. */
+  of?: number | null;
+  note?: string | null;
+}
+
+export type VisualKind = "stat" | "series" | "breakdown" | "comparison" | "list" | "progress";
+
+export interface Visual {
+  kind: VisualKind;
+  title: string;
+  subtitle?: string | null;
+  /** The headline figure; null where a list has no meaningful total. */
+  amount?: number | null;
+  caption?: string | null;
+  points: VisualPoint[];
+}
+
 export interface ChatReply {
   answer: string;
+  visuals?: Visual[];
 }
 
 export interface ApiNotification {

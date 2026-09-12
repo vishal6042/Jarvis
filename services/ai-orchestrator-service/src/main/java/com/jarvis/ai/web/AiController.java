@@ -1,6 +1,7 @@
 package com.jarvis.ai.web;
 
 import com.jarvis.ai.agent.ActionPlanner;
+import com.jarvis.ai.agent.ChatVisuals;
 import com.jarvis.ai.agent.FinanceScore;
 import com.jarvis.ai.agent.MerchantEnricher;
 import com.jarvis.ai.agent.FinanceScoreAgent;
@@ -9,6 +10,7 @@ import com.jarvis.ai.agent.QueryAgent;
 import com.jarvis.ai.agent.StatementParseResult;
 import com.jarvis.ai.agent.StatementParserAgent;
 import com.jarvis.ai.agent.TransactionParser;
+import com.jarvis.ai.agent.Visual;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,9 +76,20 @@ public class AiController {
         }
     }
 
+    /**
+     * The tools leave their figures on this thread as they run, so the answer can be drawn as
+     * cards and charts rather than read as a paragraph of digits. Collected around the agent call
+     * and taken off again whatever happens, or the next request here would inherit them.
+     */
     @PostMapping("/api/ai/chat")
     public ChatReply chat(@Valid @RequestBody ChatRequest req) {
-        return new ChatReply(queryAgent.ask(req.message(), req.context()));
+        ChatVisuals.begin();
+        try {
+            String answer = queryAgent.ask(req.message(), req.context());
+            return new ChatReply(answer, ChatVisuals.take());
+        } finally {
+            ChatVisuals.take();
+        }
     }
 
     /**
@@ -120,7 +133,8 @@ public class AiController {
     /** {@code context}: optional snapshot the web app computed (safe-to-spend, upcoming bills …). */
     public record ChatRequest(@NotBlank String message, String context) {}
 
-    public record ChatReply(String answer) {}
+    /** {@code visuals}: the figures behind the answer, for the web app to draw. Empty when none. */
+    public record ChatReply(String answer, List<Visual> visuals) {}
 
     /**
      * Monthly financial metrics the frontend already has; formatted into the scoring prompt.

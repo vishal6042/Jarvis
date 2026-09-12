@@ -19,7 +19,8 @@ import {
   type ChatSummary,
   type ChatTurn,
 } from "@/api";
-import type { Transaction } from "@/types";
+import type { Transaction, Visual } from "@/types";
+import AssistantVisuals from "@/components/AssistantVisuals";
 import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { getGoals, type ApiGoal } from "@/lib/api/finance";
 import { amortise } from "@/lib/amortisation";
@@ -50,6 +51,8 @@ interface Msg {
   text: string;
   /** A proposed action awaiting the user's explicit confirmation. */
   action?: PlannedAction;
+  /** The figures behind the answer, drawn as cards and charts under it. */
+  visuals?: Visual[];
   status?: ActionStatus;
   result?: string;
   /** Set once the turn has been saved, and needed to record what became of its action. */
@@ -70,11 +73,21 @@ function fromTurn(turn: ChatTurn, key: number): Msg {
       action = undefined;
     }
   }
+  let visuals: Visual[] | undefined;
+  if (turn.visualsJson) {
+    try {
+      visuals = JSON.parse(turn.visualsJson) as Visual[];
+    } catch {
+      // Same again: the sentence underneath still carries the answer.
+      visuals = undefined;
+    }
+  }
   return {
     key,
     role: turn.role === "user" ? "user" : "assistant",
     text: turn.body,
     action,
+    visuals,
     status: (turn.status as ActionStatus) ?? undefined,
     result: turn.result ?? undefined,
     savedId: turn.id,
@@ -208,6 +221,7 @@ export default function Assistant() {
         role: msg.role,
         body: msg.text,
         actionJson: msg.action ? JSON.stringify(msg.action) : undefined,
+        visualsJson: msg.visuals?.length ? JSON.stringify(msg.visuals) : undefined,
         status: msg.status,
         result: msg.result,
       });
@@ -296,8 +310,8 @@ export default function Assistant() {
         }
       }
       // Real backend agent (ai-orchestrator → Ollama, calling expense analytics tools).
-      const answer = await aiChat(q, contextText);
-      say({ role: "assistant", text: answer });
+      const reply = await aiChat(q, contextText);
+      say({ role: "assistant", text: reply.answer, visuals: reply.visuals });
     } catch {
       // Backend unavailable → quick local heuristic over the on-device data.
       say({ role: "assistant", text: answerQuery(q, ctx) });
@@ -402,13 +416,17 @@ export default function Assistant() {
               <JarvisLogo size={32} className="mt-0.5 shrink-0 rounded-[22%] shadow-sm" />
             )}
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${
+              className={cn(
+                "rounded-2xl px-4 py-2.5 text-sm shadow-sm",
+                // A chart needs room to be read; a sentence does not.
+                m.visuals?.length ? "w-full max-w-[92%] md:max-w-[600px]" : "max-w-[80%]",
                 m.role === "user"
                   ? "rounded-br-sm bg-gradient-to-br from-primary to-chart-1 text-primary-foreground"
                   : "rounded-bl-sm bg-card ring-1 ring-primary/15"
-              }`}
+              )}
             >
               {m.role === "assistant" ? <Markdown text={m.text} /> : m.text}
+              {m.visuals?.length ? <AssistantVisuals visuals={m.visuals} /> : null}
               {m.action && (
                 <ActionCard
                   action={m.action}

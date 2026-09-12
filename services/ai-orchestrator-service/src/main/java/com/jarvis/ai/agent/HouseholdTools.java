@@ -82,6 +82,18 @@ public class HouseholdTools {
                 .map(FinanceClient.Investment::current)
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal invested = p.investments().stream()
+                .map(FinanceClient.Investment::invested)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            ChatVisuals.add(new Visual(
+                Visual.BREAKDOWN, "Investments", who.label(), current,
+                "%s put in, worth %s now".formatted(Money.rupees(invested), Money.rupees(current)),
+                p.investments().stream()
+                    .map(i -> Visual.Point.of(
+                        i.name(), i.current(),
+                        i.kind() + (i.maturityDate() == null ? "" : " · matures " + i.maturityDate())))
+                    .toList()));
             parts.add("Investments worth INR %s: %s".formatted(
                 Money.inr(current),
                 p.investments().stream()
@@ -97,6 +109,19 @@ public class HouseholdTools {
                 .map(FinanceClient.Loan::outstanding)
                 .filter(v -> v != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal emi = p.loans().stream()
+                .map(FinanceClient.Loan::emi)
+                .filter(v -> v != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            ChatVisuals.add(new Visual(
+                Visual.BREAKDOWN, "Loans outstanding", who.label(), outstanding,
+                "%s a month in EMI".formatted(Money.rupees(emi)),
+                p.loans().stream()
+                    .map(l -> Visual.Point.of(
+                        l.lender(), l.outstanding(),
+                        "%s · EMI %s%s".formatted(
+                            l.kind(), Money.rupees(l.emi()), l.rate() == null ? "" : " at " + l.rate() + "%")))
+                    .toList()));
             parts.add("Loans outstanding INR %s: %s".formatted(
                 Money.inr(outstanding),
                 p.loans().stream()
@@ -106,6 +131,14 @@ public class HouseholdTools {
                     .collect(Collectors.joining("; "))));
         }
         if (p.goals() != null && !p.goals().isEmpty()) {
+            ChatVisuals.add(new Visual(
+                // No caption: the goals themselves are right underneath, and counting them adds nothing.
+                Visual.PROGRESS, "Goals", who.label(), null, null,
+                p.goals().stream()
+                    .map(g -> new Visual.Point(
+                        g.name(), g.saved(), g.target(),
+                        g.targetDate() == null ? null : "by " + g.targetDate()))
+                    .toList()));
             parts.add("Goals: " + p.goals().stream()
                 .map(g -> "%s INR %s of INR %s%s".formatted(
                     g.name(), Money.inr(g.saved()), Money.inr(g.target()),
