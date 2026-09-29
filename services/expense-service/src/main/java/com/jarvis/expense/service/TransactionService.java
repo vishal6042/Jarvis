@@ -306,7 +306,8 @@ public class TransactionService {
 
         // A statement line for a movement an alert already recorded is the same money, told twice.
         if (t.getSource() == MessageSource.STATEMENT && t.getAccount() != null && t.getOccurredAt() != null
-            && transactions.existsAlertTwin(t.getAccount().getId(), t.getDirection(), t.getAmount(),
+            && transactions.existsAlertTwin(t.getAccount().getId(), t.getDirection(),
+                t.getAmount().subtract(BigDecimal.ONE), t.getAmount().add(BigDecimal.ONE),
                 t.getOccurredAt().minus(Duration.ofDays(1)), t.getOccurredAt().plus(Duration.ofDays(1)))) {
             return Optional.empty();
         }

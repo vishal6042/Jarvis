@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Pencil, Plus, PiggyBank, TrendingUp, Wallet, Trash2 } from "lucide-react";
+import { Pencil, Plus, PiggyBank, TrendingUp, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import {
   KIND_META,
@@ -9,12 +9,30 @@ import {
 } from "@/lib/sample";
 import { useFamily, useInvestments } from "@/lib/store";
 import { EPF_YEARLY_RAISE, maturityProjection } from "@/lib/rdMath";
-import PortfolioAnalytics from "@/components/PortfolioAnalytics";
-import CardSection from "@/components/CardSection";
+import { monthlyEquivalent, portfolioReturn, valueToday } from "@/lib/portfolio";
 import { formatINR, formatDate } from "@/lib/format";
+import PageHeader from "@/components/page/PageHeader";
+import HeadlineStrip, { type HeadlineCell } from "@/components/page/HeadlineStrip";
+import Panel from "@/components/page/Panel";
+import HoldingsTable from "@/components/investments/HoldingsTable";
+import MaturityTimeline from "@/components/investments/MaturityTimeline";
+import InvestmentIdeas from "@/components/investments/InvestmentIdeas";
+import MixLine from "@/components/investments/MixLine";
+import {
+  SHORT,
+  cardAnchor,
+  countsLabel,
+  groupTitle,
+  lakh,
+  longDate,
+  monthYear,
+  nextMaturity,
+  pct1,
+  returnCaveat,
+  sectionAnchor,
+} from "@/components/investments/holdings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
@@ -43,14 +61,6 @@ import {
 } from "@/components/ui/chart";
 
 const KINDS = Object.keys(KIND_META) as InvestmentKind[];
-/** Section headings where KIND_META's label, written for a single card, doesn't read as a group. */
-const SECTION_TITLE: Partial<Record<InvestmentKind, string>> = {
-  FD: "Fixed deposits",
-  RD: "Recurring deposits",
-  NSC: "National Savings Certificates",
-  LIC: "LIC policies",
-  MF: "Mutual funds & SIPs",
-};
 const histConfig = {
   value: { label: "Value", color: "var(--chart-1)" },
   contributed: { label: "Invested", color: "var(--chart-3)" },
@@ -108,19 +118,27 @@ function InvestmentCard({
   onEdit,
   onDelete,
   canDelete,
+  highlight,
 }: {
   inv: Investment;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
   canDelete: boolean;
+  /** Just jumped to from the holdings table: ringed for a moment so the eye finds it. */
+  highlight: boolean;
 }) {
-  const gain = inv.current - inv.principal;
+  // An FD entered at its principal shows the interest accrued so far, the same figure the table uses.
+  const now = valueToday(inv);
+  const gain = now.value - inv.principal;
   const pct = inv.principal ? ((gain / inv.principal) * 100).toFixed(1) : "0";
   const color = KIND_META[inv.kind].color;
   return (
     <Card
-      className="group relative isolate cursor-pointer overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40"
+      id={cardAnchor(inv.id)}
+      className={`group relative isolate cursor-pointer scroll-mt-24 overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 hover:ring-1 hover:ring-primary/40 ${
+        highlight ? "ring-2 ring-primary" : ""
+      }`}
       onClick={onOpen}
     >
       <CardArt color={color} icon={inv.kind === "MF" ? TrendingUp : PiggyBank} />
@@ -152,7 +170,12 @@ function InvestmentCard({
       </CardHeader>
       <CardContent className="relative z-10 space-y-1.5 text-sm">
         <Row label="Invested" value={formatINR(inv.principal)} />
-        <Row label="Current" value={formatINR(inv.current)} />
+        <Row label="Current" value={`${now.accrued ? "≈ " : ""}${formatINR(now.value)}`} />
+        {now.accrued && now.since && (
+          <p className="-mt-1 text-right text-[11px] text-muted-foreground">
+            accrued at {now.rate}% since {longDate(now.since)}
+          </p>
+        )}
         {inv.sip ? <Row label="SIP / month" value={formatINR(inv.sip)} /> : null}
         {(() => {
           const mp = maturityProjection(inv);
@@ -166,6 +189,7 @@ function InvestmentCard({
         <div className="flex items-center justify-between pt-1">
           <span className="text-muted-foreground">Gain</span>
           <span className={gain >= 0 ? "font-semibold text-emerald-500" : "font-semibold text-rose-500"}>
+            {now.accrued ? "≈ " : ""}
             {formatINR(gain)} ({pct}%)
           </span>
         </div>
@@ -201,12 +225,14 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClose: () => void; onEdit: () => void }) {
   if (!inv) return null;
+  const now = valueToday(inv);
   // Real two-point view: amount invested vs current value (no fabricated monthly history).
   const hist = [
     { label: inv.openingDate ? formatDate(inv.openingDate) : "Invested", contributed: inv.principal, value: inv.principal },
-    { label: "Now", contributed: inv.principal, value: inv.current },
+    { label: "Now", contributed: inv.principal, value: now.value },
   ];
-  const gain = inv.current - inv.principal;
+  const gain = now.value - inv.principal;
+  const approx = now.accrued ? "≈ " : "";
   return (
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -230,10 +256,10 @@ function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClo
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <Detail label="Invested" value={formatINR(inv.principal)} />
-          <Detail label="Current value" value={formatINR(inv.current)} />
+          <Detail label="Current value" value={`${approx}${formatINR(now.value)}`} />
           <Detail
             label="Gain"
-            value={`${formatINR(gain)} (${inv.principal ? ((gain / inv.principal) * 100).toFixed(1) : 0}%)`}
+            value={`${approx}${formatINR(gain)} (${inv.principal ? ((gain / inv.principal) * 100).toFixed(1) : 0}%)`}
           />
           {inv.rate != null && <Detail label="Interest rate" value={`${inv.rate}%`} />}
           {inv.sip != null && <Detail label="SIP / month" value={formatINR(inv.sip)} />}
@@ -243,6 +269,11 @@ function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClo
           )}
           {inv.maturityDate && <Detail label="Maturity" value={formatDate(inv.maturityDate)} />}
         </div>
+        {now.accrued && now.since && (
+          <p className="text-xs text-muted-foreground">
+            Current value is interest accrued at {now.rate}% since {longDate(now.since)}, compounded quarterly. Enter the bank's figure to replace it.
+          </p>
+        )}
 
         {inv.notes && <p className="text-sm text-muted-foreground">{inv.notes}</p>}
 
@@ -322,17 +353,35 @@ function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * The portfolio, overview first: a header with the type filter and "Add holding", Jarvis's read
+ * of the mix, the headline numbers, one table indexing every holding, when money frees up next to
+ * what Jarvis would do about it — and below all that the per-holding cards, grouped by product,
+ * where each holding is opened, edited or deleted. The table's rows jump to those cards.
+ */
 export default function Investments() {
-  const { activeMember } = useFamily();
+  const { activeMember, members } = useFamily();
   const isAll = activeMember.id === "all";
-  const { items: allItems, add, update, remove } = useInvestments(isAll ? "all" : activeMember.id);
+  const { items: allItems, update, remove } = useInvestments(isAll ? "all" : activeMember.id);
   const [kindFilter, setKindFilter] = useState<string>("all");
-  const items = kindFilter === "all" ? allItems : allItems.filter((i) => i.kind === kindFilter);
+  // The filter offers only the kinds actually held; one that vanished (another member) falls back to all.
+  const presentKinds = useMemo(() => KINDS.filter((k) => allItems.some((i) => i.kind === k)), [allItems]);
+  const filter = kindFilter !== "all" && presentKinds.includes(kindFilter as InvestmentKind) ? kindFilter : "all";
+  const items = useMemo(() => (filter === "all" ? allItems : allItems.filter((i) => i.kind === filter)), [allItems, filter]);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<Investment | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [details, setDetails] = useState<Investment | null>(null);
+  // Viewing everyone, a new holding has to belong to someone: the add dialog asks who.
+  const [addFor, setAddFor] = useState<string>("");
+  const adder = useInvestments(isAll ? addFor || "all" : activeMember.id);
 
+  function openAdd() {
+    setEditing(null);
+    setForm({ ...EMPTY, kind: filter === "all" ? EMPTY.kind : (filter as InvestmentKind) });
+    setAddFor("");
+    setAddOpen(true);
+  }
   function openEdit(inv: Investment) {
     setDetails(null);
     setEditing(inv);
@@ -346,9 +395,24 @@ export default function Investments() {
   }
   const [toDelete, setToDelete] = useState<Investment | null>(null);
 
-  const invested = items.reduce((s, i) => s + i.principal, 0);
-  const current = items.reduce((s, i) => s + i.current, 0);
-  const gain = current - invested;
+  // A row in the holdings table scrolls to its card (or its group) and rings it for a moment.
+  const [flash, setFlash] = useState<string | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
+  function jump(anchor: string) {
+    const el = document.getElementById(anchor);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: anchor.startsWith("inv-kind-") ? "start" : "center" });
+    setFlash(anchor);
+    window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlash(null), 1800);
+  }
+
+  const totals = useMemo(() => portfolioReturn(items), [items]);
+  const caveat = useMemo(() => returnCaveat(items), [items]);
+  const next = useMemo(() => nextMaturity(items), [items]);
+  const anyAccrued = useMemo(() => items.some((i) => valueToday(i).accrued), [items]);
+  const fromPayslip = items.filter((i) => i.salaryDeducted).reduce((s, i) => s + monthlyEquivalent(i), 0);
 
   function set<K extends keyof FormState>(k: K) {
     return (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -356,6 +420,7 @@ export default function Investments() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (!editing && isAll && !addFor) return;
     const payload = {
       kind: form.kind,
       name: form.name.trim(),
@@ -369,107 +434,169 @@ export default function Investments() {
       notes: form.notes || undefined,
     };
     if (editing) update(editing.id, payload);
-    else add(payload);
+    else adder.add(payload);
     closeForm();
   }
 
+  const subtitle = [
+    `${lakh(totals.current)} across ${items.length} holding${items.length === 1 ? "" : "s"}`,
+    totals.monthlyCommitment > 0 ? `${formatINR(Math.round(totals.monthlyCommitment))} going in each month` : null,
+    activeMember.relation !== "Self" && !isAll ? activeMember.name : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const cells: HeadlineCell[] = [
+    {
+      label: "Value",
+      value: formatINR(totals.current),
+      sub: (
+        <span className={totals.gain >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+          {totals.gain >= 0 ? "▲" : "▼"} {formatINR(Math.abs(totals.gain))} · {pct1(Math.abs(totals.gainPct))}
+        </span>
+      ),
+      extra: anyAccrued ? <span className="text-xs text-muted-foreground">includes FD interest accrued (≈)</span> : undefined,
+    },
+    { label: "Invested", value: formatINR(totals.invested), sub: "your own money in" },
+    {
+      label: "Return a year",
+      value:
+        totals.annualised == null ? (
+          "—"
+        ) : (
+          <>
+            {pct1(totals.annualised)}
+            {caveat && <span className="text-amber-700 dark:text-amber-400"> *</span>}
+          </>
+        ),
+      sub:
+        totals.annualised == null ? (
+          "needs opening dates"
+        ) : caveat ? (
+          <span className="text-amber-700 dark:text-amber-400">EPF part is an estimate · see below</span>
+        ) : (
+          "across every holding"
+        ),
+    },
+    {
+      label: "Going in a month",
+      value: formatINR(Math.round(totals.monthlyCommitment)),
+      sub: fromPayslip > 0 ? `${formatINR(Math.round(fromPayslip))} from payslip` : "SIPs, RDs and premiums",
+    },
+    {
+      label: "Next maturity",
+      value: next ? monthYear(next.on) : "—",
+      sub: next ? `${countsLabel(next.items)} · ${lakh(next.total)}${next.known ? "" : " today"}` : "nothing dated to come",
+    },
+  ];
+
+  const kindItems = [
+    { value: "all", label: "All" },
+    ...presentKinds.map((k) => ({ value: k, label: SHORT[k] })),
+  ];
+  const memberItems = members.map((m) => ({ value: m.id, label: m.name }));
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Investments</h1>
-          <p className="text-muted-foreground">
-            FD, RD, PF, PPF, Post Office (NSC/KVP/SSY) &amp; Mutual Funds
-            {activeMember.relation !== "Self" && !isAll ? ` · ${activeMember.name}` : ""}.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            items={[
-              { value: "all", label: "All types" },
-              ...KINDS.map((k) => ({ value: k, label: KIND_META[k].label })),
-            ]}
-            value={kindFilter}
-            onValueChange={(v) => setKindFilter(v ?? "all")}
-          >
-            <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {KINDS.map((k) => (
-                <SelectItem key={k} value={k}>
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: KIND_META[k].color }} />
-                    {KIND_META[k].label}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isAll ? (
-            <span className="text-sm text-muted-foreground">Select a member to add</span>
-          ) : (
-            <Button onClick={() => setAddOpen(true)} className="gap-2">
-              <Plus className="size-4" /> Add investment
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader title="Investments" subtitle={subtitle}>
+        {presentKinds.length > 1 && (
+          <div className="flex max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1" role="tablist" aria-label="Filter by type">
+            {kindItems.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                role="tab"
+                aria-selected={filter === k.value}
+                title={k.value === "all" ? "Every type" : KIND_META[k.value as InvestmentKind].label}
+                onClick={() => setKindFilter(k.value)}
+                className={`h-9 shrink-0 rounded-lg px-3 text-sm sm:px-3.5 transition-colors ${filter === k.value ? "bg-card font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <Button
+          onClick={openAdd}
+          className="h-11 gap-2"
+          disabled={isAll && members.length === 0}
+          title={isAll && members.length === 0 ? "Add a family member in Settings first; every holding belongs to someone." : undefined}
+        >
+          <Plus className="size-4" /> Add holding
+        </Button>
+      </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Stat title="Invested" value={formatINR(invested)} icon={<Wallet className="size-4" />} iconColor="#8b5cf6" />
-        <Stat title="Current value" value={formatINR(current)} icon={<PiggyBank className="size-4" />} iconColor="#10b981" />
-        <Stat title="Gains" value={formatINR(gain)} accent icon={<TrendingUp className="size-4" />} iconColor="#3b82f6" />
-      </div>
-
-      <PortfolioAnalytics investments={items} />
-
-      <Separator />
+      {items.length > 0 && (
+        <>
+          <MixLine items={items} />
+          <HeadlineStrip cells={cells} />
+          <HoldingsTable items={items} onJump={jump} />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <MaturityTimeline items={items} />
+            <InvestmentIdeas items={items} />
+          </div>
+        </>
+      )}
 
       {items.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No investments yet. Click <b>Add investment</b> to add an FD, PPF, mutual fund, etc.
+            No investments yet. Click <b>Add holding</b> to add an FD, PPF, mutual fund, etc.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {KINDS.map((kind) => {
             const group = items.filter((i) => i.kind === kind);
             if (group.length === 0) return null;
             const groupInvested = group.reduce((s, i) => s + i.principal, 0);
-            const groupCurrent = group.reduce((s, i) => s + i.current, 0);
+            const groupCurrent = group.reduce((s, i) => s + valueToday(i).value, 0);
+            const groupAccrued = group.some((i) => valueToday(i).accrued);
             const groupGain = groupCurrent - groupInvested;
+            const anchor = sectionAnchor(kind);
             return (
-              <CardSection
+              <Panel
                 key={kind}
-                title={SECTION_TITLE[kind] ?? KIND_META[kind].label}
-                count={group.length}
-                color={KIND_META[kind].color}
-                icon={kind === "MF" ? <TrendingUp className="size-4" /> : <PiggyBank className="size-4" />}
-                summary={
+                id={anchor}
+                className={`scroll-mt-24 transition-shadow ${flash === anchor ? "ring-2 ring-primary/60" : ""}`}
+                title={
+                  <span className="flex items-center gap-2">
+                    <span className="size-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: KIND_META[kind].color }} />
+                    {groupTitle(kind, group)}
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+                      {group.length}
+                    </span>
+                  </span>
+                }
+                note={
                   <>
                     Invested {formatINR(groupInvested)} · Current{" "}
-                    <span className="font-semibold text-foreground">{formatINR(groupCurrent)}</span> ·{" "}
-                    <span className={groupGain >= 0 ? "text-emerald-500" : "text-rose-500"}>
+                    <span className="font-semibold text-foreground">
+                      {groupAccrued ? "≈" : ""}
+                      {formatINR(groupCurrent)}
+                    </span>{" "}
+                    ·{" "}
+                    <span className={groupGain >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"}>
                       {groupGain >= 0 ? "+" : ""}
                       {formatINR(groupGain)}
                     </span>
                   </>
                 }
               >
-                {group.map((inv) => (
-                  <InvestmentCard
-                    key={inv.id}
-                    inv={inv}
-                    onOpen={() => setDetails(inv)}
-                    onEdit={() => openEdit(inv)}
-                    onDelete={() => setToDelete(inv)}
-                    canDelete={!isAll}
-                  />
-                ))}
-              </CardSection>
+                <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.map((inv) => (
+                    <InvestmentCard
+                      key={inv.id}
+                      inv={inv}
+                      onOpen={() => setDetails(inv)}
+                      onEdit={() => openEdit(inv)}
+                      onDelete={() => setToDelete(inv)}
+                      canDelete={!isAll}
+                      highlight={flash === cardAnchor(inv.id)}
+                    />
+                  ))}
+                </div>
+              </Panel>
             );
           })}
         </div>
@@ -489,10 +616,28 @@ export default function Investments() {
       <Dialog open={addOpen} onOpenChange={(o) => (o ? setAddOpen(true) : closeForm())}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit investment" : "Add investment"}</DialogTitle>
+            <DialogTitle>{editing ? "Edit holding" : "Add holding"}</DialogTitle>
             <DialogDescription>FD, RD, PF, PPF, Post Office schemes, or a mutual fund.</DialogDescription>
           </DialogHeader>
           <form id="inv-form" className="grid grid-cols-2 gap-3" onSubmit={submit}>
+            {!editing && isAll && (
+              <div className="col-span-2">
+                <Field label="Whose holding">
+                  <Select items={memberItems} value={addFor || null} onValueChange={(v) => setAddFor(v ?? "")}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a family member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {memberItems.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+            )}
             <Field label="Type">
               <Select
                 items={KINDS.map((k) => ({ value: k, label: KIND_META[k].label }))}
@@ -548,49 +693,13 @@ export default function Investments() {
             <Button variant="outline" onClick={closeForm}>
               Cancel
             </Button>
-            <Button type="submit" form="inv-form">
+            <Button type="submit" form="inv-form" disabled={!editing && isAll && !addFor}>
               {editing ? "Save changes" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function Stat({
-  title,
-  value,
-  accent,
-  icon,
-  iconColor = "var(--primary)",
-}: {
-  title: string;
-  value: string;
-  accent?: boolean;
-  icon?: React.ReactNode;
-  iconColor?: string;
-}) {
-  return (
-    <Card className="relative isolate overflow-hidden">
-      <CardArt color={iconColor} subtle />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardDescription>{title}</CardDescription>
-        {icon && (
-          <div
-            className="flex size-9 items-center justify-center rounded-xl"
-            style={{ backgroundColor: `color-mix(in oklab, ${iconColor} 16%, transparent)`, color: iconColor }}
-          >
-            {icon}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold tracking-tight ${accent ? "text-emerald-500" : ""}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

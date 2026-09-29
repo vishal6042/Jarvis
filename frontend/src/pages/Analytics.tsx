@@ -21,6 +21,7 @@ import {
   WorthALook,
 } from "@/components/analytics/Sections";
 import CategoryPanel from "@/components/analytics/CategoryPanel";
+import PageHeader from "@/components/page/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -135,14 +136,15 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        title="Analytics"
+        subtitle={
+          <>
             {win.label}
             {win.running && kind === "month" ? ` · 1–${win.elapsed} so far` : win.running && kind !== "custom" ? ` · ${win.elapsed} days so far` : ""}, compared with {compare.label}
-          </p>
-        </div>
+          </>
+        }
+      >
         <div className="flex gap-1 rounded-xl bg-muted p-1">
           {KINDS.map((k) => (
             <button
@@ -190,7 +192,7 @@ export default function Analytics() {
         <Button variant="outline" className="h-11 gap-2" onClick={exportCsv} disabled={!report}>
           <Download className="size-4" /> Export
         </Button>
-      </div>
+      </PageHeader>
 
       {!report ? (
         <div className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground">

@@ -223,20 +223,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     /**
      * Whether an alert (SMS or email) already recorded this movement: same account, direction and
-     * amount inside the window. A bank statement lists the same payment in different words, so its
+     * amount (to the rupee) inside the window. A bank statement lists the same payment in different words, so its
      * dedup hash never matches the alert's; this is what stops it being counted twice.
      */
     @Query(
         """
         select count(t) > 0 from Transaction t
-        where t.account.id = :accountId and t.direction = :direction and t.amount = :amount
+        where t.account.id = :accountId and t.direction = :direction
+          and t.amount between :min and :max
           and t.source <> com.jarvis.expense.domain.MessageSource.STATEMENT
           and t.occurredAt >= :from and t.occurredAt <= :to
         """)
     boolean existsAlertTwin(
         @Param("accountId") Long accountId,
         @Param("direction") Direction direction,
-        @Param("amount") BigDecimal amount,
+        @Param("min") BigDecimal min,
+        @Param("max") BigDecimal max,
         @Param("from") Instant from,
         @Param("to") Instant to);
 

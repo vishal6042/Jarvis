@@ -1,7 +1,11 @@
 import { useMemo, useState, type FormEvent, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import CardArt from "@/components/CardArt";
+import PageHeader from "@/components/page/PageHeader";
+import AiLine from "@/components/page/AiLine";
+import HeadlineStrip from "@/components/page/HeadlineStrip";
+import Panel from "@/components/page/Panel";
+import StatusChip, { type ChipTone } from "@/components/page/StatusChip";
 import {
   occurrencesInMonth,
   REMINDER_META,
@@ -16,15 +20,13 @@ import { useReserve } from "@/lib/prefs";
 import { buildForecast } from "@/lib/forecast";
 import { agendaBetween, FIN_EVENT_META, financialEvents, monthRange, upcomingOutflows, type FinEvent } from "@/lib/calendarEvents";
 import TimelineCard from "@/components/TimelineCard";
-import { ArrowDownRight, ArrowUpRight, CalendarRange } from "lucide-react";
 import { listTransactions } from "@/api";
 import type { Transaction } from "@/types";
-import { PAY_STATE_META, reminderKey, reminderStatus } from "@/lib/reminderStatus";
+import { PAY_STATE_META, reminderKey, reminderStatus, type PayState } from "@/lib/reminderStatus";
 import MarkPaidDialog from "@/components/MarkPaidDialog";
 import { Check, Undo2 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -63,6 +65,10 @@ const todayStr = () => {
   const d = new Date();
   return iso(d.getFullYear(), d.getMonth(), d.getDate());
 };
+/** A reminder's payment state in the app's one set of status chips. */
+const PAY_TONE: Record<PayState, ChipTone> = { paid: "good", due: "watch", overdue: "urgent", upcoming: "neutral" };
+/** "3 Oct": dates in a sentence or a list are short (the page pattern's rule). */
+const shortDay = (isoDate: string) => new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 const EMPTY = (): FormState => ({ title: "", date: todayStr(), type: "BILL", amount: "", notes: "", repeat: false });
 
 export default function Calendar() {
@@ -145,6 +151,19 @@ export default function Calendar() {
   }, [upFilter, cards, txns, investments, loans, items, paidKeys, earns]);
   const upcomingDue = upcoming.filter((r) => !r.paid && r.direction === "out").length;
 
+  // The next 14 days, read off the numbers above: what goes out and in (the outflow summary) and
+  // the lowest the balance gets (the forecast's running balance, cut at the same end date).
+  const outCount = outflow.items.filter((e) => e.direction === "out").length;
+  const nextOut = outflow.items.find((e) => e.direction === "out");
+  const low14 = useMemo(() => {
+    let low = forecast.events[0];
+    for (const e of forecast.events) if (e.on <= outflow.to && e.balanceAfter < (low?.balanceAfter ?? Infinity)) low = e;
+    return low ?? null;
+  }, [forecast.events, outflow.to]);
+  const knowBalance = f.savingsAccounts.length > 0;
+  const lowOk = low14 ? low14.balanceAfter >= reserve : true;
+  const lowWhen = low14 ? (low14.on === forecast.today ? "today" : `on ${shortDay(low14.on)}`) : "";
+
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
   const firstWeekday = new Date(view.year, view.month, 1).getDay();
   const monthLabel = new Date(view.year, view.month, 1).toLocaleDateString("en-IN", {
@@ -193,50 +212,66 @@ export default function Calendar() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground">{earns
-                ? "Reminders, card dues, EMIs, RD/SIP instalments and your expected salary, in one place."
-                : "Reminders, card dues, EMIs and RD/SIP instalments, in one place."}</p>
-        </div>
-        <Button onClick={() => openAdd()} className="gap-2">
+      <PageHeader
+        title="Calendar"
+        subtitle={
+          nextOut
+            ? `${outCount} payment${outCount === 1 ? "" : "s"} in the next 14 days · next is ${nextOut.title}, ${
+                nextOut.on === today ? "today" : shortDay(nextOut.on)
+              }`
+            : earns
+              ? "Reminders, card dues, EMIs, RD/SIP instalments and your expected salary, in one place"
+              : "Reminders, card dues, EMIs and RD/SIP instalments, in one place"
+        }
+      >
+        <Button onClick={() => openAdd()} className="h-11 gap-2">
           <Plus className="size-4" /> Add reminder
         </Button>
-      </div>
+      </PageHeader>
+
+      {knowBalance && low14 && (
+        <AiLine
+          text={
+            <>
+              {outflow.total > 0 ? `${formatINR(outflow.total, { compact: true })} goes out in the next 14 days` : "Nothing with an amount goes out in the next 14 days"}
+              {`; your lowest balance is ${formatINR(low14.balanceAfter, { compact: true })} ${lowWhen}, ${lowOk ? "above" : "below"} the ${formatINR(reserve, { compact: true })} reserve.`}
+            </>
+          }
+          detail={
+            [
+              !lowOk ? `Move ${formatINR(reserve - low14.balanceAfter, { compact: true })} into savings before then, or push a payment back.` : null,
+              outflow.unknownCount > 0 ? `${outflow.unknownCount} bill${outflow.unknownCount === 1 ? " has" : "s have"} no amount yet, so the real total is higher.` : null,
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
+        />
+      )}
+
+      <HeadlineStrip
+        cells={[
+          {
+            label: "Going out · 14 days",
+            value: formatINR(outflow.total),
+            sub: `${outCount} payment${outCount === 1 ? "" : "s"}${outflow.unknownCount > 0 ? ` · ${outflow.unknownCount} without an amount` : ""}`,
+          },
+          {
+            label: "Coming in · 14 days",
+            value: formatINR(outflow.income),
+            sub: outflow.income > 0 ? "expected salary" : "no income expected",
+          },
+          {
+            label: "Lowest balance",
+            value: knowBalance && low14 ? formatINR(low14.balanceAfter) : "—",
+            sub: knowBalance && low14 ? `${lowWhen} · ${lowOk ? "above" : "below"} your ${formatINR(reserve, { compact: true })} reserve` : "no bank balance yet",
+            tone: knowBalance && !lowOk ? "warn" : undefined,
+          },
+        ]}
+      />
 
       <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-          <Card className="relative isolate overflow-hidden">
-            <CardArt color="#f43f5e" subtle />
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarRange className="size-4 text-primary" /> Next 14 days
-              </CardTitle>
-              <CardDescription>
-                {formatDate(outflow.from)} – {formatDate(outflow.to)}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border bg-card/60 p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ArrowDownRight className="size-3.5 text-[color:var(--danger)]" /> Going out
-                  </div>
-                  <p className="mt-1 text-xl font-semibold tabular-nums">{formatINR(outflow.total)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {outflow.items.filter((e) => e.direction === "out").length} payments
-                    {outflow.unknownCount > 0 ? ` · ${outflow.unknownCount} without an amount` : ""}
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-card/60 p-3">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ArrowUpRight className="size-3.5 text-[color:var(--ok)]" /> Coming in
-                  </div>
-                  <p className="mt-1 text-xl font-semibold tabular-nums">{formatINR(outflow.income)}</p>
-                  <p className="text-xs text-muted-foreground">{outflow.income > 0 ? "Expected salary" : "No income expected"}</p>
-                </div>
-              </div>
+          <Panel title="Next 14 days" note={`${shortDay(outflow.from)} – ${shortDay(outflow.to)}`}>
               {outflow.items.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nothing due in the next two weeks.</p>
               ) : (
@@ -247,7 +282,7 @@ export default function Calendar() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">{e.title}</div>
                         <div className="text-xs text-muted-foreground">
-                          {formatDate(e.on)}
+                          {shortDay(e.on)}
                           {e.detail ? ` · ${e.detail}` : ""}
                         </div>
                       </div>
@@ -273,26 +308,25 @@ export default function Calendar() {
                   </span>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+          </Panel>
           <TimelineCard f={forecast} />
         </div>
 
         {/* Month grid */}
-        <Card className="relative isolate overflow-hidden">
-          <CardArt color="var(--primary)" subtle />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>{monthLabel}</CardTitle>
+        <Panel
+          title={monthLabel}
+          note="click a day to add a reminder"
+          action={
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={() => shift(-1)}>
+              <Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => shift(-1)}>
                 <ChevronLeft className="size-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => shift(1)}>
+              <Button variant="ghost" size="icon" aria-label="Next month" onClick={() => shift(1)}>
                 <ChevronRight className="size-4" />
               </Button>
             </div>
-          </CardHeader>
-          <CardContent>
+          }
+        >
             <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
               {WEEKDAYS.map((w, i) => (
                 <div key={i} className={`py-1 font-medium ${i === 0 ? "text-rose-500" : ""}`}>
@@ -404,19 +438,13 @@ export default function Calendar() {
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+        </Panel>
 
         {/* Upcoming list */}
-        <Card className="relative isolate overflow-hidden">
-          <CardArt color="#8b5cf6" subtle />
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0">
-            <div>
-              <CardTitle>Upcoming</CardTitle>
-              <CardDescription>
-                {upcomingDue} still to pay of {upcoming.length} · reminders, card bills, EMIs and RD/SIP instalments.
-              </CardDescription>
-            </div>
+        <Panel
+          title="Upcoming"
+          note={`${upcomingDue} still to pay of ${upcoming.length} · reminders, card bills, EMIs and RD/SIP instalments`}
+          action={
             <Select items={monthOptions} value={upFilter} onValueChange={(v) => setUpFilter(v ?? thisMonthKey)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="This month" />
@@ -429,8 +457,9 @@ export default function Calendar() {
                 ))}
               </SelectContent>
             </Select>
-          </CardHeader>
-          <CardContent className="space-y-2">
+          }
+        >
+          <div className="space-y-2">
             {upcoming.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nothing scheduled. Click a day to add one.</p>
             ) : (
@@ -443,10 +472,10 @@ export default function Calendar() {
                 return (
                   <div
                     key={row.key}
-                    className={`flex items-center gap-3 rounded-lg border p-2.5 ${settled ? "opacity-60" : ""}`}
+                    className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border p-2.5 sm:flex-nowrap ${settled ? "opacity-60" : ""}`}
                   >
                     <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: row.color }} />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-medium">{row.title}</span>
                         {rem?.repeat === "monthly" && (
@@ -456,25 +485,15 @@ export default function Calendar() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {formatDate(row.on)}
+                        {shortDay(row.on)}
                         {row.detail && <span className="truncate">· {row.detail}</span>}
                         {st && st.state !== "upcoming" && (
-                          <span
-                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                            style={{ backgroundColor: `${PAY_STATE_META[st.state].color}22`, color: PAY_STATE_META[st.state].color }}
-                          >
+                          <StatusChip tone={PAY_TONE[st.state]}>
                             {PAY_STATE_META[st.state].label}
                             {st.source === "manual" ? " ✓" : ""}
-                          </span>
+                          </StatusChip>
                         )}
-                        {!rem && row.paid && (
-                          <span
-                            className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                            style={{ backgroundColor: `${PAY_STATE_META.paid.color}22`, color: PAY_STATE_META.paid.color }}
-                          >
-                            Paid
-                          </span>
-                        )}
+                        {!rem && row.paid && <StatusChip tone="good">{PAY_STATE_META.paid.label}</StatusChip>}
                       </div>
                     </div>
                     <Badge
@@ -547,8 +566,8 @@ export default function Calendar() {
                 );
               })
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       </div>
 
       <MarkPaidDialog

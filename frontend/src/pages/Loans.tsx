@@ -1,15 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
-import { Banknote, CalendarClock, Car, GraduationCap, Home, Landmark, Layers, Pencil, Plus, Trash2 } from "lucide-react";
+import { Banknote, Car, GraduationCap, Home, Pencil, Plus, Trash2 } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import LoanAnalytics from "@/components/LoanAnalytics";
 import CardSection from "@/components/CardSection";
+import PageHeader from "@/components/page/PageHeader";
+import HeadlineStrip from "@/components/page/HeadlineStrip";
+import PrepayLine from "@/components/pages/PrepayLine";
 import { loanHistory, LOAN_META, type Loan, type LoanKind } from "@/lib/sample";
-import { useFamily, useLoans } from "@/lib/store";
+import { useFamily, useInvestments, useLoans } from "@/lib/store";
+import { amortise } from "@/lib/amortisation";
 import { formatINR, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +43,7 @@ import {
 const KINDS = Object.keys(LOAN_META) as LoanKind[];
 const loanIcon = (kind: LoanKind) =>
   kind === "HOME" ? Home : kind === "CAR" ? Car : kind === "EDUCATION" ? GraduationCap : Banknote;
+const monthYear = (d: Date) => d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 const histConfig = {
   balance: { label: "Outstanding", color: "var(--chart-2)" },
 } satisfies ChartConfig;
@@ -276,6 +280,16 @@ export default function Loans() {
   const sanctioned = items.reduce((s, l) => s + l.sanctioned, 0);
   const outstanding = items.reduce((s, l) => s + l.outstanding, 0);
   const emiTotal = items.reduce((s, l) => s + l.emi, 0);
+  const repaidPct = sanctioned > 0 ? Math.round(((sanctioned - outstanding) / sanctioned) * 100) : 0;
+  // The same schedules the payoff plans below draw, summed: interest ahead and the last EMI.
+  const plans = items.map((l) => amortise(l.outstanding, l.rate, l.emi)).filter((p): p is NonNullable<typeof p> => p != null);
+  const interestAhead = plans.reduce((s, p) => s + p.totalInterest, 0);
+  const lastDebtFree = plans.length ? new Date(Math.max(...plans.map((p) => +p.debtFreeOn))) : null;
+  const kindCounts = KINDS.map((k) => ({ k, n: items.filter((l) => l.kind === k).length })).filter((x) => x.n > 0);
+
+  // FD rates across the whole household when "all" is picked, else this member's own.
+  const { items: investments } = useInvestments(isAll ? "all" : activeMember.id);
+  const openPlan = (loan: Loan) => document.getElementById(`payoff-${loan.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   function set<K extends keyof FormState>(k: K) {
     return (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -306,45 +320,60 @@ export default function Loans() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Loans</h1>
-          <p className="text-muted-foreground">
-            Home, car, personal, education and more
-            {activeMember.relation !== "Self" && !isAll ? ` · ${activeMember.name}` : ""}.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Select items={filterItems} value={kindFilter} onValueChange={(v) => setKindFilter(v ?? "all")}>
-            <SelectTrigger className="w-[170px]">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              {filterItems.map((it) => (
-                <SelectItem key={it.value} value={it.value}>
-                  {it.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isAll ? (
-            <span className="text-sm text-muted-foreground">Select a member to add</span>
-          ) : (
-            <Button onClick={() => setAddOpen(true)} className="gap-2">
-              <Plus className="size-4" /> Add loan
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Loans"
+        subtitle={
+          <>
+            {items.length === 0
+              ? "Home, car, personal, education and more"
+              : `${formatINR(outstanding, { compact: true })} outstanding across ${items.length} loan${items.length === 1 ? "" : "s"}${
+                  lastDebtFree ? ` · debt-free ${monthYear(lastDebtFree)}` : ""
+                }`}
+            {activeMember.relation !== "Self" && !isAll ? ` · ${activeMember.name}` : ""}
+          </>
+        }
+      >
+        <Select items={filterItems} value={kindFilter} onValueChange={(v) => setKindFilter(v ?? "all")}>
+          <SelectTrigger className="h-11 w-[170px]">
+            <SelectValue placeholder="Filter by type" />
+          </SelectTrigger>
+          <SelectContent>
+            {filterItems.map((it) => (
+              <SelectItem key={it.value} value={it.value}>
+                {it.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* A loan belongs to one member; with the whole household in view there is no one to add it for. */}
+        <Button
+          onClick={() => setAddOpen(true)}
+          className="h-11 gap-2"
+          disabled={isAll}
+          title={isAll ? "Choose a member at the top of the page to add a loan for them" : undefined}
+        >
+          <Plus className="size-4" /> Add loan
+        </Button>
+      </PageHeader>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat title="Total loans" value={String(items.length)} icon={<Layers className="size-4" />} iconColor="#3b82f6" />
-        <Stat title="Sanctioned" value={formatINR(sanctioned)} icon={<Landmark className="size-4" />} iconColor="#8b5cf6" />
-        <Stat title="Outstanding" value={formatINR(outstanding)} accent icon={<Banknote className="size-4" />} iconColor="#f59e0b" />
-        <Stat title="EMI / month" value={formatINR(emiTotal)} icon={<CalendarClock className="size-4" />} iconColor="#f43f5e" />
-      </div>
+      <PrepayLine loans={items} investments={investments} onOpen={openPlan} />
 
-      <Separator />
+      <HeadlineStrip
+        cells={[
+          {
+            label: "Total loans",
+            value: items.length,
+            sub: kindCounts.length ? kindCounts.map(({ k, n }) => `${n} ${LOAN_META[k].label.replace(/ Loan$/, "").toLowerCase()}`).join(" · ") : "none yet",
+          },
+          { label: "Sanctioned", value: formatINR(sanctioned), sub: sanctioned > 0 ? `${repaidPct}% repaid` : undefined },
+          {
+            label: "Outstanding",
+            value: formatINR(outstanding),
+            sub: plans.length ? `${formatINR(Math.round(interestAhead))} interest still to pay` : undefined,
+          },
+          { label: "EMI / month", value: formatINR(emiTotal), sub: lastDebtFree ? `last one ends ${monthYear(lastDebtFree)}` : undefined },
+        ]}
+      />
 
       {items.length === 0 ? (
         <Card>
@@ -399,7 +428,9 @@ export default function Loans() {
             <p className="text-sm text-muted-foreground">Amortisation from today’s outstanding balance. Try a prepayment to see how much sooner you are debt-free.</p>
           </div>
           {items.map((loan) => (
-            <LoanAnalytics key={loan.id} loan={loan} />
+            <div key={loan.id} id={`payoff-${loan.id}`} className="scroll-mt-20">
+              <LoanAnalytics loan={loan} />
+            </div>
           ))}
         </div>
       )}
@@ -483,42 +514,6 @@ export default function Loans() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function Stat({
-  title,
-  value,
-  accent,
-  icon,
-  iconColor = "var(--primary)",
-}: {
-  title: string;
-  value: string;
-  accent?: boolean;
-  icon?: React.ReactNode;
-  iconColor?: string;
-}) {
-  return (
-    <Card className="relative isolate overflow-hidden">
-      <CardArt color={iconColor} subtle />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardDescription>{title}</CardDescription>
-        {icon && (
-          <div
-            className="flex size-9 items-center justify-center rounded-xl"
-            style={{ backgroundColor: `color-mix(in oklab, ${iconColor} 16%, transparent)`, color: iconColor }}
-          >
-            {icon}
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold tracking-tight ${accent ? "text-rose-500" : ""}`}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -3,6 +3,7 @@ import type { Account, PeriodSummary } from "@/types";
 import { analyticsSummary, listAccounts } from "@/api";
 import { type Investment, type Loan } from "./sample";
 import { useFamily, useInvestments, useLoans } from "./store";
+import { valueToday } from "./portfolio";
 
 export interface FinanceSummary {
   accounts: Account[];
@@ -66,7 +67,9 @@ export function useFinanceSummary(): FinanceSummary {
     .reduce((sum, i) => sum + (i.sip ?? 0), 0);
   const grossEarning = earning + payslipSaving;
 
-  const investments = investmentsList.reduce((sum, i) => sum + i.current, 0);
+  // Valued as the Investments page values them: an FD still stored at its principal counts with
+  // the interest it has accrued, so net worth agrees with the holdings table.
+  const investments = investmentsList.reduce((sum, i) => sum + valueToday(i).value, 0);
   const outstanding = loans.reduce((sum, l) => sum + l.outstanding, 0);
   const emiTotal = loans.reduce((sum, l) => sum + l.emi, 0);
   // Net worth = hard cash in savings accounts. Investments are added on the dashboard when toggled on.

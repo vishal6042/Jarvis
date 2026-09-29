@@ -1,11 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { KeyRound, Pencil, Plus, ShieldAlert, Trash2, UserRound, Users } from "lucide-react";
-import CardArt from "@/components/CardArt";
+import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { changePassword, deleteAllData, getProfile, updateProfile } from "@/api";
 import { useFamily, type FamilyMember } from "@/lib/store";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import PageHeader from "@/components/page/PageHeader";
+import Panel from "@/components/page/Panel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const EMPTY = { fullName: "", email: "", phone: "", baseCurrency: "INR", city: "" };
 
+/** Who is signed in: their details, their password, the household roster (administrator only) and the data wipe. */
 export default function Profile() {
+  const admin = useSession().me?.admin ?? false;
+  const people = useFamily().members.filter((m) => m.id !== "all").length;
   const [form, setForm] = useState(EMPTY);
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
@@ -60,36 +63,22 @@ export default function Profile() {
     }
   }
 
+  const subtitle = [
+    `Signed in as ${username || "…"}`,
+    admin ? "household administrator" : null,
+    admin ? `${people} family member${people === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div className="relative isolate overflow-hidden rounded-2xl border p-6 card-sheen">
-        <CardArt color="var(--primary)" icon={UserRound} />
-        <div className="flex items-center gap-4">
-          <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-chart-1 text-2xl font-bold text-primary-foreground shadow-lg shadow-primary/30 ring-1 ring-white/15">
-            {(username || "?").slice(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-            <p className="text-muted-foreground">Signed in as {username || "…"}</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader title="Profile" subtitle={subtitle} />
 
       {/* 2×2 on wide screens: Personal | Password, Family | Danger — rows stretch to equal height */}
       <div className="grid gap-6 lg:grid-cols-2">
       <div className="contents">
-      <Card className="relative isolate overflow-hidden">
-        <CardArt color="var(--primary)" subtle />
-        <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <UserRound className="size-4" />
-          </div>
-          <div>
-            <CardTitle>Personal details</CardTitle>
-            <CardDescription>Used across your dashboard.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <Panel title="Personal details" note="used across your dashboard">
           {loading ? (
             <div className="grid gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -131,8 +120,7 @@ export default function Profile() {
               </div>
             </form>
           )}
-        </CardContent>
-      </Card>
+      </Panel>
       </div>{/* left column */}
       <div className="contents">
 
@@ -168,27 +156,19 @@ function DangerZone() {
   }
 
   return (
-    <Card className="relative isolate overflow-hidden border-destructive/40">
-      <CardArt color="#f43f5e" icon={ShieldAlert} subtle />
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-          <Trash2 className="size-4" />
-        </div>
-        <div>
-          <CardTitle className="text-destructive">Delete all data</CardTitle>
-          <CardDescription>Wipes your finances but keeps your profile &amp; login.</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Panel
+      className="border-destructive/40"
+      title={<span className="text-destructive">Delete all data</span>}
+      note="wipes your finances but keeps your profile & login"
+    >
         <p className="text-sm text-muted-foreground">
           Permanently removes every account, transaction, investment, loan, reminder, spending
           threshold, and imported statement. Your profile and login are kept. This cannot be undone.
         </p>
-        <Button variant="destructive" onClick={() => setOpen(true)} disabled={busy}>
+        <Button variant="destructive" className="w-fit" onClick={() => setOpen(true)} disabled={busy}>
           {busy ? "Deleting…" : "Delete all data"}
         </Button>
         {error && <p className="text-sm text-destructive">{error}</p>}
-      </CardContent>
 
       <ConfirmDialog
         open={open}
@@ -198,7 +178,7 @@ function DangerZone() {
         confirmLabel="Delete everything"
         onConfirm={wipe}
       />
-    </Card>
+    </Panel>
   );
 }
 
@@ -238,18 +218,7 @@ function SecuritySection() {
   }
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <CardArt color="#f59e0b" icon={KeyRound} subtle />
-      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-500">
-          <KeyRound className="size-4" />
-        </div>
-        <div>
-          <CardTitle>Password</CardTitle>
-          <CardDescription>Change the password you use to sign in.</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Panel title="Password" note="the one you use to sign in">
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid gap-2">
             <Label htmlFor="currentPassword">Current password</Label>
@@ -294,8 +263,7 @@ function SecuritySection() {
             {error && <span className="text-sm text-destructive">{error}</span>}
           </div>
         </form>
-      </CardContent>
-    </Card>
+    </Panel>
   );
 }
 
@@ -335,44 +303,37 @@ function FamilySection() {
   }
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <CardArt color="#10b981" icon={Users} subtle />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-500">
-            <Users className="size-4" />
-          </div>
-          <div>
-            <CardTitle>Family members</CardTitle>
-            <CardDescription>Add family to monitor their finances too.</CardDescription>
-          </div>
-        </div>
+    <Panel
+      title="Family members"
+      note="add family to monitor their finances too"
+      action={
         <Button onClick={openAdd} size="sm" className="gap-2">
           <Plus className="size-4" /> Add
         </Button>
-      </CardHeader>
-      <CardContent className="space-y-2">
+      }
+    >
+      <div className="space-y-2">
         {members.map((m) => (
           <div
             key={m.id}
-            className="flex items-center justify-between rounded-lg border p-3"
+            className="flex items-center justify-between gap-2 rounded-lg border p-3"
           >
-            <div className="flex items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <UserRound className="size-4" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 font-medium">
                   {m.name}
                   {m.relation === "Self" && <Badge variant="secondary">You</Badge>}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="truncate text-xs text-muted-foreground">
                   {m.relation}
                   {m.email ? ` · ${m.email}` : ""}
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1">
               <Button variant="ghost" size="sm" onClick={() => setActiveId(m.id)}>
                 Monitor
               </Button>
@@ -394,7 +355,7 @@ function FamilySection() {
             </div>
           </div>
         ))}
-      </CardContent>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
@@ -461,6 +422,6 @@ function FamilySection() {
         confirmLabel="Remove"
         onConfirm={() => toDelete && removeMember(toDelete.id)}
       />
-    </Card>
+    </Panel>
   );
 }

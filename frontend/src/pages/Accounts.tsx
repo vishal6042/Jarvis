@@ -10,6 +10,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import CardArt, { networkColor } from "@/components/CardArt";
 import BestCardCard from "@/components/BestCardCard";
 import CardSection from "@/components/CardSection";
+import PageHeader from "@/components/page/PageHeader";
 import StatementsStrip from "@/components/StatementsStrip";
 import { useOpenStatement } from "@/components/StatementPanel";
 import { daysUntil, statementFor, useStatementsVersion } from "@/lib/statements";
@@ -441,26 +442,30 @@ export default function Accounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Accounts &amp; Cards</h1>
-          <p className="text-muted-foreground">Your banks, savings, and cards.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as Tab)}>
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="bank">Bank accounts</TabsTrigger>
-              <TabsTrigger value="cards">Cards</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {admin && (
-            <Button onClick={openAdd} className="gap-2">
-              <Plus className="size-4" /> Add
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Accounts & Cards"
+        subtitle={
+          accounts.length === 0
+            ? "Your banks, savings, and cards."
+            : [
+                `${countOf("SAVINGS")} bank account${countOf("SAVINGS") === 1 ? "" : "s"}`,
+                `${accounts.length - countOf("SAVINGS")} card${accounts.length - countOf("SAVINGS") === 1 ? "" : "s"}`,
+              ].join(" · ")
+        }
+      >
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Tab)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="bank">Bank accounts</TabsTrigger>
+            <TabsTrigger value="cards">Cards</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {admin && (
+          <Button onClick={openAdd} className="gap-2">
+            <Plus className="size-4" /> Add
+          </Button>
+        )}
+      </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <SummaryCard title="Savings accounts" count={countOf("SAVINGS")} icon={<Landmark className="size-4" />} color={ACCOUNT_TYPE_COLOR.SAVINGS} />
