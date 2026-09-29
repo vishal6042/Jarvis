@@ -382,7 +382,7 @@ export function buildReport(input: {
       confidence.push({
         id: `cardpay-${k}`,
         title: `${label}: ${fmtINR(cardPay)} "Card Payment" counted as spend`,
-        detail: "A card bill payment with no matching card credit. It is counted twice: once as the purchases, once as the bill.",
+        detail: "A card-bill payment not matched to its card, so it counts as spending on top of the card's own purchases. Often the same payment imported twice, from the statement and the SMS.",
         href: `/transactions?month=${k}&category=${encodeURIComponent("Card Payment")}`,
         cta: "Review payment",
         months: [k],
@@ -392,8 +392,8 @@ export function buildReport(input: {
     if (transfers >= 10_000) {
       confidence.push({
         id: `transfers-${k}`,
-        title: `${label}: ${fmtINR(transfers)} in "Transfers" counted as spend`,
-        detail: "Probably moves between your own or family accounts whose other side never arrived.",
+        title: `${label}: ${fmtINR(transfers)} paid to people is filed as "Transfers"`,
+        detail: "It counts as spending, since the money left your accounts. Give it a real category (family support, rent, a loan repaid), or mark it as a transfer if it went to your own account.",
         href: `/transactions?month=${k}&category=Transfers`,
         cta: "Review transfers",
         months: [k],

@@ -21,6 +21,7 @@ import com.jarvis.expense.repo.TransactionRepository;
 import com.jarvis.expense.web.dto.CreateTransactionRequest;
 import com.jarvis.expense.web.dto.InternalTransactionRequest;
 import com.jarvis.expense.web.dto.TransactionDto;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -302,6 +303,13 @@ public class TransactionService {
         t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
         // Hashed on the alert's own figure, so the SMS and the email of one charge still collide.
         fx.toInr(t);
+
+        // A statement line for a movement an alert already recorded is the same money, told twice.
+        if (t.getSource() == MessageSource.STATEMENT && t.getAccount() != null && t.getOccurredAt() != null
+            && transactions.existsAlertTwin(t.getAccount().getId(), t.getDirection(), t.getAmount(),
+                t.getOccurredAt().minus(Duration.ofDays(1)), t.getOccurredAt().plus(Duration.ofDays(1)))) {
+            return Optional.empty();
+        }
 
         // A bank's "payment received" for a bill already marked paid by hand confirms that row.
         Optional<Transaction> confirmed = cardPayments.confirm(t);
