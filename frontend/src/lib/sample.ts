@@ -198,6 +198,8 @@ export interface Investment {
   salaryDeducted?: boolean;
   /** How often {@link sip} falls due. LIC premiums are yearly; everything else is monthly. */
   contributionFrequency?: "monthly" | "yearly";
+  /** Last instalment counted in (yyyy-MM-dd) — an alert or a manual "mark paid". */
+  lastContributionOn?: string;
 }
 
 export function seedInvestments(): Investment[] {

@@ -37,6 +37,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     boolean existsByDedupHash(String dedupHash);
 
+    /** Rows still recorded in a currency other than the ledger's ({@code FxService} converts them). */
+    List<Transaction> findByCurrencyNot(String currency);
+
     /** Would this hash collide with a *different* transaction? Guards the unique index on edit. */
     boolean existsByDedupHashAndIdNot(String dedupHash, Long id);
 

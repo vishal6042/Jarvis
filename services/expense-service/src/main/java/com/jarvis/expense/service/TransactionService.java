@@ -41,6 +41,7 @@ public class TransactionService {
     private final RuleService rules;
     private final MerchantAliasRepository aliases;
     private final Scope scope;
+    private final FxService fx;
 
     public TransactionService(
         TransactionRepository transactions,
@@ -50,7 +51,8 @@ public class TransactionService {
         TransferService transfers,
         RuleService rules,
         MerchantAliasRepository aliases,
-        Scope scope) {
+        Scope scope,
+        FxService fx) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
@@ -59,6 +61,7 @@ public class TransactionService {
         this.rules = rules;
         this.aliases = aliases;
         this.scope = scope;
+        this.fx = fx;
     }
 
     /**
@@ -194,6 +197,7 @@ public class TransactionService {
 
         String last4 = t.getAccount() != null ? t.getAccount().getLast4() : null;
         t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
+        fx.toInr(t);
 
         return TransactionDto.from(save(t).orElseThrow(
             () -> new ResponseStatusException(HttpStatus.CONFLICT, "Duplicate transaction")));
@@ -207,6 +211,9 @@ public class TransactionService {
         if (req.currency() != null && !req.currency().isBlank()) {
             t.setCurrency(req.currency());
         }
+        // An edit that names a foreign currency restates the merchant's figure; one in rupees
+        // corrects the billed amount and keeps the original beside it.
+        fx.toInr(t);
         t.setDirection(req.direction());
         t.setMerchant(req.merchant());
         if (req.occurredAt() != null) {
@@ -290,6 +297,8 @@ public class TransactionService {
 
         String last4 = t.getAccount() != null ? t.getAccount().getLast4() : req.last4();
         t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
+        // Hashed on the alert's own figure, so the SMS and the email of one charge still collide.
+        fx.toInr(t);
 
         Optional<Transaction> saved = save(t);
         saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));

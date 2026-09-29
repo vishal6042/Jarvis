@@ -87,6 +87,9 @@ export interface Transaction {
   accountName: string | null;
   amount: number;
   currency: string;
+  /** Set when the merchant charged a foreign currency; {@link amount} is then the INR equivalent. */
+  originalAmount?: number | null;
+  originalCurrency?: string | null;
   direction: Direction;
   merchant: string | null;
   /** The clean merchant name once an alias has been accepted for the raw text. */

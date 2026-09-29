@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, ExternalLink } from "lucide-react";
 import { cardSummaries, listTransactions, type CardSummary } from "@/api";
 import type { Account, Transaction } from "@/types";
-import { formatINR, formatDate } from "@/lib/format";
+import { formatINR, formatDate, formatOriginal } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -100,6 +100,7 @@ export default function AccountActivity({ account }: { account: Account }) {
                     <div className="truncate text-xs text-muted-foreground">
                       {t.category ?? "Uncategorized"}
                       {t.settlement ? " · bill payment" : t.transfer ? " · transfer" : ""}
+                      {formatOriginal(t) ? ` · ${formatOriginal(t)}` : ""}
                     </div>
                   </div>
                   <span className={`inline-flex shrink-0 items-center gap-0.5 font-semibold tabular-nums ${income ? "text-[color:var(--ok)]" : ""}`}>

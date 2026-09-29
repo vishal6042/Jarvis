@@ -29,6 +29,10 @@ export interface FinEvent {
   direction: "in" | "out" | "info";
   color: string;
   href?: string;
+  /** Already settled — an RD/SIP instalment whose contribution was counted in. */
+  paid?: boolean;
+  /** The investment behind an RD/SIP row, so it can be marked paid by hand. */
+  investmentId?: string;
 }
 
 export interface FinEventInput {
@@ -53,6 +57,8 @@ const dayOf = (s: string) => Number(s.slice(8, 10));
 const monthIndex = (y: number, m: number) => y * 12 + m;
 const monthOf = (s: string) => monthIndex(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1);
 const inr = (n: number) => Math.round(n).toLocaleString("en-IN");
+const shortDate = (s: string) =>
+  new Date(`${s}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
 /** Roll a known date forward month by month into the requested month, clamping the day. */
 function inMonth(dateStr: string, y: number, m: number): string | null {
@@ -135,6 +141,10 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
     if (!on) continue;
     const covered = remindersInMonth.some((r) => (r.type === "INVESTMENT" || r.type === "SIP") && r.amount != null && near(r.amount, sip));
     if (covered) continue;
+    // Counted in already: this month's instalment (or, for a yearly premium, any payment in the
+    // twelve months up to it). A later contribution settles every month before it too.
+    const last = inv.lastContributionOn;
+    const paid = !!last && monthOf(last) >= (yearly ? target - 11 : target);
     out.push({
       id: `sip-${inv.id}-${on}`,
       on,
@@ -143,7 +153,9 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
       // A payslip deduction never leaves the bank account: the salary arrives net of it.
       detail: inv.salaryDeducted
         ? "Deducted from salary"
-        : yearly
+        : paid && last && monthOf(last) === target
+          ? `Paid ${shortDate(last)}`
+          : yearly
           ? "Annual premium"
           : inv.kind === "RD"
             ? "Monthly deposit"
@@ -152,6 +164,8 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
       direction: inv.salaryDeducted ? "info" : "out",
       color: KIND_META[inv.kind].color,
       href: "/investments",
+      paid,
+      investmentId: inv.id,
     });
   }
 
@@ -217,7 +231,8 @@ export function upcomingOutflows(days: number, input: Omit<FinEventInput, "year"
   for (const key of months) {
     const [y, m] = key.split("-").map(Number);
     for (const e of financialEvents({ ...input, year: y, month: m, today })) {
-      if (e.on >= from && e.on <= to) items.push(e);
+      // A settled instalment is no longer money going out.
+      if (e.on >= from && e.on <= to && !e.paid) items.push(e);
     }
   }
   items.sort((a, b) => (a.on < b.on ? -1 : a.on > b.on ? 1 : 0));
@@ -246,6 +261,8 @@ export interface AgendaRow {
   href?: string;
   /** Set when the row is a hand-made reminder, so it can be edited, deleted or marked paid. */
   reminderId?: string;
+  /** Set when the row is an RD/SIP instalment, so it can be marked paid by hand. */
+  investmentId?: string;
   paid?: boolean;
 }
 
@@ -310,8 +327,10 @@ export function agendaBetween(
         color: e.color,
         badge: FIN_EVENT_META[e.kind].label,
         href: e.href,
-        // Settled already: a card bill with nothing left, or a contribution taken from the payslip.
-        paid: (e.kind === "card-due" && (e.amount == null || e.amount <= 0)) || e.direction === "info",
+        investmentId: e.investmentId,
+        // Settled already: a card bill with nothing left, a contribution taken from the payslip,
+        // or an instalment already counted in.
+        paid: (e.kind === "card-due" && (e.amount == null || e.amount <= 0)) || e.direction === "info" || !!e.paid,
       });
     }
   }

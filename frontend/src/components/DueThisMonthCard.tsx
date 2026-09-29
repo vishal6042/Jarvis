@@ -81,7 +81,8 @@ export default function DueThisMonthCard({
           <button
             key={r.key}
             type="button"
-            onClick={() => navigate(r.href ?? "/calendar")}
+            // An unpaid instalment is marked paid from the Calendar's list.
+            onClick={() => navigate(r.investmentId && !r.settled ? "/calendar" : (r.href ?? "/calendar"))}
             className={`flex items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5 ${
               r.settled ? "opacity-55" : ""
             }`}

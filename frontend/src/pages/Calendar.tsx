@@ -73,7 +73,7 @@ export default function Calendar() {
   const earns = activeMember.earns;
   const { paidKeys, markPaid, unmarkPaid } = useReminderPayments();
   const [payingFor, setPayingFor] = useState<ReminderOccurrence | null>(null);
-  const { items: investments } = useInvestments(activeId);
+  const { items: investments, contribute } = useInvestments(activeId);
   const { items: loans } = useLoans(activeId);
   const f = useFinanceSummary();
   const [reserve] = useReserve();
@@ -520,14 +520,28 @@ export default function Calendar() {
                         </Button>
                       </>
                     ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 text-xs text-muted-foreground"
-                        onClick={() => row.href && navigate(row.href)}
-                      >
-                        Details <ChevronRight className="size-3.5" />
-                      </Button>
+                      <>
+                        {/* An instalment whose alert never came (or paid at the counter): count it
+                            in by hand. Only up to this month — a future one is not paid yet. */}
+                        {row.investmentId && !row.paid && row.on.slice(0, 7) <= todayStr().slice(0, 7) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-xs"
+                            onClick={() => contribute(row.investmentId!, row.on < todayStr() ? row.on : todayStr())}
+                          >
+                            <Check className="size-3.5" /> Mark paid
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-xs text-muted-foreground"
+                          onClick={() => row.href && navigate(row.href)}
+                        >
+                          Details <ChevronRight className="size-3.5" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 );

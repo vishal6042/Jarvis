@@ -26,6 +26,8 @@ export interface ApiInvestment {
   salaryDeducted?: boolean;
   /** "monthly" (default) or "yearly". */
   contributionFrequency?: "monthly" | "yearly";
+  /** Date of the last instalment counted in — from an alert, or marked paid by hand. */
+  lastContributionOn?: string | null;
 }
 export interface ApiLoan {
   id: number;
@@ -78,6 +80,9 @@ export const createInvestment = async (i: Omit<ApiInvestment, "id">) =>
   (await api.post<ApiInvestment>("/api/investments", i)).data;
 export const updateInvestmentApi = async (id: number, i: Omit<ApiInvestment, "id">) =>
   (await api.put<ApiInvestment>(`/api/investments/${id}`, i)).data;
+/** Record an instalment paid by hand (defaults: today, the investment's own instalment). */
+export const contributeInvestmentApi = async (id: number, body: { date?: string; amount?: number } = {}) =>
+  (await api.post<ApiInvestment>(`/api/investments/${id}/contribution`, body)).data;
 export const deleteInvestmentApi = async (id: number) => {
   await api.delete(`/api/investments/${id}`);
 };

@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Pencil, Tag, Trash2, X } from "lucide-rea
 import { bulkSetCategory, setTransactionTags } from "@/api";
 import type { Account, Transaction } from "@/types";
 import { CATEGORIES } from "@/lib/sample";
-import { formatINR, formatDate } from "@/lib/format";
+import { formatINR, formatDate, formatOriginal } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -119,6 +119,7 @@ export function TransactionDetailDialog({
           </DialogTitle>
           <DialogDescription>
             {kind} · {formatDate(txn.occurredAt)}
+            {formatOriginal(txn) ? ` · charged ${formatOriginal(txn)}, converted at that day's rate` : ""}
             {when.getHours() + when.getMinutes() > 0 ? ` at ${when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : ""}
           </DialogDescription>
         </DialogHeader>

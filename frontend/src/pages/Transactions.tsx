@@ -15,7 +15,7 @@ import {
 } from "@/api";
 import type { Account, CreateTransactionRequest, Direction, Transaction } from "@/types";
 import { CATEGORIES } from "@/lib/sample";
-import { formatINR, formatDate } from "@/lib/format";
+import { formatINR, formatDate, formatOriginal } from "@/lib/format";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -499,6 +499,11 @@ export default function Transactions() {
                             {income ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
                             {formatINR(t.amount)}
                           </span>
+                          {formatOriginal(t) && (
+                            <div className="text-[11px] text-muted-foreground tabular-nums" title="Charged in a foreign currency; converted at that day's rate">
+                              {formatOriginal(t)}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">

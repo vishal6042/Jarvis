@@ -13,6 +13,7 @@ import {
   createLoan,
   createMember,
   createReminder,
+  contributeInvestmentApi,
   deleteInvestmentApi,
   deleteLoanApi,
   deleteMemberApi,
@@ -86,6 +87,7 @@ const toInv = (a: ApiInvestment): Investment => ({
   notes: a.notes ?? undefined,
   salaryDeducted: a.salaryDeducted ?? false,
   contributionFrequency: a.contributionFrequency === "yearly" ? "yearly" : "monthly",
+  lastContributionOn: a.lastContributionOn ?? undefined,
 });
 const toLoan = (a: ApiLoan): Loan => ({
   id: String(a.id),
@@ -132,6 +134,8 @@ interface FinanceCtx {
   addInvestment: (memberId: string, inv: Omit<Investment, "id">) => Promise<void>;
   updateInvestment: (id: string, patch: Partial<Investment>) => Promise<void>;
   removeInvestment: (id: string) => Promise<void>;
+  /** Count an instalment as paid (a counter deposit, or one whose alert never came). */
+  contributeInvestment: (id: string, date?: string) => Promise<void>;
   addLoan: (memberId: string, loan: Omit<Loan, "id">) => Promise<void>;
   updateLoan: (id: string, patch: Partial<Loan>) => Promise<void>;
   removeLoan: (id: string) => Promise<void>;
@@ -254,6 +258,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     });
     setRawInvestments((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
   };
+  const contributeInvestment = async (id: string, date?: string) => {
+    const saved = await contributeInvestmentApi(Number(id), date ? { date } : {});
+    setRawInvestments((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
+  };
   const removeInvestment = async (id: string) => {
     await deleteInvestmentApi(Number(id));
     setRawInvestments((prev) => prev.filter((x) => String(x.id) !== id));
@@ -373,6 +381,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         addInvestment,
         updateInvestment,
         removeInvestment,
+        contributeInvestment,
         addLoan,
         updateLoan,
         removeLoan,
@@ -422,6 +431,7 @@ export function useInvestments(memberId: string) {
     add: (inv: Omit<Investment, "id">) => c.addInvestment(memberId, inv),
     update: (id: string, patch: Partial<Investment>) => c.updateInvestment(id, patch),
     remove: (id: string) => c.removeInvestment(id),
+    contribute: (id: string, date?: string) => c.contributeInvestment(id, date),
   };
 }
 

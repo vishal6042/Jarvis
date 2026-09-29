@@ -1,11 +1,13 @@
 package com.jarvis.finance.web;
 
 import com.jarvis.finance.domain.Investment;
+import com.jarvis.finance.domain.RdMath;
 import com.jarvis.finance.repo.InvestmentRepository;
 import com.jarvis.finance.service.Scope;
 import com.jarvis.finance.web.dto.InvestmentRequest;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +51,36 @@ public class InvestmentController {
         apply(i, req);
         return investments.save(i);
     }
+
+    /**
+     * Record an instalment paid by hand — a deposit made at the counter, or one whose alert never
+     * arrived. Counts once per date, like an alert would: principal grows by the amount (the
+     * instalment when none is given), and an RD's value is re-accrued on the deposits so far.
+     */
+    @PostMapping("/{id}/contribution")
+    public Investment contribute(@PathVariable Long id, @RequestBody(required = false) ContributionRequest req) {
+        Investment i = investments.findById(id).filter(x -> scope.canSee(x.getMemberId())).orElseThrow(this::notFound);
+        scope.requireOwn(i.getMemberId());
+        LocalDate on = req == null || req.date() == null ? LocalDate.now() : req.date();
+        BigDecimal amount = req != null && req.amount() != null ? req.amount() : i.getSip();
+        if (amount == null || amount.signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No amount given and no instalment set");
+        }
+        if (i.getLastContributionOn() != null && !on.isAfter(i.getLastContributionOn())) {
+            return i; // already counted — the alert got there first, or a second click
+        }
+        i.setPrincipal(i.getPrincipal().add(amount));
+        boolean rd = "RD".equalsIgnoreCase(i.getKind()) && i.getRate() != null && i.getRate() > 0
+            && i.getSip() != null && i.getSip().signum() > 0;
+        i.setCurrent(rd
+            ? RdMath.accruedValue(i.getSip(), RdMath.instalmentsFor(i.getPrincipal(), i.getSip()), i.getRate())
+            : i.getCurrent().add(amount));
+        i.setLastContributionOn(on);
+        i.setValueAsOf(on);
+        return investments.save(i);
+    }
+
+    public record ContributionRequest(LocalDate date, BigDecimal amount) {}
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {

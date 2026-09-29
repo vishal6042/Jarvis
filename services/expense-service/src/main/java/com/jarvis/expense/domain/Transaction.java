@@ -39,6 +39,16 @@ public class Transaction {
     @Column(nullable = false, length = 3)
     private String currency = "INR";
 
+    /**
+     * What the merchant charged, when that was not rupees ("USD 118.00"). {@link #amount} is then
+     * the INR equivalent the card is billed, so every total stays in one currency.
+     */
+    @Column(name = "original_amount", precision = 14, scale = 2)
+    private BigDecimal originalAmount;
+
+    @Column(name = "original_currency", length = 3)
+    private String originalCurrency;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private Direction direction;

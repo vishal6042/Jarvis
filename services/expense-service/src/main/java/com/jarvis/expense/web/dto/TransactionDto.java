@@ -14,6 +14,9 @@ public record TransactionDto(
     String accountName,
     BigDecimal amount,
     String currency,
+    /** Set when the merchant charged a foreign currency; {@code amount} is then the INR equivalent. */
+    BigDecimal originalAmount,
+    String originalCurrency,
     Direction direction,
     String merchant,
     String merchantNorm,
@@ -32,6 +35,8 @@ public record TransactionDto(
             t.getAccount() != null ? t.getAccount().getDisplayName() : null,
             t.getAmount(),
             t.getCurrency(),
+            t.getOriginalAmount(),
+            t.getOriginalCurrency(),
             t.getDirection(),
             t.getMerchant(),
             t.getMerchantNorm(),
