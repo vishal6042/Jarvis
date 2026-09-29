@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { CalendarCheck, Percent, Sigma, TrendingDown } from "lucide-react";
 import CardArt from "@/components/CardArt";
 import { LOAN_META, type Loan } from "@/lib/sample";
@@ -9,12 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-
-const chartConfig = {
-  principal: { label: "Principal", color: "#10b981" },
-  interest: { label: "Interest", color: "#f43f5e" },
-} satisfies ChartConfig;
+import { BalanceRunDown, LeftToPay, PaymentsAhead } from "@/components/LoanCharts";
 
 const EXTRA_PRESETS = [0, 5000, 10000, 25000];
 
@@ -24,8 +18,9 @@ const compact = (n: number) =>
 const digits = (s: string) => Math.max(0, Number(s.replace(/[^\d]/g, "")) || 0);
 
 /**
- * Amortisation view for one loan: where you stand, how much interest is still ahead, interest vs
- * principal by year, and a prepayment simulator (extra per month or a lump sum today).
+ * Amortisation view for one loan: where you stand, what is left split into principal and interest,
+ * the balance running down to zero (with a prepayment beside it when one is tried), what each
+ * payment still to come is made of, and the prepayment simulator (extra per month or a lump sum).
  */
 export default function LoanAnalytics({ loan }: { loan: Loan }) {
   const color = LOAN_META[loan.kind].color;
@@ -81,20 +76,23 @@ export default function LoanAnalytics({ loan }: { loan: Loan }) {
           />
         </div>
 
-        <div>
-          <p className="mb-2 text-sm font-medium">Interest vs principal by year{active ? " · with prepayment" : ""}</p>
-          <ChartContainer config={chartConfig} className="h-[220px] w-full">
-            <BarChart data={data} margin={{ left: 4, right: 4, top: 8 }} barCategoryGap="20%">
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="year" tickLine={false} axisLine={false} tickMargin={8} tick={{ fontSize: 11 }} />
-              <YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 11 }} tickFormatter={compact} />
-              <ChartTooltip content={<ChartTooltipContent indicator="dot" />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              <Bar dataKey="principal" stackId="a" fill="var(--color-principal)" radius={[0, 0, 4, 4]} isAnimationActive={false} />
-              <Bar dataKey="interest" stackId="a" fill="var(--color-interest)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-            </BarChart>
-          </ChartContainer>
+        <LeftToPay plan={shown} />
+
+        <div className="space-y-2">
+          <div className="flex items-baseline gap-3 text-sm">
+            <span className="font-medium">Balance to zero</span>
+            {active && sim && (
+              <span className="text-xs text-muted-foreground">
+                <span className="text-sky-500">- - -</span> with {extra > 0 ? `+${formatINR(extra)} a month` : ""}
+                {extra > 0 && lump > 0 ? " and " : ""}
+                {lump > 0 ? `${formatINR(lump)} today` : ""}
+              </span>
+            )}
+          </div>
+          <BalanceRunDown outstanding={loan.outstanding} base={base} scenario={active ? sim?.withExtra : null} color={color} />
         </div>
+
+        <PaymentsAhead plan={shown} />
 
         <div className="rounded-xl border bg-card/60 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-end">
