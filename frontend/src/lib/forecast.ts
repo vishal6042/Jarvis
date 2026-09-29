@@ -2,6 +2,7 @@ import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import { upcomingReminders, type Reminder } from "@/lib/sample";
 import { reminderKey, reminderStatus } from "@/lib/reminderStatus";
+import { statementsOf } from "@/lib/cards";
 
 const DAY = 86_400_000;
 
@@ -151,8 +152,9 @@ export function buildForecast({
     });
   }
 
-  // Card bills that still have a balance due and a due date inside the window.
-  for (const c of cards) {
+  // Card bills that still have a balance due and a due date inside the window — once per
+  // statement, since grouped cards each report the consolidated bill.
+  for (const c of statementsOf(cards)) {
     if (c.billDue > 0 && c.dueOn) {
       const due = new Date(`${c.dueOn}T00:00:00`);
       if (due >= t0 && due <= horizonEnd) {

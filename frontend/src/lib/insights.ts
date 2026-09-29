@@ -6,6 +6,7 @@ import { reminderKey, reminderStatus } from "@/lib/reminderStatus";
 import type { Forecast } from "@/lib/forecast";
 import type { MonthBreakdown } from "@/lib/breakdown";
 import { formatINR } from "@/lib/format";
+import { statementsOf } from "@/lib/cards";
 
 export type Severity = "red" | "amber" | "green" | "info";
 
@@ -47,8 +48,8 @@ export function buildInsights(i: InsightInput): Insight[] {
   const today = i.today ?? new Date();
   const out: Insight[] = [];
 
-  // Card bills due soon / overdue.
-  for (const c of i.cards) {
+  // Card bills due soon / overdue, and utilisation — both per statement, not per card.
+  for (const c of statementsOf(i.cards)) {
     if (c.billDue <= 0 || !c.dueOn) continue;
     const d = daysUntil(c.dueOn, today);
     if (d < 0) {

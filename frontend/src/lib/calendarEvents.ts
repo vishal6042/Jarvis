@@ -2,6 +2,7 @@ import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import { KIND_META, occurrencesInMonth, REMINDER_META, upcomingReminders, type Investment, type Loan, type Reminder } from "@/lib/sample";
 import { inferSalary } from "@/lib/forecast";
+import { statementsOf } from "@/lib/cards";
 
 /**
  * Things the financial calendar knows about beyond hand-made reminders: credit-card due and
@@ -76,8 +77,9 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
   const target = monthIndex(y, m);
   const remindersInMonth = i.reminders.filter((r) => r.repeat === "monthly" || monthOf(r.date) === target);
 
-  // Credit cards: bill due + statement generation (cycles repeat monthly).
-  for (const c of i.cards) {
+  // Credit cards: bill due + statement generation (cycles repeat monthly). Once per statement:
+  // cards on a consolidated bill would otherwise each claim the whole amount.
+  for (const c of statementsOf(i.cards)) {
     const due = c.dueOn ? inMonth(c.dueOn, y, m) : null;
     if (due && c.dueOn) {
       const isCurrentBill = monthOf(c.dueOn) === target;

@@ -4,6 +4,7 @@ import { AlertCircle, Check, History, MessageSquarePlus, Send, Sparkles, Trash2,
 import { ACTION_LABEL, describeAction, executeAction, isImperative, validateAction, type PlannedAction } from "@/lib/actions";
 import { answerQuery, ASSISTANT_SUGGESTIONS, type FinanceContext } from "@/lib/assistant";
 import { useFinanceSummary } from "@/lib/finance";
+import { statementsOf } from "@/lib/cards";
 import {
   aiChat,
   aiPlan,
@@ -167,7 +168,7 @@ export default function Assistant() {
         .filter((e) => e.kind !== "start" && e.kind !== "end")
         .slice(0, 12)
         .map((e) => `  - ${e.on} ${e.label}: ${e.unknownAmount ? "amount not set" : (e.amount > 0 ? "+" : "-") + formatINR(Math.abs(e.amount))}`),
-      ...(cards.length ? ["Cards:", ...cards.map((c) => `  - ${c.displayName}: unbilled ${formatINR(c.unbilled)}, bill due ${formatINR(c.billDue)}${c.dueOn ? " on " + c.dueOn : ""}`)] : []),
+      ...(cards.length ? ["Cards (one line per statement):", ...statementsOf(cards).map((c) => `  - ${c.displayName}: unbilled ${formatINR(c.unbilled)}, bill due ${formatINR(c.billDue)}${c.dueOn ? " on " + c.dueOn : ""}`)] : []),
       ...(investments.length
         ? [
             `Investments: ${formatINR(pf.current)} now from ${formatINR(pf.invested)} invested${pf.annualised != null ? `, ${pf.annualised.toFixed(1)}% a year` : ""}; ${formatINR(pf.monthlyCommitment)}/month committed`,
