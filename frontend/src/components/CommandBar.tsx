@@ -29,6 +29,13 @@ const ASKS = [
   "Find unnecessary expenses",
 ];
 
+const OPEN_EVENT = "jarvis:open-command-bar";
+
+/** Open the command bar from anywhere on the page (it is mounted once, in the shell). */
+export function openCommandBar() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
 /**
  * Ctrl+K / Cmd+K command bar: jump to a page, or send anything else to Jarvis. Mounted once in the
  * shell; `open`/`onOpenChange` are controlled so the header button can open it too.
@@ -45,8 +52,13 @@ export default function CommandBar({ open, onOpenChange }: { open: boolean; onOp
         onOpenChange(!open);
       }
     };
+    const onAsk = () => onOpenChange(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(OPEN_EVENT, onAsk);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(OPEN_EVENT, onAsk);
+    };
   }, [open, onOpenChange]);
 
   useEffect(() => {
