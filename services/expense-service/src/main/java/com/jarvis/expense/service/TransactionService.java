@@ -316,6 +316,22 @@ public class TransactionService {
         if (confirmed.isPresent()) {
             return confirmed.map(TransactionDto::from);
         }
+        // Any other row entered by hand for the same payment (from a screenshot) is confirmed too:
+        // it keeps the person's merchant and category, and records that the bank has now told us.
+        if (t.getSource() != MessageSource.MANUAL && t.getSource() != MessageSource.STATEMENT && t.getAccount() != null
+            && t.getOccurredAt() != null && t.getAmount() != null) {
+            Optional<Transaction> twin = transactions.findManualTwins(
+                    t.getAccount().getId(), t.getDirection(),
+                    t.getAmount().subtract(BigDecimal.ONE), t.getAmount().add(BigDecimal.ONE),
+                    t.getOccurredAt().minus(Duration.ofDays(3)), t.getOccurredAt().plus(Duration.ofDays(3)))
+                .stream().findFirst();
+            if (twin.isPresent()) {
+                Transaction m = twin.get();
+                m.setSource(t.getSource());
+                m.setSourceRef(t.getSourceRef());
+                return Optional.of(TransactionDto.from(transactions.save(m)));
+            }
+        }
 
         Optional<Transaction> saved = save(t);
         saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));

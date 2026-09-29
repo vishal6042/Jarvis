@@ -8,27 +8,8 @@ import { Sparkline } from "@/components/analytics/Charts";
 const lakh = (n: number) => formatINR(n, { compact: true });
 const pct = (n: number) => `${Math.round(n)}%`;
 
-/** A card with the page's standard padding, title row and optional right-hand note. */
-export function Panel({ title, note, action, children, className = "", tone }: {
-  title: string;
-  note?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-  tone?: "warn";
-}) {
-  return (
-    <section className={`flex min-w-0 flex-col gap-4 rounded-2xl border bg-card p-6 ${tone === "warn" ? "border-amber-300/70 dark:border-amber-500/30" : ""} ${className}`}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-base font-semibold">{title}</h2>
-        {note && <span className="text-[13px] text-muted-foreground">{note}</span>}
-        <div className="flex-1" />
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
+export { default as Panel } from "@/components/page/Panel";
+import Panel from "@/components/page/Panel";
 
 function Delta({ now, then, goodWhenDown = true }: { now: number; then: number; goodWhenDown?: boolean }) {
   if (then <= 0) return <span className="text-muted-foreground">no comparison</span>;

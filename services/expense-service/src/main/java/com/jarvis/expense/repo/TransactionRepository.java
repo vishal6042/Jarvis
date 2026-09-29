@@ -114,7 +114,22 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @Param("from") Instant from,
         @Param("to") Instant to);
 
-    /** Every account-linked row not yet marked as a transfer — scanned by the backfill. */
+    
+    /**
+     * Rows entered by hand (from a screenshot, say) that an arriving alert could be describing:
+     * same account, direction and amount, inside the window. The alert then confirms the row.
+     */
+    @Query("select t from Transaction t where t.source = com.jarvis.expense.domain.MessageSource.MANUAL"
+        + " and t.account.id = :accountId and t.direction = :direction"
+        + " and t.amount between :min and :max and t.occurredAt between :from and :to order by t.occurredAt asc")
+    List<Transaction> findManualTwins(
+        @Param("accountId") Long accountId,
+        @Param("direction") Direction direction,
+        @Param("min") BigDecimal min,
+        @Param("max") BigDecimal max,
+        @Param("from") Instant from,
+        @Param("to") Instant to);
+/** Every account-linked row not yet marked as a transfer — scanned by the backfill. */
     @Query("select t from Transaction t where t.account is not null and t.transfer = false and t.settlement = false order by t.occurredAt asc")
     List<Transaction> findLinkedNotTransfer();
 

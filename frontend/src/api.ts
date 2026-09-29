@@ -613,6 +613,8 @@ export interface EnrichedMerchant {
   merchant: string;
   category: string | null;
   confidence: number | null;
+  /** What the merchant is, in a few words ("PVR is a cinema chain"). */
+  reason?: string | null;
 }
 /** Ask the local model to clean a batch of raw merchant strings. Send a handful at a time. */
 export async function aiEnrichMerchants(

@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { formatINR, formatOriginal, merchantLabel } from "@/lib/format";
 import { fmtDay, localDay, spendOf, type Report } from "@/lib/report";
 import { useWidth } from "@/lib/useWidth";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import SidePanel from "@/components/page/SidePanel";
 
 const lakh = (n: number) => formatINR(n, { compact: true });
 const median = (xs: number[]) => {
@@ -100,8 +101,7 @@ export default function CategoryPanel({
   };
 
   return (
-    <Dialog open={!!category} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none p-0 sm:max-w-[580px] data-open:slide-in-from-right data-open:zoom-in-100 data-closed:slide-out-to-right data-closed:zoom-out-100">
+    <SidePanel open={!!category} onClose={onClose}>
         {!line ? (
           <div className="p-8">
             <DialogTitle>{category}</DialogTitle>
@@ -234,7 +234,6 @@ export default function CategoryPanel({
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+    </SidePanel>
   );
 }

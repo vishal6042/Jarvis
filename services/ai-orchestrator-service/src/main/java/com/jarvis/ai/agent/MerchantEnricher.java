@@ -29,7 +29,7 @@ public class MerchantEnricher {
         You clean up merchant names from Indian bank and UPI alerts, for one user.
         For every input string return the shop or payee a person would recognise, and its category.
         Reply with a single JSON array and nothing else. One object per input, same order:
-          {"raw": "<the input, copied exactly>", "merchant": "<clean name>", "category": "<category>", "confidence": <0.0-1.0>}
+          {"raw": "<the input, copied exactly>", "merchant": "<clean name>", "category": "<category>", "confidence": <0.0-1.0>, "reason": "<why, in under 12 words>"}
         Rules:
         - Strip payment plumbing: UPI-, NEFT-, IMPS-, POS, reference numbers, terminal ids, "IN", trailing punctuation.
           "UPI-653782697753-Blinkit IN" -> "Blinkit". "SHELL INDIA MAR." -> "Shell". "AMAZON PAY IN GROCERY" -> "Amazon Pay".
@@ -40,22 +40,26 @@ public class MerchantEnricher {
         - confidence is how sure you are of BOTH fields: below 0.6 when the string is too cryptic to read.
         - Never invent a brand you cannot see in the string. When unreadable, copy the input as the merchant
           and set a low confidence.
+        - reason says what the merchant is, plainly: "PVR is a cinema chain", "a grocery delivery app", "a person's name".
         """;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record EnrichedMerchant(String raw, String merchant, String category, Double confidence) {}
+    public record EnrichedMerchant(String raw, String merchant, String category, Double confidence, String reason) {}
 
     private final ChatClient chatClient;
     private final ObjectMapper json;
     private final String extractionModel;
+    private final String keepAlive;
 
     public MerchantEnricher(
         ChatClient.Builder chatClientBuilder,
         ObjectMapper json,
-        @Value("${jarvis.ai.parser-model}") String extractionModel) {
+        @Value("${jarvis.ai.parser-model}") String extractionModel,
+        @Value("${jarvis.ai.keep-alive}") String keepAlive) {
         this.chatClient = chatClientBuilder.build();
         this.json = json;
         this.extractionModel = extractionModel;
+        this.keepAlive = keepAlive;
     }
 
     /**
@@ -84,7 +88,7 @@ public class MerchantEnricher {
                 .prompt()
                 .system(SYSTEM)
                 .user(user.toString())
-                .options(OllamaChatOptions.builder().model(extractionModel).temperature(0.0).build())
+                .options(OllamaChatOptions.builder().model(extractionModel).temperature(0.0).keepAlive(keepAlive).disableThinking().build())
                 .call()
                 .content();
         } catch (RuntimeException e) {
@@ -124,7 +128,8 @@ public class MerchantEnricher {
             }
             out.add(new EnrichedMerchant(
                 match, m.merchant().trim(), m.category() == null ? null : m.category().trim(),
-                m.confidence() == null ? 0.5 : Math.max(0, Math.min(1, m.confidence()))));
+                m.confidence() == null ? 0.5 : Math.max(0, Math.min(1, m.confidence())),
+                m.reason() == null ? null : m.reason().trim()));
         }
         return out;
     }

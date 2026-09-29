@@ -22,7 +22,8 @@ import { isoDay } from "@/lib/forecast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import SidePanel from "@/components/page/SidePanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /*
@@ -455,10 +456,7 @@ export default function StatementHost() {
   const st = cards && accountId != null ? statementFor(cards, accountId) : null;
 
   return (
-    <Dialog open={accountId != null} onOpenChange={(o) => !o && close()}>
-      <DialogContent
-        className="top-0 right-0 left-auto flex h-dvh max-h-dvh w-full max-w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-y-auto rounded-none p-0 sm:max-w-[580px] data-open:slide-in-from-right data-open:zoom-in-100 data-closed:slide-out-to-right data-closed:zoom-out-100"
-      >
+    <SidePanel open={accountId != null} onClose={close}>
         {!cards || !txns ? (
           <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Loading statement…
@@ -473,7 +471,6 @@ export default function StatementHost() {
         ) : (
           <StatementBody key={`${st.summary.accountId}-${reloads}`} st={st} txns={txns} onChanged={changed} />
         )}
-      </DialogContent>
-    </Dialog>
+    </SidePanel>
   );
 }
