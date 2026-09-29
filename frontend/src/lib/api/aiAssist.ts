@@ -24,7 +24,7 @@ export async function aiFilter(
   accounts: { id: number; name: string }[],
   today: string,
 ): Promise<AiFilter> {
-  return (await api.post<AiFilter>("/api/ai/filter", { query, categories, accounts, today }, { timeout: 60000 })).data;
+  return (await api.post<AiFilter>("/api/ai/filter", { query, categories, accounts, today }, { timeout: 180000 })).data;
 }
 
 /** A transaction read from a payment screenshot or receipt, for the person to confirm. */

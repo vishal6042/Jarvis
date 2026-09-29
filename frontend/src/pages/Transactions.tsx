@@ -1,226 +1,314 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, Copy, ListChecks, Pencil, Plus, Search, Sparkles, Trash2, Wand2 } from "lucide-react";
-import { applyRules, createRule, deleteRule, listDuplicates, listRules, setTransactionCategory, type CategoryRule } from "@/api";
-import { Switch } from "@/components/ui/switch";
-import { BulkCategoryDialog, TransactionDetailDialog } from "@/components/TransactionDetail";
-import MerchantCleanupDialog from "@/components/MerchantCleanupDialog";
-import CardArt from "@/components/CardArt";
+import { ChevronLeft, ChevronRight, ListChecks, Plus, Sparkles, Wand2 } from "lucide-react";
 import {
   createTransaction,
   deleteTransaction,
   listAccounts,
+  listDuplicates,
+  listRecurring,
   listTransactions,
   updateTransaction,
 } from "@/api";
-import type { Account, CreateTransactionRequest, Direction, Transaction } from "@/types";
-import { CATEGORIES } from "@/lib/sample";
-import { formatINR, formatDate, formatOriginal } from "@/lib/format";
+import { aiFilter, type AiFilter } from "@/lib/api/aiAssist";
+import type { Account, Direction, RecurringPayment, Transaction } from "@/types";
+import { formatINR } from "@/lib/format";
+import { fmtDay, incomeOf, localDay, spendOf } from "@/lib/report";
+import { inferSalary, isoDay } from "@/lib/forecast";
+import { useFamily } from "@/lib/store";
+import { useIsAdmin } from "@/lib/session";
+import PageHeader from "@/components/page/PageHeader";
+import HeadlineStrip, { type HeadlineCell } from "@/components/page/HeadlineStrip";
+import SidePanel from "@/components/page/SidePanel";
+import { BulkCategoryDialog, TransactionDetailDialog } from "@/components/TransactionDetail";
+import MerchantCleanupDialog from "@/components/MerchantCleanupDialog";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DialogTitle } from "@/components/ui/dialog";
+import AskBox, { looksLikeRequest, type UnderstoodChip } from "@/components/transactions/AskBox";
+import DayList from "@/components/transactions/DayList";
+import ReviewQueue from "@/components/transactions/ReviewQueue";
+import { buildQueue } from "@/components/transactions/queue";
+import { useDismissed, useSuggestions } from "@/components/transactions/suggestions";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  EditTransactionDialog,
+  FilterSelect,
+  QuickCategoryDialog,
+  RulesDialog,
+  draftOf,
+  emptyDraft,
+  requestOf,
+  type Draft,
+} from "@/components/transactions/dialogs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  CUSTOM,
+  allCategories,
+  categoryItems,
+  currentMonthKey,
+  monthEnd,
+  monthLabel,
+  shiftMonth,
+  needsReview,
+  useMediaQuery,
+} from "@/components/transactions/shared";
 
-const PAGE_SIZE = 25;
-/** "YYYY-MM" for today, in local time. */
-const currentMonthKey = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const MONTH_KEY = /^\d{4}-\d{2}$/;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** Categories the model may choose from, beyond the ones the ledger already uses. */
+const MODEL_EXTRA = ["Groceries", "Rent", "Miscellaneous"];
+
+/** What the model understood from the last request, and what the dates were before it. */
+interface Understood {
+  category?: string;
+  direction?: Direction;
+  min?: number;
+  max?: number;
+  from?: string;
+  to?: string;
+  accountId?: number;
+  text?: string;
+  before: { month: string; from: string; to: string };
+}
+
+const median = (xs: number[]) => {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 };
-const NONE = "none"; // Select sentinel for "no account"
-const CUSTOM = "custom"; // month-filter sentinel for a from/to date range
 
-/** Category options = the standard set + Card Payment, with the row's own value folded in. */
-function categoryOptions(current?: string | null): string[] {
-  const base = [...CATEGORIES, "Card Payment"];
-  return current && !base.includes(current) ? [current, ...base] : base;
+/** "22–28 Sept" for a range inside one month, "30 Aug – 5 Sept" across two, one end on its own. */
+function rangeLabel(from?: string, to?: string): string {
+  if (from && to) {
+    if (from.slice(0, 7) === to.slice(0, 7)) {
+      return `${Number(from.slice(8))}–${fmtDay(to)}`;
+    }
+    return `${fmtDay(from)} – ${fmtDay(to)}`;
+  }
+  if (from) return `From ${fmtDay(from)}`;
+  if (to) return `Until ${fmtDay(to)}`;
+  return "";
 }
 
-const isoDay = (iso: string) => iso.slice(0, 10); // ISO instant → yyyy-MM-dd
-const pad2 = (n: number) => String(n).padStart(2, "0");
-/** yyyy-MM-dd in local time — the day the Date column shows, which the UTC slice above is not. */
-const localDay = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-
-interface Draft {
-  id: number | null;
-  direction: Direction;
-  amount: string;
-  occurredOn: string; // yyyy-MM-dd
-  merchant: string;
-  category: string;
-  accountId: string; // "none" | account id
-  note: string;
-}
-
-const emptyDraft = (): Draft => ({
-  id: null,
-  direction: "DEBIT",
-  amount: "",
-  occurredOn: new Date().toISOString().slice(0, 10),
-  merchant: "",
-  category: "",
-  accountId: NONE,
-  note: "",
-});
-
+/**
+ * Transactions: the ledger for a month (or any range) as days with their spend, readable merchant
+ * names and the month's four numbers on top. The search box also takes plain-words requests the
+ * local model turns into filters, and a review queue — docked beside the list on a wide screen,
+ * sliding in on a narrow one — gathers everything that wants a decision: wrong-looking
+ * categories, better names, money to people filed as transfers, rows missing a category or
+ * account, and probable duplicates.
+ */
 export default function Transactions() {
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [recurring, setRecurring] = useState<RecurringPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dups, setDups] = useState<Transaction[][]>([]);
+  const loaded = useRef(false);
+  const { activeMember } = useFamily();
+  const admin = useIsAdmin();
 
-  // filters — seeded from the URL so other pages can deep-link (e.g. ?month=2026-09&category=Food)
+  // Filters — seeded from the URL so other pages can deep-link (e.g. ?month=2026-09&category=Food,
+  // ?account=6,7,8 for the cards on one statement, ?from=&to= for a date range, ?review=1).
   const [params] = useSearchParams();
-  const [q, setQ] = useState(params.get("q") ?? "");
+  const [input, setInput] = useState(params.get("q") ?? ""); // what is in the box
+  const [q, setQ] = useState(params.get("q") ?? ""); // the text the list is filtered by
   const [dir, setDir] = useState<"all" | Direction>((params.get("type") as Direction | null) ?? "all");
   const [cat, setCat] = useState<string>(params.get("category") ?? "all");
   const [acct, setAcct] = useState<string>(params.get("account") ?? "all");
+  const [minAmt, setMinAmt] = useState<number | null>(null);
+  const [maxAmt, setMaxAmt] = useState<number | null>(null);
   // Default to the current month — the usual question is "what did I spend this month".
-  // ?from= / ?to= (yyyy-MM-dd) open straight into a custom date range.
   const [from, setFrom] = useState(params.get("from") ?? "");
   const [to, setTo] = useState(params.get("to") ?? "");
   const [month, setMonth] = useState<string>(
     params.get("month") ?? (params.has("from") || params.has("to") ? CUSTOM : currentMonthKey()),
   ); // "all" | "custom" | "YYYY-MM"
   const [review, setReview] = useState(params.get("review") === "1"); // only rows needing attention
-  const [dups, setDups] = useState<Transaction[][]>([]);
-  const [quick, setQuick] = useState<Transaction | null>(null); // inline category dialog
+
+  // Ask-to-filter
+  const [understood, setUnderstood] = useState<Understood | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askNote, setAskNote] = useState<string | null>(null);
+  const askToken = useRef(0);
+
+  // The review queue docks at xl and is a side panel below it.
+  const wide = useMediaQuery("(min-width: 1280px)");
+  const [queueOpen, setQueueOpen] = useState(() => params.get("review") === "1" || window.matchMedia("(min-width: 1280px)").matches);
+  const firstWide = useRef(true);
+  useEffect(() => {
+    if (firstWide.current) {
+      firstWide.current = false;
+      return;
+    }
+    setQueueOpen(wide); // crossing the breakpoint: docked when there is room, tucked away when not
+  }, [wide]);
+  const suggest = useSuggestions();
+  const { dismissed, dismiss } = useDismissed();
+
+  // Dialogs and selection
+  const [quick, setQuick] = useState<Transaction | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [detail, setDetail] = useState<Transaction | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
-
-  // dialogs
   const [editing, setEditing] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
 
-  const reload = () => {
-    setLoading(true);
-    Promise.all([listTransactions(0, 1000), listAccounts()])
+  const reload = useCallback(() => {
+    // Only the first load blanks the list; later ones refresh it in place, keeping the scroll.
+    if (!loaded.current) setLoading(true);
+    Promise.all([listTransactions(0, 5000), listAccounts()])
       .then(([t, a]) => {
         setTxns(t);
         setAccounts(a);
       })
-      .finally(() => listDuplicates().then(setDups).catch(() => setDups([])))
       .catch(() => {
-        setTxns([]);
-        setAccounts([]);
+        if (!loaded.current) {
+          setTxns([]);
+          setAccounts([]);
+        }
       })
-      .finally(() => setLoading(false));
-  };
-  useEffect(reload, []);
+      .finally(() => {
+        loaded.current = true;
+        setLoading(false);
+      });
+    listDuplicates()
+      .then(setDups)
+      .catch(() => setDups([]));
+  }, []);
+  useEffect(() => {
+    reload();
+    listRecurring()
+      .then((r) => setRecurring(r ?? []))
+      .catch(() => setRecurring([]));
+  }, [reload]);
+
+  /** Rows saved by the queue, patched in place rather than reloading five thousand rows. */
+  const patch = useCallback((rows: Transaction[]) => {
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    setTxns((prev) => prev.map((t) => byId.get(t.id) ?? t));
+  }, []);
+
+  const cardIds = useMemo(() => new Set(accounts.filter((a) => a.type !== "SAVINGS").map((a) => a.id)), [accounts]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
     txns.forEach((t) => t.category && set.add(t.category));
     return Array.from(set).sort();
   }, [txns]);
+  const pickable = useMemo(() => categoryItems(categories), [categories]);
 
   // Months present in the data, newest first — drives the month filter. The current month is
   // always offered, even before anything has landed in it.
   const months = useMemo(() => {
     const set = new Set<string>([currentMonthKey()]);
-    txns.forEach((t) => set.add(t.occurredAt.slice(0, 7)));
+    txns.forEach((t) => set.add(localDay(t).slice(0, 7)));
     return Array.from(set).sort().reverse();
   }, [txns]);
 
+  // The date window alone — the strip, the review queue and the list all start from it.
+  const periodRows = useMemo(
+    () =>
+      txns.filter((t) => {
+        const day = localDay(t);
+        if (month === CUSTOM) return !((from && day < from) || (to && day > to));
+        if (month === "all") return true;
+        return day.startsWith(month);
+      }),
+    [txns, month, from, to],
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return txns.filter((t) => {
-      if (review && !needsReview(t)) return false;
-      if (month === CUSTOM) {
-        const day = localDay(new Date(t.occurredAt));
-        if ((from && day < from) || (to && day > to)) return false;
-      } else if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
-      if (dir !== "all" && t.direction !== dir) return false;
-      if (cat !== "all" && (t.category ?? "") !== cat) return false;
-      // One id, or several for the cards billed on one statement ("6,7,8").
-      if (acct !== "all" && !acct.split(",").includes(String(t.accountId ?? ""))) return false;
-      if (needle) {
-        const hay = `${t.merchantNorm ?? ""} ${t.merchant ?? ""} ${t.category ?? ""} ${t.note ?? ""} ${t.accountName ?? ""}`.toLowerCase();
-        if (!hay.includes(needle)) return false;
-      }
-      return true;
-    });
-  }, [txns, q, dir, cat, acct, month, from, to, review]);
-  const reviewCount = useMemo(() => txns.filter(needsReview).length, [txns]);
+    return periodRows
+      .filter((t) => {
+        if (review && !needsReview(t)) return false;
+        if (dir !== "all" && t.direction !== dir) return false;
+        if (cat !== "all" && (t.category ?? "") !== cat) return false;
+        // One id, or several for the cards billed on one statement ("6,7,8").
+        if (acct !== "all" && !acct.split(",").includes(String(t.accountId ?? ""))) return false;
+        if (minAmt != null && t.amount < minAmt) return false;
+        if (maxAmt != null && t.amount > maxAmt) return false;
+        if (needle) {
+          const hay = `${t.merchantNorm ?? ""} ${t.merchant ?? ""} ${t.category ?? ""} ${t.note ?? ""} ${t.accountName ?? ""} ${(t.tags ?? []).join(" ")}`.toLowerCase();
+          if (!hay.includes(needle)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+  }, [periodRows, q, dir, cat, acct, minAmt, maxAmt, review]);
 
-  // reset to first page whenever the filter set changes
+  // A new filter set clears the selection, so a bulk action never reaches rows no longer shown.
   useEffect(() => {
-    setPage(0);
     setSelected(new Set());
-  }, [q, dir, cat, acct, month, from, to, review]);
+  }, [q, dir, cat, acct, month, from, to, review, minAmt, maxAmt]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const allOnPage = pageRows.length > 0 && pageRows.every((t) => selected.has(t.id));
-  function toggleOne(id: number) {
-    setSelected((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-  }
-  function togglePage() {
-    setSelected((s) => {
-      const n = new Set(s);
-      if (allOnPage) pageRows.forEach((t) => n.delete(t.id));
-      else pageRows.forEach((t) => n.add(t.id));
-      return n;
-    });
-  }
+  const queue = useMemo(
+    () => buildQueue({ periodRows, viewRows: filtered, dups, suggestions: suggest.map, dismissed, admin }),
+    [periodRows, filtered, dups, suggest.map, dismissed, admin],
+  );
+  const suggestionByRow = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const w of queue.wrong) for (const r of w.rows) m.set(r.id, w.to);
+    return m;
+  }, [queue.wrong]);
+  const monthly = useMemo(
+    () => new Set(recurring.filter((r) => r.cadence === "Monthly" && r.merchant).map((r) => r.merchant as string)),
+    [recurring],
+  );
 
-  const dirItems = [
-    { value: "all", label: "All types" },
-    { value: "CREDIT", label: "Income" },
-    { value: "DEBIT", label: "Expense" },
-  ];
-  const catItems = [{ value: "all", label: "All categories" }, ...categories.map((c) => ({ value: c, label: c }))];
-  const acctItems = [
-    { value: "all", label: "All accounts" },
-    ...accounts.map((a) => ({ value: String(a.id), label: a.displayName })),
-    // A set of cards from a statement link, named after them so the filter reads sensibly.
-    ...(acct.includes(",")
-      ? [{ value: acct, label: `Cards ${accounts.filter((a) => acct.split(",").includes(String(a.id))).map((a) => a.last4).join(" · ")}` }]
-      : []),
-  ];
-  const monthItems = [
-    { value: "all", label: "All months" },
-    { value: CUSTOM, label: "Custom dates" },
-    ...months.map((m) => ({
-      value: m,
-      label: new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
-    })),
+  // ---- The month strip, by the shared spend rule ----
+  const isMonth = MONTH_KEY.test(month);
+  const narrowed = dir !== "all" || cat !== "all" || acct !== "all" || minAmt != null || maxAmt != null || !!q.trim() || review;
+  const strip = useMemo(() => {
+    const out = filtered.reduce((s, t) => s + spendOf(t, cardIds), 0);
+    const income = filtered.reduce((s, t) => s + incomeOf(t, cardIds), 0);
+    const purchases = filtered.filter((t) => t.direction === "DEBIT" && spendOf(t, cardIds) > 0);
+    let expected = 0;
+    if (month === currentMonthKey() && !narrowed) {
+      const sal = inferSalary(txns, new Date(), activeMember.earns);
+      if (sal.amount > 0 && !sal.receivedThisMonth) expected = sal.amount;
+    }
+    // Days of the month that have happened, for a per-day figure (a month view only).
+    let days = 0;
+    if (isMonth) {
+      const now = new Date();
+      days = month === currentMonthKey() ? now.getDate() : month < currentMonthKey() ? Number(monthEnd(month).slice(8)) : 0;
+    }
+    return { out, income, expected, payments: purchases.length, median: median(purchases.map((t) => t.amount)), perDay: days > 0 ? out / days : null };
+  }, [filtered, cardIds, month, narrowed, txns, activeMember.earns, isMonth]);
+
+  const cells: HeadlineCell[] = [
+    { label: "Out", value: formatINR(strip.out), sub: strip.perDay != null && strip.out > 0 ? `${formatINR(strip.perDay)} a day` : undefined },
+    {
+      label: "In",
+      value: formatINR(strip.income),
+      sub: strip.expected > 0 ? <span className="text-primary">+{formatINR(strip.expected, { compact: true })} expected</span> : undefined,
+    },
+    { label: "Payments", value: String(strip.payments), sub: strip.payments > 0 ? `median ${formatINR(strip.median)}` : undefined },
+    {
+      label: "Needs a look",
+      value: String(queue.count),
+      tone: queue.count > 0 ? "warn" : undefined,
+      sub:
+        wide && queueOpen ? (
+          <span className="text-amber-800 dark:text-amber-300">queue open →</span>
+        ) : (
+          <button type="button" onClick={() => setQueueOpen(true)} className="font-medium text-amber-800 hover:underline dark:text-amber-300">
+            open the queue →
+          </button>
+        ),
+    },
   ];
 
+  // ---- Period ----
+  const periodLabel =
+    month === "all" ? "All months" : month === CUSTOM ? rangeLabel(from || undefined, to || undefined) || "Custom dates" : monthLabel(month);
   function pickMonth(v: string) {
     // Start a new range from the month that was on screen; from "All months" both ends start open.
     if (v === CUSTOM && month !== CUSTOM) {
@@ -229,11 +317,13 @@ export default function Transactions() {
         setTo("");
       } else {
         setFrom(`${month}-01`);
-        // Day 0 of the following month is the last day of this one.
-        setTo(localDay(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)));
+        setTo(monthEnd(month));
       }
     }
     setMonth(v);
+  }
+  function step(n: number) {
+    setMonth(isMonth ? shiftMonth(month, n) : currentMonthKey());
   }
   // Moving one end of the range past the other drags the other along, so it never inverts.
   function pickFrom(v: string) {
@@ -245,35 +335,165 @@ export default function Transactions() {
     if (from && v < from) setFrom(v);
   }
 
-  function openAdd() {
-    setEditing(emptyDraft());
-  }
-  function openEdit(t: Transaction) {
-    setEditing({
-      id: t.id,
-      direction: t.direction,
-      amount: String(t.amount),
-      occurredOn: isoDay(t.occurredAt),
-      merchant: t.merchant ?? "",
-      category: t.category ?? "",
-      accountId: t.accountId != null ? String(t.accountId) : NONE,
-      note: t.note ?? "",
-    });
+  // ---- Ask ----
+  const modelCategories = useMemo(() => Array.from(new Set([...allCategories(categories), ...MODEL_EXTRA])).sort(), [categories]);
+
+  function type(v: string) {
+    if (asking) {
+      askToken.current++;
+      setAsking(false);
+    }
+    setInput(v);
+    setQ(v);
+    setUnderstood(null);
+    setAskNote(null);
   }
 
+  /** Put the model's answer on the page's own filters; false when it gave nothing to use. */
+  function applyAi(f: AiFilter, query: string): boolean {
+    const before = understood?.before ?? { month, from, to };
+    const known = modelCategories.find((c) => c.toLowerCase() === (f.category ?? "").trim().toLowerCase());
+    const category = f.category?.trim() ? (known ?? f.category.trim()) : undefined;
+    const direction = f.direction === "DEBIT" || f.direction === "CREDIT" ? f.direction : undefined;
+    const min = f.minAmount != null && Number.isFinite(f.minAmount) && f.minAmount > 0 ? f.minAmount : undefined;
+    const max = f.maxAmount != null && Number.isFinite(f.maxAmount) && f.maxAmount > 0 ? f.maxAmount : undefined;
+    let dFrom = f.from && DAY.test(f.from) ? f.from : undefined;
+    let dTo = f.to && DAY.test(f.to) ? f.to : undefined;
+    if (dFrom && dTo && dFrom > dTo) [dFrom, dTo] = [dTo, dFrom];
+    const accountId = f.accountId != null && accounts.some((a) => a.id === f.accountId) ? f.accountId : undefined;
+    const rawText = f.text?.trim() || undefined;
+    const structured = [category, direction, min, max, dFrom, dTo, accountId].some((x) => x !== undefined);
+    // A text that is the whole request back again is no better than searching it.
+    const text = rawText && (structured || rawText.toLowerCase() !== query.toLowerCase()) ? rawText : undefined;
+    if (!structured && !text) return false;
+
+    // Fields the previous request set and this one does not go back to how they were.
+    setCat(category ?? (understood?.category ? "all" : cat));
+    setDir(direction ?? (understood?.direction ? "all" : dir));
+    setMinAmt(min ?? (understood?.min != null ? null : minAmt));
+    setMaxAmt(max ?? (understood?.max != null ? null : maxAmt));
+    setAcct(accountId != null ? String(accountId) : understood?.accountId != null ? "all" : acct);
+    setQ(text ?? "");
+    if (dFrom || dTo) {
+      setMonth(CUSTOM);
+      setFrom(dFrom ?? "");
+      setTo(dTo ?? "");
+    } else if (understood?.from || understood?.to) {
+      setMonth(before.month);
+      setFrom(before.from);
+      setTo(before.to);
+    }
+    setUnderstood({ category, direction, min, max, from: dFrom, to: dTo, accountId, text, before });
+    return true;
+  }
+
+  async function ask() {
+    const query = input.trim();
+    if (!query || !looksLikeRequest(query, modelCategories)) {
+      setQ(query);
+      return;
+    }
+    const token = ++askToken.current;
+    setAsking(true);
+    setAskNote(null);
+    try {
+      const f = await aiFilter(
+        query,
+        modelCategories,
+        accounts.map((a) => ({ id: a.id, name: a.displayName })),
+        isoDay(new Date()),
+      );
+      if (token !== askToken.current) return;
+      if (!applyAi(f, query)) {
+        setQ(query);
+        setAskNote("Jarvis found no filters in that, so the list is searching the text.");
+      }
+    } catch {
+      if (token !== askToken.current) return;
+      setQ(query);
+      setAskNote("Jarvis could not read that just now, so the list is searching the text.");
+    } finally {
+      if (token === askToken.current) setAsking(false);
+    }
+  }
+  function cancelAsk() {
+    askToken.current++;
+    setAsking(false);
+    setQ(input);
+  }
+
+  const chips: UnderstoodChip[] = [];
+  if (understood) {
+    const u = understood;
+    if (u.category && cat === u.category) chips.push({ key: "cat", label: `Category: ${u.category}`, onRemove: () => setCat("all") });
+    if (u.direction && dir === u.direction)
+      chips.push({ key: "dir", label: u.direction === "CREDIT" ? "Money in" : "Money out", onRemove: () => setDir("all") });
+    if (u.min != null && minAmt === u.min) chips.push({ key: "min", label: `Amount ≥ ${formatINR(u.min)}`, onRemove: () => setMinAmt(null) });
+    if (u.max != null && maxAmt === u.max) chips.push({ key: "max", label: `Amount ≤ ${formatINR(u.max)}`, onRemove: () => setMaxAmt(null) });
+    if ((u.from || u.to) && month === CUSTOM && from === (u.from ?? "") && to === (u.to ?? ""))
+      chips.push({
+        key: "dates",
+        label: rangeLabel(u.from, u.to),
+        onRemove: () => {
+          setMonth(u.before.month);
+          setFrom(u.before.from);
+          setTo(u.before.to);
+        },
+      });
+    if (u.accountId != null && acct === String(u.accountId))
+      chips.push({
+        key: "acct",
+        label: accounts.find((a) => a.id === u.accountId)?.displayName ?? "Account",
+        onRemove: () => setAcct("all"),
+      });
+    if (u.text && q === u.text) chips.push({ key: "text", label: `“${u.text}”`, onRemove: () => setQ("") });
+  }
+
+  function clearFilters() {
+    type("");
+    setDir("all");
+    setCat("all");
+    setAcct("all");
+    setMinAmt(null);
+    setMaxAmt(null);
+    setMonth(currentMonthKey());
+    setFrom("");
+    setTo("");
+    setReview(false);
+  }
+  const anyFilter = narrowed || month !== currentMonthKey();
+
+  // ---- Filter items ----
+  const dirItems = [
+    { value: "all", label: "All types" },
+    { value: "CREDIT", label: "Income" },
+    { value: "DEBIT", label: "Expense" },
+  ];
+  const catItems = [
+    { value: "all", label: "All categories" },
+    ...(cat !== "all" && !categories.includes(cat) ? [cat] : []).map((c) => ({ value: c, label: c })),
+    ...categories.map((c) => ({ value: c, label: c })),
+  ];
+  const acctItems = [
+    { value: "all", label: "All accounts" },
+    ...accounts.map((a) => ({ value: String(a.id), label: a.displayName })),
+    // A set of cards from a statement link, named after them so the filter reads sensibly.
+    ...(acct.includes(",")
+      ? [{ value: acct, label: `Cards ${accounts.filter((a) => acct.split(",").includes(String(a.id))).map((a) => a.last4).join(" · ")}` }]
+      : []),
+  ];
+  const monthItems = [
+    { value: "all", label: "All months" },
+    { value: CUSTOM, label: "Custom dates" },
+    ...(isMonth && !months.includes(month) ? [month] : []).map((m) => ({ value: m, label: monthLabel(m, "short") })),
+    ...months.map((m) => ({ value: m, label: monthLabel(m, "short") })),
+  ];
+
+  // ---- Add / edit / delete ----
   async function save() {
     if (!editing) return;
-    const amount = Number(editing.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    const req: CreateTransactionRequest = {
-      amount,
-      direction: editing.direction,
-      merchant: editing.merchant.trim() || undefined,
-      category: editing.category || undefined,
-      occurredAt: new Date(`${editing.occurredOn}T00:00:00`).toISOString(),
-      accountId: editing.accountId === NONE ? undefined : Number(editing.accountId),
-      note: editing.note.trim() || undefined,
-    };
+    const req = requestOf(editing);
+    if (!req) return;
     setSaving(true);
     try {
       if (editing.id == null) await createTransaction(req);
@@ -284,7 +504,6 @@ export default function Transactions() {
       setSaving(false);
     }
   }
-
   async function confirmDelete() {
     if (!toDelete) return;
     await deleteTransaction(toDelete.id);
@@ -292,42 +511,178 @@ export default function Transactions() {
     reload();
   }
 
+  function toggleOne(id: number) {
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function toggleShown(ids: number[], on: boolean) {
+    setSelected((s) => {
+      const n = new Set(s);
+      ids.forEach((id) => (on ? n.add(id) : n.delete(id)));
+      return n;
+    });
+  }
+
+  const getSuggestions = () => suggest.start(queue.merchants, modelCategories, txns);
+
+  const queuePanel = (onClose?: () => void) => (
+    <ReviewQueue
+      items={queue}
+      categories={pickable}
+      admin={admin}
+      running={suggest.running}
+      progress={suggest.progress}
+      error={suggest.error}
+      note={suggest.note}
+      hasSuggestions={Object.keys(suggest.map).length > 0}
+      onGetSuggestions={getSuggestions}
+      onCancelSuggestions={suggest.cancel}
+      onClose={onClose}
+      onOpen={setDetail}
+      onEdit={(t) => setEditing(draftOf(t))}
+      onDelete={setToDelete}
+      onPatched={patch}
+      onReload={reload}
+      onDismiss={dismiss}
+      onCleanup={() => setCleanupOpen(true)}
+    />
+  );
+
+  const docked = wide && queueOpen;
+  // The Review toggle filters to rows missing a category or account, so it counts those.
+  const reviewTotal = queue.loose.length;
+
   return (
-    <div className="space-y-6 pb-20">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">
-            {loading ? "Loading…" : `${filtered.length} of ${txns.length} transactions`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-5 pb-20">
+      <PageHeader
+        title="Transactions"
+        subtitle={
+          loading
+            ? "Loading…"
+            : `${periodLabel} · ${filtered.length} transaction${filtered.length === 1 ? "" : "s"} · ${formatINR(strip.out)} out`
+        }
+      >
+        <div className="flex h-11 items-center rounded-xl border bg-card">
+          <Button variant="ghost" size="icon" className="h-10 w-11" aria-label="Previous month" onClick={() => step(-1)}>
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="min-w-[72px] px-1 text-center text-sm font-semibold whitespace-nowrap">
+            {isMonth ? monthLabel(month, "short") : month === "all" ? "All months" : "Custom"}
+          </span>
           <Button
-            variant={review ? "default" : "outline"}
-            onClick={() => setReview((v) => !v)}
-            className="gap-2"
-            title="Uncategorised or unlinked rows, and probable duplicates"
+            variant="ghost"
+            size="icon"
+            className="h-10 w-11"
+            aria-label="Next month"
+            disabled={isMonth && month >= currentMonthKey()}
+            onClick={() => step(1)}
           >
-            <ListChecks className="size-4" /> Review{reviewCount + dups.length > 0 ? ` (${reviewCount + dups.length})` : ""}
-          </Button>
-          <Button variant="outline" onClick={() => setCleanupOpen(true)} className="gap-2">
-            <Sparkles className="size-4" /> Clean up merchants
-          </Button>
-          <Button variant="outline" onClick={() => setRulesOpen(true)} className="gap-2">
-            <Wand2 className="size-4" /> Rules
-          </Button>
-          <Button onClick={openAdd} className="gap-2">
-            <Plus className="size-4" /> Add transaction
+            <ChevronRight className="size-4" />
           </Button>
         </div>
+        <Button variant="outline" className="h-11 gap-2" onClick={() => setRulesOpen(true)}>
+          <Wand2 className="size-4" /> Rules
+        </Button>
+        <Button className="h-11 gap-2" onClick={() => setEditing(emptyDraft())}>
+          <Plus className="size-4" /> Add transaction
+        </Button>
+      </PageHeader>
+
+      <div className={docked ? "grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_420px]" : ""}>
+        <div className="min-w-0 space-y-4">
+          <AskBox
+            value={input}
+            onChange={type}
+            onAsk={ask}
+            asking={asking}
+            onCancel={cancelAsk}
+            chips={chips}
+            count={input.trim() || chips.length ? filtered.length : null}
+            canAsk={looksLikeRequest(input, modelCategories) && chips.length === 0}
+            note={askNote}
+          />
+
+          <HeadlineStrip cells={cells} />
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect value={month} onChange={pickMonth} items={monthItems} width="w-[140px]" label="Period" />
+            {month === CUSTOM && (
+              <div className="flex items-center gap-2">
+                <DatePicker value={from} onChange={pickFrom} placeholder="From" className="w-[140px]" />
+                <span className="shrink-0 text-sm text-muted-foreground">to</span>
+                <DatePicker value={to} onChange={pickTo} placeholder="To" className="w-[140px]" />
+              </div>
+            )}
+            <FilterSelect value={dir} onChange={(v) => setDir(v as "all" | Direction)} items={dirItems} width="w-[130px]" label="Type" />
+            <FilterSelect value={cat} onChange={setCat} items={catItems} width="w-[170px]" label="Category" />
+            <FilterSelect value={acct} onChange={setAcct} items={acctItems} width="w-[180px]" label="Account" />
+            <div className="flex items-center gap-1">
+              <AmountInput value={minAmt} onChange={setMinAmt} placeholder="Min ₹" label="Smallest amount" />
+              <span className="text-sm text-muted-foreground">–</span>
+              <AmountInput value={maxAmt} onChange={setMaxAmt} placeholder="Max ₹" label="Largest amount" />
+            </div>
+            <Button
+              variant={review ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => {
+                setReview((v) => !v);
+                if (!review) setQueueOpen(true);
+              }}
+              title="Only rows without a category or account"
+            >
+              <ListChecks className="size-3.5" /> Review{reviewTotal > 0 ? ` (${reviewTotal})` : ""}
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => setCleanupOpen(true)}>
+              <Sparkles className="size-3.5" /> Clean up merchants
+            </Button>
+            {anyFilter && (
+              <button type="button" onClick={clearFilters} className="px-1 text-sm font-medium text-primary hover:underline">
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          <DayList
+            rows={filtered}
+            resetKey={[q, dir, cat, acct, month, from, to, review, minAmt, maxAmt].join("|")}
+            loading={loading}
+            emptyText={txns.length === 0 ? "Add one or import a statement to get started." : "Try clearing your filters."}
+            accounts={accounts}
+            cardIds={cardIds}
+            monthly={monthly}
+            suggestFor={(t) => suggestionByRow.get(t.id) ?? null}
+            selected={selected}
+            onToggle={toggleOne}
+            onToggleShown={toggleShown}
+            onOpen={setDetail}
+            onEdit={(t) => setEditing(draftOf(t))}
+            onDelete={setToDelete}
+            onCategory={setQuick}
+            onSuggestion={() => setQueueOpen(true)}
+          />
+        </div>
+
+        {docked && (
+          <aside className="sticky top-4 max-h-[calc(100dvh-2rem)] min-w-0 overflow-y-auto rounded-2xl border bg-card">
+            {queuePanel(() => setQueueOpen(false))}
+          </aside>
+        )}
       </div>
 
-      <QuickCategoryDialog
-        txn={quick}
-        categories={categories}
-        onClose={() => setQuick(null)}
-        onSaved={reload}
-      />
+      {!wide && (
+        <SidePanel open={queueOpen} onClose={() => setQueueOpen(false)}>
+          <DialogTitle className="sr-only">Review queue</DialogTitle>
+          {queuePanel()}
+        </SidePanel>
+      )}
+
+      <QuickCategoryDialog txn={quick} categories={categories} onClose={() => setQuick(null)} onSaved={reload} />
       <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} categories={categories} onApplied={reload} />
       <MerchantCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} onApplied={reload} />
       <TransactionDetailDialog
@@ -336,7 +691,7 @@ export default function Transactions() {
         onClose={() => setDetail(null)}
         onEdit={(t) => {
           setDetail(null);
-          openEdit(t);
+          setEditing(draftOf(t));
         }}
         onDelete={(t) => {
           setDetail(null);
@@ -359,184 +714,14 @@ export default function Transactions() {
           reload();
         }}
       />
-
-      {review && dups.length > 0 && (
-        <Card className="relative isolate overflow-hidden">
-          <CardArt color="#f59e0b" subtle />
-          <CardContent className="space-y-3 pt-5">
-            <div className="flex items-center gap-2">
-              <Copy className="size-4 text-amber-500" />
-              <span className="font-medium">Probable duplicates</span>
-              <span className="text-sm text-muted-foreground">
-                same day, amount and direction — usually a statement row and an SMS row for one purchase. Delete the one you don't want.
-              </span>
-            </div>
-            <div className="grid gap-2 lg:grid-cols-2">
-              {dups.map(([a, b]) => (
-                <div key={`${a.id}-${b.id}`} className="rounded-lg border p-2 text-sm">
-                  {[a, b].map((t) => (
-                    <div key={t.id} className="flex items-center justify-between gap-2 py-1">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{t.merchant ?? "—"}</div>
-                        <div className="truncate text-xs text-muted-foreground">
-                          {formatDate(t.occurredAt)} · {t.category ?? "—"} · {t.accountName ?? "no account"} · {t.source}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold tabular-nums">{formatINR(t.amount)}</span>
-                        <Button variant="ghost" size="sm" className="h-7 gap-1 text-rose-500" onClick={() => setToDelete(t)}>
-                          <Trash2 className="size-3.5" /> Delete
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:min-w-[220px] sm:max-w-xs">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search merchant, category, note…"
-            className="pl-9"
-          />
-        </div>
-        <FilterSelect value={month} onChange={pickMonth} items={monthItems} width="w-[150px]" />
-        {month === CUSTOM && (
-          <div className="flex items-center gap-2">
-            <DatePicker value={from} onChange={pickFrom} placeholder="From" className="sm:w-[150px]" />
-            <span className="shrink-0 text-sm text-muted-foreground">to</span>
-            <DatePicker value={to} onChange={pickTo} placeholder="To" className="sm:w-[150px]" />
-          </div>
-        )}
-        <FilterSelect value={dir} onChange={(v) => setDir(v as "all" | Direction)} items={dirItems} width="w-[150px]" />
-        <FilterSelect value={cat} onChange={setCat} items={catItems} width="w-[180px]" />
-        <FilterSelect value={acct} onChange={setAcct} items={acctItems} width="w-[190px]" />
-      </div>
-
-      <Card className="relative isolate overflow-hidden">
-        <CardArt color="var(--primary)" subtle />
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Loading…</div>
-          ) : filtered.length === 0 ? (
-            <div className="flex h-40 flex-col items-center justify-center gap-1 text-center">
-              <p className="text-sm font-medium">No transactions found</p>
-              <p className="text-sm text-muted-foreground">
-                {txns.length === 0 ? "Add one or import a statement to get started." : "Try clearing your filters."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table className="min-w-[720px]">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[36px]">
-                      <input type="checkbox" className="size-4 accent-primary" checked={allOnPage} onChange={togglePage} aria-label="Select all on this page" />
-                    </TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Merchant</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="w-[90px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageRows.map((t) => {
-                    const income = t.direction === "CREDIT";
-                    return (
-                      <TableRow key={t.id} className={`group ${selected.has(t.id) ? "bg-primary/5" : ""}`}>
-                        <TableCell>
-                          <input type="checkbox" className="size-4 accent-primary" checked={selected.has(t.id)} onChange={() => toggleOne(t.id)} aria-label="Select row" />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.occurredAt)}</TableCell>
-                        <TableCell className="font-medium">
-                          <button
-                            type="button"
-                            onClick={() => setDetail(t)}
-                            className="text-left hover:underline"
-                            title={t.merchantNorm && t.merchantNorm !== t.merchant ? `Alert text: ${t.merchant}` : "Open details"}
-                          >
-                            {t.merchantNorm ?? t.merchant ?? "—"}
-                          </button>
-                          {t.tags && t.tags.length > 0 && (
-                            <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
-                              {t.tags.slice(0, 3).map((tag) => (
-                                <span key={tag} className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                                  {tag}
-                                </span>
-                              ))}
-                              {t.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{t.tags.length - 3}</span>}
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => setQuick(t)}
-                            title="Change category"
-                            className={`rounded-full px-2 py-0.5 text-xs transition-colors hover:ring-1 hover:ring-primary/50 ${
-                              !t.category || t.category === "Uncategorized"
-                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                                : "bg-muted"
-                            }`}
-                          >
-                            {t.category ?? "Uncategorized"}
-                          </button>
-                          {t.settlement && <span className="ml-1 text-[10px] text-muted-foreground">bill payment</span>}
-                          {t.transfer && <span className="ml-1 text-[10px] text-muted-foreground">transfer</span>}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{t.accountName ?? "—"}</TableCell>
-                        <TableCell className="text-right">
-                          <span
-                            className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-                              income ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
-                            }`}
-                          >
-                            {income ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                            {formatINR(t.amount)}
-                          </span>
-                          {formatOriginal(t) && (
-                            <div className="text-[11px] text-muted-foreground tabular-nums" title="Charged in a foreign currency; converted at that day's rate">
-                              {formatOriginal(t)}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(t)} aria-label="Edit">
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-8 text-rose-500 hover:text-rose-600"
-                              onClick={() => setToDelete(t)}
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {pageCount > 1 && <Pagination page={page} pageCount={pageCount} onChange={setPage} />}
+      <EditTransactionDialog draft={editing} accounts={accounts} saving={saving} onChange={setEditing} onClose={() => setEditing(null)} onSave={save} />
+      <ConfirmDialog
+        open={toDelete != null}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title="Delete transaction?"
+        description={toDelete ? `${toDelete.merchant ?? "This transaction"} · ${formatINR(toDelete.amount)} will be permanently removed.` : undefined}
+        onConfirm={confirmDelete}
+      />
 
       {selected.size > 0 && (
         <div className="fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
@@ -551,378 +736,35 @@ export default function Transactions() {
           </div>
         </div>
       )}
-
-      {/* Add / edit dialog */}
-      <Dialog open={editing != null} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editing?.id == null ? "Add transaction" : "Edit transaction"}</DialogTitle>
-            <DialogDescription>Record income or an expense, or correct an imported row.</DialogDescription>
-          </DialogHeader>
-          {editing && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Type</Label>
-                  <FilterSelect
-                    value={editing.direction}
-                    onChange={(v) => setEditing({ ...editing, direction: v as Direction })}
-                    items={[
-                      { value: "DEBIT", label: "Expense" },
-                      { value: "CREDIT", label: "Income" },
-                    ]}
-                    width="w-full"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="amount">Amount (₹)</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editing.amount}
-                    onChange={(e) => setEditing({ ...editing, amount: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Date</Label>
-                  <DatePicker value={editing.occurredOn} onChange={(v) => setEditing({ ...editing, occurredOn: v })} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Category</Label>
-                  <FilterSelect
-                    value={editing.category || NONE}
-                    onChange={(v) => setEditing({ ...editing, category: v === NONE ? "" : v })}
-                    items={[
-                      { value: NONE, label: "Uncategorized" },
-                      ...categoryOptions(editing.category).map((c) => ({ value: c, label: c })),
-                    ]}
-                    width="w-full"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="merchant">Merchant / description</Label>
-                <Input
-                  id="merchant"
-                  value={editing.merchant}
-                  onChange={(e) => setEditing({ ...editing, merchant: e.target.value })}
-                  placeholder="e.g. Swiggy, Salary, Rent"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Account</Label>
-                <FilterSelect
-                  value={editing.accountId}
-                  onChange={(v) => setEditing({ ...editing, accountId: v })}
-                  items={[
-                    { value: NONE, label: "No account" },
-                    ...accounts.map((a) => ({ value: String(a.id), label: a.displayName })),
-                  ]}
-                  width="w-full"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="note">Note</Label>
-                <Input
-                  id="note"
-                  value={editing.note}
-                  onChange={(e) => setEditing({ ...editing, note: e.target.value })}
-                  placeholder="Optional"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving || !editing || !(Number(editing.amount) > 0)}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={toDelete != null}
-        onOpenChange={(o) => !o && setToDelete(null)}
-        title="Delete transaction?"
-        description={
-          toDelete
-            ? `${toDelete.merchant ?? "This transaction"} · ${formatINR(toDelete.amount)} will be permanently removed.`
-            : undefined
-        }
-        onConfirm={confirmDelete}
-      />
     </div>
   );
 }
 
-/** Rows worth a look: no category / Uncategorized, or not linked to an account. */
-function needsReview(t: Transaction): boolean {
-  if (t.transfer || t.settlement) return false;
-  return !t.category || t.category === "Uncategorized" || t.accountId == null;
-}
-
-const FIXED_CATEGORIES = ["Card Payment", "Loan EMI", "Transfers", "Income", "Uncategorized"];
-function categoryItems(seen: string[]): { value: string; label: string }[] {
-  const all = Array.from(new Set([...CATEGORIES, ...seen, ...FIXED_CATEGORIES]));
-  return all.map((c) => ({ value: c, label: c }));
-}
-
-/** Inline category change, optionally remembered as a "merchant contains …" rule. */
-function QuickCategoryDialog({
-  txn,
-  categories,
-  onClose,
-  onSaved,
-}: {
-  txn: Transaction | null;
-  categories: string[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [value, setValue] = useState<string>("Uncategorized");
-  const [remember, setRemember] = useState(false);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setValue(txn?.category ?? "Uncategorized");
-    setRemember(false);
-  }, [txn]);
-  if (!txn) return null;
-  const merchant = (txn.merchant ?? "").trim();
-  async function save() {
-    if (!txn) return;
-    setBusy(true);
-    try {
-      await setTransactionCategory(txn.id, value);
-      if (remember && merchant) {
-        await createRule(merchant, value);
-        await applyRules(true);
-      }
-      onClose();
-      onSaved();
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog open={!!txn} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Categorise</DialogTitle>
-          <DialogDescription>
-            {merchant || "This transaction"} · {formatINR(txn.amount)} on {formatDate(txn.occurredAt)}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Category</Label>
-            <FilterSelect value={value} onChange={setValue} items={categoryItems(categories)} width="w-full" />
-          </div>
-          {merchant && (
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border p-3">
-              <span className="text-sm">
-                <span className="font-medium">Always use this</span>
-                <span className="block text-xs text-muted-foreground">
-                  Creates a rule: merchant contains “{merchant}” → {value}. Applies to future alerts and to existing
-                  uncategorised rows.
-                </span>
-              </span>
-              <Switch checked={remember} onCheckedChange={setRemember} />
-            </label>
-          )}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={busy} className="gap-1">
-            <Sparkles className="size-3.5" /> {busy ? "Saving…" : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Manage "merchant contains …" rules and apply them to existing rows. */
-function RulesDialog({
-  open,
-  onOpenChange,
-  categories,
-  onApplied,
-}: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  categories: string[];
-  onApplied: () => void;
-}) {
-  const [rules, setRules] = useState<CategoryRule[]>([]);
-  const [pattern, setPattern] = useState("");
-  const [category, setCategory] = useState("Food");
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const load = () => listRules().then(setRules).catch(() => setRules([]));
-  useEffect(() => {
-    if (open) {
-      load();
-      setNote(null);
-    }
-  }, [open]);
-  async function add() {
-    if (!pattern.trim()) return;
-    setBusy(true);
-    try {
-      await createRule(pattern.trim(), category);
-      setPattern("");
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function apply(all: boolean) {
-    setBusy(true);
-    try {
-      const n = await applyRules(!all);
-      setNote(`${n} transaction${n === 1 ? "" : "s"} re-categorised.`);
-      onApplied();
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Category rules</DialogTitle>
-          <DialogDescription>
-            “Merchant contains …” rules beat the AI's guess for new alerts, and can be applied to what's already stored.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex items-end gap-2">
-          <div className="grid flex-1 gap-1.5">
-            <Label className="text-xs text-muted-foreground">Merchant contains</Label>
-            <Input value={pattern} onChange={(e) => setPattern(e.target.value)} placeholder="e.g. SWIGGY" />
-          </div>
-          <div className="grid gap-1.5">
-            <Label className="text-xs text-muted-foreground">Category</Label>
-            <FilterSelect value={category} onChange={setCategory} items={categoryItems(categories)} width="w-[170px]" />
-          </div>
-          <Button onClick={add} disabled={busy || !pattern.trim()} className="gap-1">
-            <Plus className="size-4" /> Add
-          </Button>
-        </div>
-        <div className="space-y-1.5">
-          {rules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No rules yet. Tip: tick “Always use this” when you categorise a row.</p>
-          ) : (
-            rules.map((r) => (
-              <div key={r.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                <span>
-                  contains <span className="font-medium">“{r.pattern}”</span> → <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{r.category}</span>
-                </span>
-                <Button variant="ghost" size="icon" className="size-7 text-rose-500" onClick={() => deleteRule(r.id).then(load)} aria-label="Delete rule">
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-        {note && <p className="text-sm text-emerald-500">{note}</p>}
-        <DialogFooter className="gap-2 sm:justify-between">
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => apply(false)} disabled={busy || rules.length === 0}>
-              Apply to uncategorised
-            </Button>
-            <Button variant="outline" onClick={() => apply(true)} disabled={busy || rules.length === 0} title="Overrides existing categories where a rule matches">
-              Apply to all
-            </Button>
-          </div>
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/**
- * Centred pager: first / prev, a sliding window of five page numbers with ellipses, next / last.
- * Kept clear of the floating assistant button (the page adds bottom padding).
- */
-function Pagination({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (p: number) => void }) {
-  const total = pageCount;
-  const current = page + 1; // 1-based for display
-  let start = Math.max(1, current - 2);
-  let end = Math.min(total, start + 4);
-  start = Math.max(1, end - 4);
-  const pages: (number | "…")[] = [];
-  if (start > 1) {
-    pages.push(1);
-    if (start > 2) pages.push("…");
-  }
-  for (let p = start; p <= end; p++) pages.push(p);
-  if (end < total) {
-    if (end < total - 1) pages.push("…");
-    pages.push(total);
-  }
-  const go = (p: number) => onChange(Math.min(total, Math.max(1, p)) - 1);
-  const btn = "inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-sm transition-colors disabled:opacity-40";
-  return (
-    <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="Pagination">
-      <button type="button" className={btn} onClick={() => go(1)} disabled={current === 1} aria-label="First page">«</button>
-      <button type="button" className={btn} onClick={() => go(current - 1)} disabled={current === 1} aria-label="Previous page">‹</button>
-      {pages.map((p, i) =>
-        p === "…" ? (
-          <span key={`e${i}`} className="px-1 text-sm text-muted-foreground">…</span>
-        ) : (
-          <button
-            key={p}
-            type="button"
-            onClick={() => go(p)}
-            aria-current={p === current ? "page" : undefined}
-            className={`${btn} ${p === current ? "border-primary bg-primary text-primary-foreground" : "hover:bg-accent"}`}
-          >
-            {p}
-          </button>
-        ),
-      )}
-      <button type="button" className={btn} onClick={() => go(current + 1)} disabled={current === total} aria-label="Next page">›</button>
-      <button type="button" className={btn} onClick={() => go(total)} disabled={current === total} aria-label="Last page">»</button>
-      <span className="ml-3 text-xs text-muted-foreground">Page {current} of {total}</span>
-    </nav>
-  );
-}
-
-/** Thin wrapper over the themed Select for simple {value,label} lists. */
-function FilterSelect({
+/** A rupee amount box for the amount-range filter; empty means no bound. */
+function AmountInput({
   value,
   onChange,
-  items,
-  width = "w-[160px]",
+  placeholder,
+  label,
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  items: { value: string; label: string }[];
-  width?: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  placeholder: string;
+  label: string;
 }) {
   return (
-    <Select items={items} value={value} onValueChange={(v) => onChange(v ?? items[0]?.value ?? "")}>
-      <SelectTrigger className={width}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {items.map((it) => (
-          <SelectItem key={it.value} value={it.value}>
-            {it.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <Input
+      type="number"
+      inputMode="decimal"
+      min="0"
+      value={value ?? ""}
+      onChange={(e) => {
+        const n = Number(e.target.value);
+        onChange(e.target.value === "" || !Number.isFinite(n) || n <= 0 ? null : n);
+      }}
+      placeholder={placeholder}
+      aria-label={label}
+      className="h-8 w-[88px]"
+    />
   );
 }
