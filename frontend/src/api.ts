@@ -333,6 +333,14 @@ export async function listTransactions(page = 0, size = 50): Promise<Transaction
 export async function createTransaction(req: CreateTransactionRequest): Promise<Transaction> {
   return (await api.post<Transaction>("/api/transactions", req)).data;
 }
+/** Mark a card bill paid by hand; the bank's own alert later confirms it rather than adding one. */
+export async function markCardPaid(accountId: number, amount: number, paidOn?: string): Promise<Transaction> {
+  return (await api.post<Transaction>("/api/transactions/card-payment", { accountId, amount, paidOn })).data;
+}
+/** Take back a payment marked by hand. */
+export async function undoCardPaid(transactionId: number): Promise<void> {
+  await api.delete(`/api/transactions/card-payment/${transactionId}`);
+}
 export async function updateTransaction(
   id: number,
   req: CreateTransactionRequest

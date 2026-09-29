@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import { statementsOf } from "@/lib/cards";
@@ -152,3 +153,22 @@ export const networkName = (n: string | null | undefined) => (n ? (NETWORK_NAMES
  * page stays put. The panel itself reads this parameter (components/StatementPanel).
  */
 export const statementHref = (accountId: number) => `?statement=${accountId}`;
+
+// A bill marked paid (or un-marked) changes card figures shown on other pages; they listen for this.
+const CHANGED = "jarvis:statements-changed";
+
+/** Tell every page showing card figures to fetch them again. */
+export function notifyStatementsChanged() {
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+/** A number that goes up whenever a statement changes — add it to a fetch effect's dependencies. */
+export function useStatementsVersion(): number {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setVersion((v) => v + 1);
+    window.addEventListener(CHANGED, bump);
+    return () => window.removeEventListener(CHANGED, bump);
+  }, []);
+  return version;
+}

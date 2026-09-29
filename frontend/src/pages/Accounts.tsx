@@ -12,7 +12,7 @@ import BestCardCard from "@/components/BestCardCard";
 import CardSection from "@/components/CardSection";
 import StatementsStrip from "@/components/StatementsStrip";
 import { useOpenStatement } from "@/components/StatementPanel";
-import { daysUntil, statementFor } from "@/lib/statements";
+import { daysUntil, statementFor, useStatementsVersion } from "@/lib/statements";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -381,11 +381,12 @@ export default function Accounts() {
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [details, setDetails] = useState<Account | null>(null);
   const openStatement = useOpenStatement();
+  const statementsVersion = useStatementsVersion();
   // Card cycles, for the statements strip and each card's bill line.
   const [summaries, setSummaries] = useState<CardSummary[]>([]);
   useEffect(() => {
     cardSummaries().then(setSummaries).catch(() => setSummaries([]));
-  }, [accounts]);
+  }, [accounts, statementsVersion]);
   const billOf = (a: Account) => {
     const own = summaries.find((s) => s.accountId === a.id);
     const st = own ? statementFor(summaries, a.id) : null;

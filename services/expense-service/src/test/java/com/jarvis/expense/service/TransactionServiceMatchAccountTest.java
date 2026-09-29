@@ -33,7 +33,7 @@ class TransactionServiceMatchAccountTest {
         service = new TransactionService(
             mock(TransactionRepository.class), accounts, mock(CategoryRepository.class), mock(DedupHasher.class),
             mock(TransferService.class), mock(RuleService.class), mock(MerchantAliasRepository.class),
-            new Scope(accounts), mock(FxService.class));
+            new Scope(accounts), mock(FxService.class), mock(CardPaymentService.class));
     }
 
     @Test

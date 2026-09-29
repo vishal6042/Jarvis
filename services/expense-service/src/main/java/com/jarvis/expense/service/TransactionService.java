@@ -42,6 +42,7 @@ public class TransactionService {
     private final MerchantAliasRepository aliases;
     private final Scope scope;
     private final FxService fx;
+    private final CardPaymentService cardPayments;
 
     public TransactionService(
         TransactionRepository transactions,
@@ -52,7 +53,8 @@ public class TransactionService {
         RuleService rules,
         MerchantAliasRepository aliases,
         Scope scope,
-        FxService fx) {
+        FxService fx,
+        CardPaymentService cardPayments) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
@@ -62,6 +64,7 @@ public class TransactionService {
         this.aliases = aliases;
         this.scope = scope;
         this.fx = fx;
+        this.cardPayments = cardPayments;
     }
 
     /**
@@ -299,6 +302,12 @@ public class TransactionService {
         t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
         // Hashed on the alert's own figure, so the SMS and the email of one charge still collide.
         fx.toInr(t);
+
+        // A bank's "payment received" for a bill already marked paid by hand confirms that row.
+        Optional<Transaction> confirmed = cardPayments.confirm(t);
+        if (confirmed.isPresent()) {
+            return confirmed.map(TransactionDto::from);
+        }
 
         Optional<Transaction> saved = save(t);
         saved.ifPresent(s -> applyBalance(s, req.balanceAfter()));

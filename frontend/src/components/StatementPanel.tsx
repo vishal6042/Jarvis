@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, CreditCard, Loader2 } from "lucide-react";
-import { cardSummaries, listTransactions, type CardSummary } from "@/api";
+import { CheckCircle2, CreditCard, Loader2, Undo2 } from "lucide-react";
+import { cardSummaries, listTransactions, markCardPaid, undoCardPaid, type CardSummary } from "@/api";
 import type { Transaction } from "@/types";
 import { networkColor } from "@/components/CardArt";
 import { formatINR, formatOriginal } from "@/lib/format";
@@ -10,6 +10,7 @@ import {
   daysUntil,
   netOf,
   networkName,
+  notifyStatementsChanged,
   pastStatements,
   purchasesBetween,
   relativeDays,
@@ -19,6 +20,8 @@ import {
 } from "@/lib/statements";
 import { isoDay } from "@/lib/forecast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -153,8 +156,90 @@ function History({ rows }: { rows: PastStatement[] }) {
   );
 }
 
-function StatementBody({ st, txns }: { st: Statement; txns: Transaction[] }) {
+/**
+ * "I've paid this bill": how much and when, defaulting to the full outstanding amount today. The
+ * bank's "payment received" alert, when it arrives, confirms this entry instead of adding one.
+ */
+function PayForm({ s, onDone, onCancel }: { s: CardSummary; onDone: () => void; onCancel: () => void }) {
+  const today = isoDay(new Date());
+  const [amount, setAmount] = useState(String(Math.round(s.billDue * 100) / 100));
+  const [paidOn, setPaidOn] = useState(today);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const value = Number(amount);
+  const valid = Number.isFinite(value) && value > 0 && paidOn <= today;
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await markCardPaid(s.accountId, value, paidOn);
+      onDone();
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      setError(msg ?? "Couldn't record the payment. Try again.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-xl border bg-muted/40 p-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="paid-amount">Amount paid</Label>
+          <Input id="paid-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="paid-on">Paid on</Label>
+          <Input id="paid-on" type="date" value={paidOn} max={today} min={s.lastStatementOn ?? undefined} onChange={(e) => setPaidOn(e.target.value)} />
+        </div>
+      </div>
+      {value > 0 && value < s.billDue && (
+        <p className="text-xs text-muted-foreground">{formatINR(s.billDue - value)} will still be outstanding.</p>
+      )}
+      {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
+      <div className="flex gap-2.5">
+        <Button type="submit" className="h-10 flex-1" disabled={!valid || busy}>
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />} Mark as paid
+        </Button>
+        <Button type="button" variant="outline" className="h-10" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function StatementBody({ st, txns, onChanged }: { st: Statement; txns: Transaction[]; onChanged: () => void }) {
   const navigate = useNavigate();
+  const [paying, setPaying] = useState(false);
+  const [undoing, setUndoing] = useState<number | null>(null);
+  // Bill payments received since the statement — from the bank's alert or marked here by hand.
+  const payments = useMemo(
+    () =>
+      st.summary.lastStatementOn
+        ? txns.filter(
+            (t) =>
+              t.accountId != null &&
+              st.accountIds.includes(t.accountId) &&
+              t.direction === "CREDIT" &&
+              t.settlement &&
+              isoDay(new Date(t.occurredAt)) >= (st.summary.lastStatementOn as string),
+          )
+        : [],
+    [txns, st],
+  );
+  const undo = async (id: number) => {
+    setUndoing(id);
+    try {
+      await undoCardPaid(id);
+      onChanged();
+    } finally {
+      setUndoing(null);
+    }
+  };
   const s = st.summary;
   const grouped = st.members.length > 1;
   const period = billPeriod(s);
@@ -221,14 +306,49 @@ function StatementBody({ st, txns }: { st: Statement; txns: Transaction[] }) {
           </div>
         </div>
 
-        <div className="flex gap-2.5">
-          <Button className="h-11 flex-1" onClick={() => (period ? openTxns(period.from, period.to) : openTxns())}>
-            Open in Transactions
-          </Button>
-          <Button variant="outline" className="h-11 flex-1" onClick={() => navigate(`/accounts?tab=cards`)}>
-            <CreditCard className="size-4" /> Cards
-          </Button>
-        </div>
+        {paying ? (
+          <PayForm s={s} onDone={onChanged} onCancel={() => setPaying(false)} />
+        ) : (
+          <div className="flex gap-2.5">
+            {s.billDue > 0 && (
+              <Button className="h-11 flex-1" onClick={() => setPaying(true)}>
+                I've paid this bill
+              </Button>
+            )}
+            <Button
+              variant={s.billDue > 0 ? "outline" : "default"}
+              className="h-11 flex-1"
+              onClick={() => (period ? openTxns(period.from, period.to) : openTxns())}
+            >
+              Open in Transactions
+            </Button>
+            {s.billDue <= 0 && (
+              <Button variant="outline" className="h-11 flex-1" onClick={() => navigate(`/accounts?tab=cards`)}>
+                <CreditCard className="size-4" /> Cards
+              </Button>
+            )}
+          </div>
+        )}
+
+        {payments.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">Payments against this bill</div>
+            {payments.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm">
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span className="flex-1">
+                  {formatINR(p.amount)} · {fmtDay(isoDay(new Date(p.occurredAt)))}
+                  <span className="text-xs text-muted-foreground">{p.source === "MANUAL" ? " · marked by you" : " · from the bank's alert"}</span>
+                </span>
+                {p.source === "MANUAL" && (
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" disabled={undoing === p.id} onClick={() => undo(p.id)}>
+                    <Undo2 className="size-3.5" /> Undo
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3.5 border-b p-6">
@@ -303,6 +423,7 @@ export default function StatementHost() {
   const accountId = raw ? Number(raw) : null;
   const [cards, setCards] = useState<CardSummary[] | null>(null);
   const [txns, setTxns] = useState<Transaction[] | null>(null);
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     if (accountId == null) return;
@@ -317,7 +438,13 @@ export default function StatementHost() {
     return () => {
       alive = false;
     };
-  }, [accountId]);
+  }, [accountId, reloads]);
+
+  // A payment marked or undone: refetch here, and tell the pages behind the panel.
+  const changed = () => {
+    setReloads((n) => n + 1);
+    notifyStatementsChanged();
+  };
 
   const close = () => {
     const next = new URLSearchParams(params);
@@ -344,7 +471,7 @@ export default function StatementHost() {
             <DialogDescription>It may not be a credit card, or its billing day isn't set yet.</DialogDescription>
           </div>
         ) : (
-          <StatementBody st={st} txns={txns} />
+          <StatementBody key={`${st.summary.accountId}-${reloads}`} st={st} txns={txns} onChanged={changed} />
         )}
       </DialogContent>
     </Dialog>

@@ -111,6 +111,14 @@ public class Transaction {
     @Column(nullable = false)
     private boolean settlement = false;
 
+    /**
+     * A card bill payment a person recorded by hand whose savings side has not been paired yet. It
+     * counts as paid on the card meanwhile, and the pairing pass restores it after clearing flags.
+     * Cleared once pairing finds the savings debit, which then explains the row by itself.
+     */
+    @Column(name = "settlement_declared", nullable = false)
+    private boolean settlementDeclared = false;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 }

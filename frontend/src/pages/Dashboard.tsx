@@ -6,10 +6,12 @@ import type { Transaction } from "@/types";
 import { useFamily, useInvestments, useLoans, useReminderPayments, useReminders, useThresholds } from "@/lib/store";
 import { useFinanceSummary } from "@/lib/finance";
 import { useReserve } from "@/lib/prefs";
-import { buildForecast } from "@/lib/forecast";
+import { buildForecast, isoDay } from "@/lib/forecast";
+import { formatINR } from "@/lib/format";
 import { buildInsights } from "@/lib/insights";
 import { currentMonthBreakdown } from "@/lib/breakdown";
 import { useFinanceScore } from "@/lib/useFinanceScore";
+import { useStatementsVersion } from "@/lib/statements";
 import { openCommandBar } from "@/components/CommandBar";
 import Hero from "@/components/dashboard/Hero";
 import JarvisTake from "@/components/dashboard/JarvisTake";
@@ -49,6 +51,8 @@ export default function Dashboard() {
   const f = useFinanceSummary();
   const navigate = useNavigate();
   const now = new Date();
+  // Card figures and the ledger are refetched when a bill is marked paid or un-marked.
+  const statementsVersion = useStatementsVersion();
 
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,12 +65,12 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [statementsVersion]);
 
   const [cards, setCards] = useState<CardSummary[]>([]);
   useEffect(() => {
     cardSummaries().then(setCards).catch(() => setCards([]));
-  }, []);
+  }, [statementsVersion]);
   const { items: reminders } = useReminders();
   const { paidKeys } = useReminderPayments();
   const { items: investments } = useInvestments(activeId);
@@ -111,6 +115,13 @@ export default function Dashboard() {
     [f.savings, txns, reminders, cards, reserve, paidKeys, earns],
   );
   const breakdown = useMemo(() => currentMonthBreakdown(txns), [txns]);
+  // What went out today: purchases on cards and savings alike, but not moves between own accounts
+  // or card-bill payments — the same rule as the month's spend.
+  const todaySpend = useMemo(() => {
+    const day = isoDay(new Date());
+    const rows = txns.filter((t) => t.direction === "DEBIT" && !t.transfer && !t.settlement && isoDay(new Date(t.occurredAt)) === day);
+    return { total: rows.reduce((s, t) => s + t.amount, 0), count: rows.length };
+  }, [txns]);
   const reviewCount = useMemo(
     () => txns.filter((t) => !t.transfer && !t.settlement && (!t.category || t.category === "Uncategorized" || t.accountId == null)).length,
     [txns],
@@ -126,6 +137,7 @@ export default function Dashboard() {
   const context = [
     now.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }),
     activeId !== "all" && activeMember.relation !== "Self" ? `${activeMember.name}'s money` : null,
+    todaySpend.total > 0 ? `${formatINR(todaySpend.total)} spent today` : "nothing spent today",
     salary ? `salary expected ${whenFrom(salary.on, now)}` : null,
     pressing > 0 ? `${pressing} thing${pressing === 1 ? "" : "s"} need${pressing === 1 ? "s" : ""} attention` : "nothing urgent",
   ].filter(Boolean);
@@ -177,7 +189,7 @@ export default function Dashboard() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <MonthSpendCard b={breakdown} thresholds={thresholds} />
+        <MonthSpendCard b={breakdown} thresholds={thresholds} today={todaySpend} />
         <UpcomingCard cards={cards} txns={txns} investments={investments} loans={loans} reminders={reminders} paidKeys={paidKeys} earns={earns} />
         <StatementsCard cards={cards} />
       </div>

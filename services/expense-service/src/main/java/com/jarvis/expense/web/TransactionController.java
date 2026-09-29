@@ -1,10 +1,13 @@
 package com.jarvis.expense.web;
 
 import java.util.Map;
+import com.jarvis.expense.service.CardPaymentService;
 import com.jarvis.expense.service.TransactionService;
 import com.jarvis.expense.web.dto.CreateTransactionRequest;
 import com.jarvis.expense.web.dto.TransactionDto;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,10 +18,30 @@ import org.springframework.web.bind.annotation.*;
 public class TransactionController {
 
     private final TransactionService service;
+    private final CardPaymentService cardPayments;
 
-    public TransactionController(TransactionService service) {
+    public TransactionController(TransactionService service, CardPaymentService cardPayments) {
         this.service = service;
+        this.cardPayments = cardPayments;
     }
+
+    /**
+     * Mark a card bill paid by hand. Body: {"accountId": 7, "amount": 49675, "paidOn": "2026-09-29"}.
+     * The bank's own "payment received" alert, when it comes, confirms this row instead of adding one.
+     */
+    @PostMapping("/card-payment")
+    public ResponseEntity<TransactionDto> markCardPaid(@RequestBody CardPaymentRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cardPayments.record(req.accountId(), req.amount(), req.paidOn()));
+    }
+
+    /** Take back a payment marked by hand. */
+    @DeleteMapping("/card-payment/{id}")
+    public ResponseEntity<Void> undoCardPaid(@PathVariable Long id) {
+        cardPayments.undo(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    public record CardPaymentRequest(Long accountId, BigDecimal amount, LocalDate paidOn) {}
 
     @GetMapping
     public List<TransactionDto> list(

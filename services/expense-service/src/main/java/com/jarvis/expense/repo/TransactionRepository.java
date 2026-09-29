@@ -68,7 +68,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         where t.direction = :direction and t.amount = :amount
           and t.account is not null and t.account.id <> :accountId
           and t.occurredAt >= :from and t.occurredAt <= :to
-          and (t.transfer = false or t.transferDeclared = true) and t.settlement = false
+          and (t.transfer = false or t.transferDeclared = true)
+          and (t.settlement = false or t.settlementDeclared = true)
         order by t.occurredAt asc
         """)
     List<Transaction> findTransferCandidates(
@@ -93,6 +94,25 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Modifying
     @Query("update Transaction t set t.transfer = true where t.transferDeclared = true and t.transfer = false")
     int applyDeclaredTransfers();
+
+    /** Re-apply card payments a person marked by hand that pairing found no savings side for. */
+    @Modifying
+    @Query("update Transaction t set t.settlement = true where t.settlementDeclared = true and t.settlement = false")
+    int applyDeclaredSettlements();
+
+    /**
+     * Card bill payments recorded by hand on any of these cards, credited within the window — the
+     * rows a bank's later "payment received" alert confirms rather than repeats.
+     */
+    @Query("select t from Transaction t where t.source = com.jarvis.expense.domain.MessageSource.MANUAL"
+        + " and t.direction = com.jarvis.expense.domain.Direction.CREDIT and t.account.id in :accountIds"
+        + " and t.amount between :min and :max and t.occurredAt between :from and :to order by t.occurredAt asc")
+    List<Transaction> findManualCardPayments(
+        @Param("accountIds") Collection<Long> accountIds,
+        @Param("min") BigDecimal min,
+        @Param("max") BigDecimal max,
+        @Param("from") Instant from,
+        @Param("to") Instant to);
 
     /** Every account-linked row not yet marked as a transfer — scanned by the backfill. */
     @Query("select t from Transaction t where t.account is not null and t.transfer = false and t.settlement = false order by t.occurredAt asc")

@@ -1,12 +1,22 @@
 import { useNavigate } from "react-router-dom";
 import type { MonthBreakdown } from "@/lib/breakdown";
 import { formatINR } from "@/lib/format";
+import { isoDay } from "@/lib/forecast";
 
 /**
  * This month's spend: the total against last month, the categories as bars scaled to the largest,
  * and a budget tick where one is set. A category past its budget turns amber.
  */
-export default function MonthSpendCard({ b, thresholds }: { b: MonthBreakdown; thresholds: Record<string, number> }) {
+export default function MonthSpendCard({
+  b,
+  thresholds,
+  today,
+}: {
+  b: MonthBreakdown;
+  thresholds: Record<string, number>;
+  /** What has gone out today, and in how many payments. */
+  today: { total: number; count: number };
+}) {
   const navigate = useNavigate();
   const now = new Date();
   const monthName = now.toLocaleDateString("en-IN", { month: "long" });
@@ -16,6 +26,7 @@ export default function MonthSpendCard({ b, thresholds }: { b: MonthBreakdown; t
   const rows = b.rows.slice(0, 6);
   const scale = Math.max(1, ...rows.map((r) => Math.max(r.total, thresholds[r.category] ?? 0)));
   const mover = b.movers[0];
+  const todayIso = isoDay(now);
 
   return (
     <section className="flex flex-col gap-4 rounded-2xl border bg-card p-6">
@@ -34,6 +45,21 @@ export default function MonthSpendCard({ b, thresholds }: { b: MonthBreakdown; t
           </span>
         )}
       </div>
+      <button
+        type="button"
+        onClick={() => navigate(`/transactions?from=${todayIso}&to=${todayIso}&type=DEBIT`)}
+        className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-left text-sm hover:bg-muted"
+      >
+        <span className="text-muted-foreground">Today</span>
+        <span className="flex-1 font-semibold tabular-nums">
+          {today.total > 0 ? formatINR(today.total) : "Nothing spent yet"}
+        </span>
+        {today.count > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {today.count} payment{today.count > 1 ? "s" : ""} →
+          </span>
+        )}
+      </button>
       {mover && (
         <p className="text-sm text-muted-foreground">
           {mover.category} is {formatINR(mover.excess)} above your usual month

@@ -115,7 +115,9 @@ public class TransferService {
             // A declared self-transfer stays eligible: it was flagged from one bank's alert alone,
             // and when the other bank's does arrive that side has to be flagged too — otherwise
             // the credit half of a move between own accounts is counted as earning.
-            .filter(c -> (!c.isTransfer() || c.isTransferDeclared()) && !c.isSettlement() && kindOf(t, c) != Kind.NONE)
+            // So does a card payment someone marked paid by hand: the savings debit it was paid
+            // from, arriving later, is its other side and must be flagged with it.
+            .filter(c -> (!c.isTransfer() || c.isTransferDeclared()) && (!c.isSettlement() || c.isSettlementDeclared()) && kindOf(t, c) != Kind.NONE)
             .min(Comparator.comparingLong(c -> Math.abs(Duration.between(c.getOccurredAt(), t.getOccurredAt()).toMillis())));
         if (closest.isEmpty()) {
             return false;
@@ -128,6 +130,9 @@ public class TransferService {
             Category cardPayment = cardPaymentCategory();
             t.setSettlement(true);
             c.setSettlement(true);
+            // Paired now, so pairing explains it from here on; the declaration has done its job.
+            t.setSettlementDeclared(false);
+            c.setSettlementDeclared(false);
             t.setCategory(cardPayment);
             c.setCategory(cardPayment);
         }
@@ -149,6 +154,7 @@ public class TransferService {
         // Pairing runs first so a declared row can still be matched to its other side; the
         // declarations that found no pair are restored afterwards.
         transactions.applyDeclaredTransfers();
+        transactions.applyDeclaredSettlements();
         return pairs;
     }
 
