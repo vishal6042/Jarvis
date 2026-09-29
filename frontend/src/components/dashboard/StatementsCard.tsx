@@ -1,24 +1,18 @@
-import { useNavigate } from "react-router-dom";
 import type { CardSummary } from "@/api";
 import { networkColor } from "@/components/CardArt";
 import { statementsOf } from "@/lib/cards";
+import { daysUntil, networkName } from "@/lib/statements";
 import { formatINR } from "@/lib/format";
+import { useOpenStatement } from "@/components/StatementPanel";
 
 const fmtDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-const NETWORK_NAMES: Record<string, string> = { AMEX: "Amex", MASTERCARD: "Mastercard", VISA: "Visa", RUPAY: "RuPay", DINERS: "Diners" };
-const networkName = (n: string) => NETWORK_NAMES[n.toUpperCase()] ?? n;
-const daysUntil = (iso: string) => {
-  const t = new Date();
-  const today = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime();
-  return Math.round((new Date(`${iso}T00:00:00`).getTime() - today) / 86_400_000);
-};
 
 /**
  * Credit cards as the bank bills them: one row per statement, so cards on a consolidated bill
  * show their shared amount once, with each card's own unbilled spend underneath.
  */
 export default function StatementsCard({ cards }: { cards: CardSummary[] }) {
-  const navigate = useNavigate();
+  const openStatement = useOpenStatement();
   if (cards.length === 0) return null;
   const statements = statementsOf(cards);
   const due = statements.reduce((s, c) => s + c.billDue, 0);
@@ -39,7 +33,7 @@ export default function StatementsCard({ cards }: { cards: CardSummary[] }) {
           <button
             key={s.accountId}
             type="button"
-            onClick={() => navigate("/accounts")}
+            onClick={() => openStatement(s.accountId)}
             className="flex flex-col gap-3 rounded-2xl border p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
           >
             <div className="flex items-center gap-3">

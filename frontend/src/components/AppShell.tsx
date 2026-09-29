@@ -28,6 +28,7 @@ import { useNotifications } from "@/lib/notifications";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import CommandBar from "@/components/CommandBar";
+import StatementHost from "@/components/StatementPanel";
 import JarvisLogo from "@/components/JarvisLogo";
 import {
   DropdownMenu,
@@ -287,6 +288,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <CommandBar open={cmdOpen} onOpenChange={setCmdOpen} />
+      <StatementHost />
 
       {showFab && (
         <button

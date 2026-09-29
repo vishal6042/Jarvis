@@ -7,6 +7,7 @@ import type { Forecast } from "@/lib/forecast";
 import type { MonthBreakdown } from "@/lib/breakdown";
 import { formatINR } from "@/lib/format";
 import { statementsOf } from "@/lib/cards";
+import { statementHref } from "@/lib/statements";
 
 export type Severity = "red" | "amber" | "green" | "info";
 
@@ -53,12 +54,12 @@ export function buildInsights(i: InsightInput): Insight[] {
     if (c.billDue <= 0 || !c.dueOn) continue;
     const d = daysUntil(c.dueOn, today);
     if (d < 0) {
-      out.push({ id: `card-overdue-${c.accountId}`, severity: "red", title: `${c.displayName} bill is overdue`, detail: `${formatINR(c.billDue)} was due ${fmtDay(c.dueOn)}`, href: "/accounts", cta: "View card" });
+      out.push({ id: `card-overdue-${c.accountId}`, severity: "red", title: `${c.displayName} bill is overdue`, detail: `${formatINR(c.billDue)} was due ${fmtDay(c.dueOn)}`, href: statementHref(c.accountId), cta: "View statement" });
     } else if (d <= 7) {
-      out.push({ id: `card-due-${c.accountId}`, severity: d <= 3 ? "red" : "amber", title: `${formatINR(c.billDue)} card bill due ${d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`}`, detail: `${c.displayName} · due ${fmtDay(c.dueOn)}`, href: "/accounts", cta: "View card" });
+      out.push({ id: `card-due-${c.accountId}`, severity: d <= 3 ? "red" : "amber", title: `${formatINR(c.billDue)} card bill due ${d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`}`, detail: `${c.displayName} · due ${fmtDay(c.dueOn)}`, href: statementHref(c.accountId), cta: "View statement" });
     }
     if ((c.utilisationPct ?? 0) >= 30) {
-      out.push({ id: `util-${c.accountId}`, severity: "amber", title: `${c.displayName} is ${c.utilisationPct}% utilised`, detail: "Keeping utilisation under 30% protects your credit score", href: "/accounts" });
+      out.push({ id: `util-${c.accountId}`, severity: "amber", title: `${c.displayName} is ${c.utilisationPct}% utilised`, detail: "Keeping utilisation under 30% protects your credit score", href: statementHref(c.accountId) });
     }
   }
 

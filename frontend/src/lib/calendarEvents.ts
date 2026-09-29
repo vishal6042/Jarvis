@@ -3,6 +3,7 @@ import type { Transaction } from "@/types";
 import { KIND_META, occurrencesInMonth, REMINDER_META, upcomingReminders, type Investment, type Loan, type Reminder } from "@/lib/sample";
 import { inferSalary } from "@/lib/forecast";
 import { statementsOf } from "@/lib/cards";
+import { statementHref } from "@/lib/statements";
 
 /**
  * Things the financial calendar knows about beyond hand-made reminders: credit-card due and
@@ -92,7 +93,7 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
         amount: isCurrentBill && c.billDue > 0 ? c.billDue : undefined,
         direction: "out",
         color: FIN_EVENT_META["card-due"].color,
-        href: "/accounts",
+        href: statementHref(c.accountId),
       });
     }
     const stmt = c.nextStatementOn ? inMonth(c.nextStatementOn, y, m) : null;
@@ -105,7 +106,7 @@ export function financialEvents(i: FinEventInput): FinEvent[] {
         detail: c.unbilled > 0 && monthOf(c.nextStatementOn) === target ? `${inr(c.unbilled)} unbilled so far` : undefined,
         direction: "info",
         color: FIN_EVENT_META["card-statement"].color,
-        href: "/accounts",
+        href: statementHref(c.accountId),
       });
     }
   }

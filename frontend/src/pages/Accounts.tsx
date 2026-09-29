@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import AccountActivity from "@/components/AccountActivity";
 import { CreditCard, Landmark, Pencil, Plus, Trash2, Wallet } from "lucide-react";
-import { createAccount, deleteAccount, listAccounts, updateAccount } from "@/api";
+import { cardSummaries, createAccount, deleteAccount, listAccounts, updateAccount, type CardSummary } from "@/api";
 import type { Account, AccountRequest, AccountType } from "@/types";
 import { formatINR } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -10,6 +10,9 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import CardArt, { networkColor } from "@/components/CardArt";
 import BestCardCard from "@/components/BestCardCard";
 import CardSection from "@/components/CardSection";
+import StatementsStrip from "@/components/StatementsStrip";
+import { useOpenStatement } from "@/components/StatementPanel";
+import { daysUntil, statementFor } from "@/lib/statements";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -140,11 +143,13 @@ function AccountDetailsDialog({
   account,
   onClose,
   onEdit,
+  onViewStatement,
   canEdit,
 }: {
   account: Account | null;
   onClose: () => void;
   onEdit: () => void;
+  onViewStatement: () => void;
   canEdit: boolean;
 }) {
   if (!account) return null;
@@ -196,7 +201,7 @@ function AccountDetailsDialog({
             </>
           )}
         </div>
-        <AccountActivity account={account} />
+        <AccountActivity account={account} onViewStatement={account.type === "CREDIT_CARD" ? onViewStatement : undefined} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Close
@@ -214,12 +219,17 @@ function AccountDetailsDialog({
 
 function AccountCard({
   account,
+  bill,
+  onStatement,
   onOpen,
   onEdit,
   onDelete,
   canEdit,
 }: {
   account: Account;
+  /** A credit card's own summary and the statement it is billed on, once loaded. */
+  bill?: { own: CardSummary; statement: CardSummary; shared: boolean };
+  onStatement: () => void;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -298,6 +308,27 @@ function AccountCard({
                   : null
               }
             />
+            {bill && <Row label="Unbilled" value={formatINR(bill.own.unbilled)} />}
+            {bill && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatement();
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-primary/10 ${
+                  bill.statement.billDue > 0 && bill.statement.dueOn && daysUntil(bill.statement.dueOn) <= 7 ? "bg-rose-500/10" : "bg-muted/70"
+                }`}
+              >
+                <span className="flex-1 font-medium">
+                  {bill.statement.billDue > 0
+                    ? `${formatINR(bill.statement.billDue)} due${bill.statement.dueOn ? ` ${new Date(`${bill.statement.dueOn}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}` : ""}`
+                    : "Bill paid"}
+                </span>
+                {bill.shared && <span className="text-[11px] text-muted-foreground">shared bill</span>}
+                <span className="text-primary">→</span>
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -349,6 +380,17 @@ export default function Accounts() {
   };
   const [toDelete, setToDelete] = useState<Account | null>(null);
   const [details, setDetails] = useState<Account | null>(null);
+  const openStatement = useOpenStatement();
+  // Card cycles, for the statements strip and each card's bill line.
+  const [summaries, setSummaries] = useState<CardSummary[]>([]);
+  useEffect(() => {
+    cardSummaries().then(setSummaries).catch(() => setSummaries([]));
+  }, [accounts]);
+  const billOf = (a: Account) => {
+    const own = summaries.find((s) => s.accountId === a.id);
+    const st = own ? statementFor(summaries, a.id) : null;
+    return own && st ? { own, statement: st.summary, shared: st.members.length > 1 } : undefined;
+  };
 
   async function refresh() {
     setAccounts(await listAccounts());
@@ -427,6 +469,8 @@ export default function Accounts() {
 
       <Separator />
 
+      {filter !== "bank" && <StatementsStrip cards={summaries} />}
+
       {accounts.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
@@ -468,6 +512,8 @@ export default function Accounts() {
                   <AccountCard
                     key={a.id}
                     account={a}
+                    bill={a.type === "CREDIT_CARD" ? billOf(a) : undefined}
+                    onStatement={() => openStatement(a.id)}
                     onOpen={() => setDetails(a)}
                     onEdit={() => openEdit(a)}
                     onDelete={() => setToDelete(a)}
@@ -489,6 +535,11 @@ export default function Accounts() {
           const a = details;
           setDetails(null);
           if (a) openEdit(a);
+        }}
+        onViewStatement={() => {
+          const a = details;
+          setDetails(null);
+          if (a) openStatement(a.id);
         }}
         canEdit={admin}
       />

@@ -7,10 +7,10 @@ import { formatINR, formatDate, formatOriginal } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
 /**
- * Live detail for one account inside the details dialog: the current billing cycle for a card
- * (statement, due, billed / paid / unbilled, utilisation) and the latest transactions.
+ * Live detail for one account inside the details dialog: for a card, a line on its current bill
+ * (the full statement opens in the statement panel), and the latest transactions.
  */
-export default function AccountActivity({ account }: { account: Account }) {
+export default function AccountActivity({ account, onViewStatement }: { account: Account; onViewStatement?: () => void }) {
   const navigate = useNavigate();
   const isCard = account.type === "CREDIT_CARD";
   const [summary, setSummary] = useState<CardSummary | null>(null);
@@ -38,38 +38,22 @@ export default function AccountActivity({ account }: { account: Account }) {
   return (
     <div className="space-y-4">
       {isCard && summary && (
-        <div className="rounded-xl border bg-card/60 p-3">
-          <div className="mb-2 flex items-center justify-between">
+        // The bill itself lives in the statement panel, so it reads the same wherever it is opened.
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card/60 p-3">
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">
-              Current cycle
-              {summary.billingGroup && (
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  shared statement · {summary.billingGroup}
-                </span>
-              )}
+              {summary.billDue > 0 ? `${formatINR(summary.billDue)} due${summary.dueOn ? ` ${formatDate(summary.dueOn)}` : ""}` : "Nothing due on the current bill"}
+              {summary.billingGroup && <span className="ml-2 text-xs font-normal text-muted-foreground">shared statement · {summary.billingGroup}</span>}
             </p>
-            {summary.utilisationPct != null && (
-              <span className="text-xs text-muted-foreground">
-                {summary.utilisationPct}% of limit used
-              </span>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {formatINR(summary.unbilled)} unbilled on this card
+              {summary.utilisationPct != null ? ` · ${summary.utilisationPct}% of limit used` : ""}
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <Cell label="Statement" value={summary.lastStatementOn ? formatDate(summary.lastStatementOn) : "—"} sub={summary.nextStatementOn ? `next ${formatDate(summary.nextStatementOn)}` : undefined} />
-            <Cell label="Due" value={summary.dueOn ? formatDate(summary.dueOn) : "—"} sub={summary.billDue > 0 ? `${formatINR(summary.billDue)} to pay` : "nothing due"} highlight={summary.billDue > 0} />
-            <Cell label="Billed / paid" value={formatINR(summary.billed)} sub={`${formatINR(summary.paid)} paid${summary.lastPaidOn ? ` on ${formatDate(summary.lastPaidOn)}` : ""}`} />
-            <Cell label="Unbilled" value={formatINR(summary.unbilled)} sub="since last statement" />
-          </div>
-          {summary.creditLimit != null && summary.creditLimit > 0 && (
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${Math.min(100, summary.utilisationPct ?? 0)}%`,
-                  backgroundColor: (summary.utilisationPct ?? 0) > 60 ? "var(--danger)" : (summary.utilisationPct ?? 0) > 30 ? "var(--warn)" : "var(--ok)",
-                }}
-              />
-            </div>
+          {onViewStatement && (
+            <Button size="sm" className="h-9" onClick={onViewStatement}>
+              View statement
+            </Button>
           )}
         </div>
       )}
@@ -113,16 +97,6 @@ export default function AccountActivity({ account }: { account: Account }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function Cell({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`font-medium ${highlight ? "text-[color:var(--danger)]" : ""}`}>{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }

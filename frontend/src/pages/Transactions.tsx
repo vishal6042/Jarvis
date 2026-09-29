@@ -161,7 +161,8 @@ export default function Transactions() {
       } else if (month !== "all" && !t.occurredAt.startsWith(month)) return false;
       if (dir !== "all" && t.direction !== dir) return false;
       if (cat !== "all" && (t.category ?? "") !== cat) return false;
-      if (acct !== "all" && String(t.accountId ?? "") !== acct) return false;
+      // One id, or several for the cards billed on one statement ("6,7,8").
+      if (acct !== "all" && !acct.split(",").includes(String(t.accountId ?? ""))) return false;
       if (needle) {
         const hay = `${t.merchantNorm ?? ""} ${t.merchant ?? ""} ${t.category ?? ""} ${t.note ?? ""} ${t.accountName ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
@@ -206,6 +207,10 @@ export default function Transactions() {
   const acctItems = [
     { value: "all", label: "All accounts" },
     ...accounts.map((a) => ({ value: String(a.id), label: a.displayName })),
+    // A set of cards from a statement link, named after them so the filter reads sensibly.
+    ...(acct.includes(",")
+      ? [{ value: acct, label: `Cards ${accounts.filter((a) => acct.split(",").includes(String(a.id))).map((a) => a.last4).join(" · ")}` }]
+      : []),
   ];
   const monthItems = [
     { value: "all", label: "All months" },

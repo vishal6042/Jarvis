@@ -3,6 +3,7 @@ import type { Transaction } from "@/types";
 import { upcomingReminders, type Reminder } from "@/lib/sample";
 import { reminderKey, reminderStatus } from "@/lib/reminderStatus";
 import { statementsOf } from "@/lib/cards";
+import { statementHref } from "@/lib/statements";
 
 const DAY = 86_400_000;
 
@@ -158,7 +159,7 @@ export function buildForecast({
     if (c.billDue > 0 && c.dueOn) {
       const due = new Date(`${c.dueOn}T00:00:00`);
       if (due >= t0 && due <= horizonEnd) {
-        raw.push({ on: c.dueOn, label: `${c.displayName} bill`, detail: "Card payment", amount: -c.billDue, kind: "card", href: "/accounts" });
+        raw.push({ on: c.dueOn, label: `${c.displayName} bill`, detail: "Card payment", amount: -c.billDue, kind: "card", href: statementHref(c.accountId) });
       }
     }
   }
