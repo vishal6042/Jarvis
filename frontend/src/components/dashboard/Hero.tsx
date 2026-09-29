@@ -1,12 +1,10 @@
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { formatINR } from "@/lib/format";
 import type { Forecast, ForecastEvent } from "@/lib/forecast";
-import { scoreColor } from "@/lib/useFinanceScore";
-import type { FinanceScoreResult } from "@/types";
 
 /*
  * The top of the dashboard, on a dark panel in both themes: what you own, where the cash is heading
- * over the next month, and the one number that sums it up. Everything is read from the forecast
+ * over the next month, and what it comes to by the end of it. Everything is read from the forecast
  * the rest of the page uses, so the hero never disagrees with the lists below it.
  */
 
@@ -30,10 +28,29 @@ function keyEvents(f: Forecast, n = 3): ForecastEvent[] {
     .sort((a, b) => (a.on < b.on ? -1 : 1));
 }
 
+/** Width of an element in CSS pixels, kept current as the layout changes. */
+function useWidth<T extends HTMLElement>(fallback: number) {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setWidth(Math.max(200, Math.round(entry.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
+
+/**
+ * Balance as a step line over the next month. Drawn at the container's real pixel width (not a
+ * stretched viewBox) so dots stay round and labels keep their shape at any size.
+ */
 function RunwayChart({ f }: { f: Forecast }) {
-  const W = 560;
-  const top = 10;
-  const bottom = 172;
+  const [ref, W] = useWidth<HTMLDivElement>(560);
+  const H = 210;
+  const top = 26; // room for the value labels above the dots
+  const bottom = H - 30; // room for the date axis
   const span = Math.max(1, dayDiff(f.today, f.projectedOn));
   const pts = [{ d: 0, v: f.startBalance }, ...f.events.filter(isMove).map((e) => ({ d: dayDiff(f.today, e.on), v: e.balanceAfter }))];
   const values = [...pts.map((p) => p.v), f.reserve];
@@ -42,44 +59,82 @@ function RunwayChart({ f }: { f: Forecast }) {
   const pad = (hi - lo) * 0.08 || hi * 0.1 || 1;
   const max = hi + pad;
   const min = Math.min(lo - pad, f.reserve - pad);
-  const x = (d: number) => (Math.max(0, Math.min(span, d)) / span) * W;
+  const x = (d: number) => (Math.max(0, Math.min(span, d)) / span) * (W - 2) + 1;
   const y = (v: number) => top + ((max - v) / (max - min)) * (bottom - top);
 
-  let line = `M0,${y(pts[0].v).toFixed(1)}`;
+  let line = `M1,${y(pts[0].v).toFixed(1)}`;
   for (const p of pts.slice(1)) line += ` H${x(p.d).toFixed(1)} V${y(p.v).toFixed(1)}`;
-  line += ` H${W}`;
-  const area = `${line} V${bottom} H0 Z`;
+  line += ` H${W - 1}`;
+  const area = `${line} V${bottom} H1 Z`;
   const marks = keyEvents(f);
+  // Labels only where there is room for them; the legend below always carries the detail.
+  const roomy = W >= 420;
+  const endY = y(pts[pts.length - 1].v);
+  // The month-end value, unless the last marked point already says the same number.
+  const showEnd = roomy && (marks.length === 0 || lakh(marks[marks.length - 1].balanceAfter) !== lakh(f.projected));
 
   return (
     <div className="space-y-3">
-      <svg
-        viewBox={`0 0 ${W} 196`}
-        preserveAspectRatio="none"
-        className="h-[196px] w-full"
-        role="img"
-        aria-label={`Projected balance from ${lakh(f.startBalance)} today to ${lakh(f.projected)} on ${fmtDay(f.projectedOn)}, lowest ${lakh(f.minBalance)} on ${fmtDay(f.minOn)}`}
-      >
-        <defs>
-          <linearGradient id="runway-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={CASH} stopOpacity="0.45" />
-            <stop offset="1" stopColor={CASH} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={area} fill="url(#runway-fill)" />
-        <path d={line} fill="none" stroke="#a898ff" strokeWidth={2.5} vectorEffect="non-scaling-stroke" />
-        <line x1={0} x2={W} y1={y(f.reserve)} y2={y(f.reserve)} stroke={LOAN} strokeWidth={1.5} strokeDasharray="6 6" vectorEffect="non-scaling-stroke" />
-        {marks.map((e) => (
-          <circle key={`${e.on}-${e.label}`} cx={x(dayDiff(f.today, e.on))} cy={y(e.balanceAfter)} r={5} fill={e.amount > 0 ? INVESTED : LOAN} />
-        ))}
-        <line x1={1} x2={1} y1={top} y2={bottom} stroke="#f4f2fb" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-        <text x={4} y={192} fill="#b9b3d1" fontSize={12}>
-          Today
-        </text>
-        <text x={W - 4} y={192} fill="#b9b3d1" fontSize={12} textAnchor="end">
-          {fmtDay(f.projectedOn)}
-        </text>
-      </svg>
+      <div ref={ref} className="w-full">
+        <svg
+          width={W}
+          height={H}
+          viewBox={`0 0 ${W} ${H}`}
+          className="block"
+          role="img"
+          aria-label={`Projected balance from ${lakh(f.startBalance)} today to ${lakh(f.projected)} on ${fmtDay(f.projectedOn)}, lowest ${lakh(f.minBalance)} on ${fmtDay(f.minOn)}`}
+        >
+          <defs>
+            <linearGradient id="runway-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={CASH} stopOpacity="0.4" />
+              <stop offset="1" stopColor={CASH} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* faint guides at the top and middle of the range */}
+          {[0.25, 0.5, 0.75].map((t) => (
+            <line key={t} x1={0} x2={W} y1={top + (bottom - top) * t} y2={top + (bottom - top) * t} stroke="#2c2748" strokeWidth={1} />
+          ))}
+          <path d={area} fill="url(#runway-fill)" />
+          <path d={line} fill="none" stroke="#a898ff" strokeWidth={2.5} strokeLinejoin="round" />
+          <line x1={0} x2={W} y1={y(f.reserve)} y2={y(f.reserve)} stroke={LOAN} strokeWidth={1.5} strokeDasharray="6 6" />
+          <text x={W - 4} y={y(f.reserve) - 6} fill={LOAN} fontSize={11} textAnchor="end">
+            reserve {lakh(f.reserve)}
+          </text>
+          <line x1={1} x2={1} y1={top - 8} y2={bottom} stroke="#f4f2fb" strokeWidth={2} />
+          {marks.map((e) => {
+            const cx = x(dayDiff(f.today, e.on));
+            const cy = y(e.balanceAfter);
+            const anchor = cx < 40 ? "start" : cx > W - 40 ? "end" : "middle";
+            return (
+              <g key={`${e.on}-${e.label}`}>
+                <line x1={cx} x2={cx} y1={cy} y2={bottom} stroke="#f4f2fb" strokeOpacity={0.15} strokeDasharray="2 4" />
+                <circle cx={cx} cy={cy} r={5} fill={e.amount > 0 ? INVESTED : LOAN} stroke="#16132a" strokeWidth={2} />
+                {roomy && (
+                  <>
+                    <text x={cx} y={cy - 10} fill="#f4f2fb" fontSize={12} fontWeight={600} textAnchor={anchor}>
+                      {lakh(e.balanceAfter)}
+                    </text>
+                    <text x={cx} y={bottom + 18} fill="#b9b3d1" fontSize={11} textAnchor={anchor}>
+                      {fmtDay(e.on)}
+                    </text>
+                  </>
+                )}
+              </g>
+            );
+          })}
+          {showEnd && (
+            <text x={W - 4} y={endY - 10} fill="#d7d2ea" fontSize={12} textAnchor="end">
+              {lakh(f.projected)}
+            </text>
+          )}
+          <text x={4} y={bottom + 18} fill="#b9b3d1" fontSize={11}>
+            Today
+          </text>
+          <text x={W - 4} y={bottom + 18} fill="#b9b3d1" fontSize={11} textAnchor="end">
+            {fmtDay(f.projectedOn)}
+          </text>
+        </svg>
+      </div>
       {marks.length > 0 && (
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-[#d7d2ea]">
           {marks.map((e) => (
@@ -95,49 +150,16 @@ function RunwayChart({ f }: { f: Forecast }) {
   );
 }
 
-function ScoreRing({ score }: { score: number }) {
-  const r = 23;
-  const c = 2 * Math.PI * r;
-  return (
-    <svg width={56} height={56} viewBox="0 0 56 56" aria-hidden>
-      <circle cx={28} cy={28} r={r} fill="none" stroke="#2c2748" strokeWidth={6} />
-      <circle
-        cx={28}
-        cy={28}
-        r={r}
-        fill="none"
-        stroke={scoreColor(score)}
-        strokeWidth={6}
-        strokeLinecap="round"
-        strokeDasharray={`${(c * Math.max(0, Math.min(100, score))) / 100} ${c}`}
-        transform="rotate(-90 28 28)"
-      />
-      <text x={28} y={33} textAnchor="middle" fill="#f4f2fb" fontSize={16} fontWeight={600}>
-        {score}
-      </text>
-    </svg>
-  );
-}
-
 export default function Hero({
   savings,
   investments,
   loans,
   forecast: f,
-  score,
-  scoreLoading,
-  scoreError,
-  onWhy,
 }: {
   savings: number;
   investments: number;
   loans: number;
   forecast: Forecast;
-  score: FinanceScoreResult | null;
-  scoreLoading: boolean;
-  scoreError: boolean;
-  /** Opens the dialog with every tip behind the score. */
-  onWhy: () => void;
 }) {
   const netWorth = savings + investments;
   const whole = Math.max(1, savings + investments + loans);
@@ -176,11 +198,7 @@ export default function Hero({
       </div>
 
       <div className="flex min-w-0 flex-col gap-3 border-b border-[#2c2748] p-6 sm:p-8 lg:border-b-0">
-        <div className="flex items-baseline gap-3">
-          <div className="text-xs font-medium tracking-[0.08em] text-[#b9b3d1] uppercase">Cash runway · next 30 days</div>
-          <div className="flex-1" />
-          <div className="text-xs text-[#b9b3d1]">reserve {lakh(f.reserve)}</div>
-        </div>
+        <div className="text-xs font-medium tracking-[0.08em] text-[#b9b3d1] uppercase">Cash runway · next 30 days</div>
         <RunwayChart f={f} />
       </div>
 
@@ -210,23 +228,13 @@ export default function Hero({
             {nextOut ? `next: ${nextOut.label.toLowerCase()} on ${fmtDay(nextOut.on)}` : "nothing due in the next 30 days"}
           </div>
         </div>
-        <div className="flex items-center gap-3.5">
-          {score ? (
-            <ScoreRing score={score.score} />
-          ) : (
-            <div className="flex size-14 items-center justify-center rounded-full border-[6px] border-[#2c2748]">
-              {scoreLoading && <Loader2 className="size-4 animate-spin text-[#b9b3d1]" />}
-            </div>
-          )}
-          <div className="space-y-0.5">
-            <div className="text-[15px] font-semibold">
-              {score ? `Score · ${score.rating}` : scoreLoading ? "Scoring…" : scoreError ? "Score unavailable" : "Finance score"}
-            </div>
-            {score && (
-              <button type="button" className="text-[13px] text-[#b7a9ff] hover:text-[#d6ceff] hover:underline" onClick={onWhy}>
-                Why {score.score}?
-              </button>
-            )}
+        <div className="space-y-1">
+          <div className="text-[13px] text-[#b9b3d1]">By {fmtDay(f.projectedOn)}</div>
+          <div className="text-3xl font-semibold tabular-nums">{lakh(f.projected)}</div>
+          <div className="text-[13px]" style={{ color: f.projected >= f.startBalance ? INVESTED : "#b9b3d1" }}>
+            {f.projected >= f.startBalance
+              ? `${lakh(f.projected - f.startBalance)} more than today`
+              : `${lakh(f.startBalance - f.projected)} less than today`}
           </div>
         </div>
       </div>

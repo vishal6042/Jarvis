@@ -1,26 +1,41 @@
+import { useState } from "react";
 import { Lightbulb, Loader2, Sparkles } from "lucide-react";
 import { scoreColor } from "@/lib/useFinanceScore";
 import type { FinanceScoreResult } from "@/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+/** The score as a ring filled to score/100, coloured by band. */
+function ScoreRing({ score }: { score: number }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const color = scoreColor(score);
+  return (
+    <svg width={64} height={64} viewBox="0 0 64 64" role="img" aria-label={`Finance score ${score} of 100`}>
+      <circle cx={32} cy={32} r={r} fill="none" stroke="var(--muted)" strokeWidth={6} />
+      <circle
+        cx={32}
+        cy={32}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={6}
+        strokeLinecap="round"
+        strokeDasharray={`${(c * Math.max(0, Math.min(100, score))) / 100} ${c}`}
+        transform="rotate(-90 32 32)"
+      />
+      <text x={32} y={38} textAnchor="middle" fill="currentColor" fontSize={18} fontWeight={700}>
+        {score}
+      </text>
+    </svg>
+  );
+}
+
 /**
- * Jarvis's own words about the month: the score's encouraging headline and its best tip, in a
- * strip right under the hero so it reads before the lists. The other tips sit one click away.
+ * The finance score and Jarvis's own words about it: the encouraging headline and the best tip,
+ * in a strip right under the hero so it reads before the lists. The other tips sit one click away.
  */
-export default function JarvisTake({
-  score,
-  loading,
-  error,
-  open,
-  onOpenChange: setOpen,
-}: {
-  score: FinanceScoreResult | null;
-  loading: boolean;
-  error: boolean;
-  /** The all-tips dialog, controlled so the hero's "Why?" link can open it too. */
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+export default function JarvisTake({ score, loading, error }: { score: FinanceScoreResult | null; loading: boolean; error: boolean }) {
+  const [open, setOpen] = useState(false);
   if (!score && !loading) {
     return error ? (
       <p className="px-1 text-sm text-muted-foreground">Jarvis couldn't write its take right now — the AI service may be down.</p>
@@ -31,8 +46,22 @@ export default function JarvisTake({
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border bg-gradient-to-r from-primary/[0.07] to-transparent p-5 sm:flex-row sm:items-center sm:gap-5">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        {loading && !score ? <Loader2 className="size-5 animate-spin" /> : <Sparkles className="size-5" />}
+      <div className="flex shrink-0 items-center gap-3 sm:border-r sm:pr-5">
+        {score ? (
+          <ScoreRing score={score.score} />
+        ) : (
+          <div className="flex size-16 items-center justify-center rounded-full border-[6px] border-muted text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+          </div>
+        )}
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            <Sparkles className="size-3.5 text-primary" /> Finance score
+          </div>
+          <div className="text-lg font-semibold" style={{ color: score ? color : undefined }}>
+            {score ? score.rating : "Scoring…"}
+          </div>
+        </div>
       </div>
       {score ? (
         <>

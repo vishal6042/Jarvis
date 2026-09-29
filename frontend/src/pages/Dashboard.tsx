@@ -105,7 +105,6 @@ export default function Dashboard() {
     [f.earning, f.lastMonthSpend, f.savingsRate, f.savings, f.investments, f.outstanding, f.emiTotal, earns, priorMonthSpend],
   );
   const score = useFinanceScore(metrics);
-  const [tipsOpen, setTipsOpen] = useState(false);
 
   const forecast = useMemo(
     () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns }),
@@ -154,13 +153,9 @@ export default function Dashboard() {
         investments={f.investments}
         loans={f.outstanding}
         forecast={forecast}
-        score={score.result}
-        scoreLoading={score.loading}
-        scoreError={score.error}
-        onWhy={() => setTipsOpen(true)}
       />
 
-      {score.hasData && <JarvisTake score={score.result} loading={score.loading} error={score.error} open={tipsOpen} onOpenChange={setTipsOpen} />}
+      {score.hasData && <JarvisTake score={score.result} loading={score.loading} error={score.error} />}
 
       <ActionQueue insights={insights} />
 
