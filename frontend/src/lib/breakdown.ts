@@ -1,5 +1,6 @@
 import type { Transaction } from "@/types";
 import { isRealFlow } from "@/lib/forecast";
+import { FIXED, localDay, spendOf } from "@/lib/report";
 
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 
@@ -20,30 +21,36 @@ export interface MonthBreakdown {
   movers: { category: string; excess: number; deltaPct: number }[];
 }
 
-/** Spend (real outflows only) per category for one yyyy-MM. */
-export function categoryTotals(txns: Transaction[], month: string): Map<string, number> {
+/**
+ * Spend per category for one yyyy-MM, by the same rule as Analytics (lib/report): purchases add,
+ * refunds on a card take away, own-account moves and bill payments are left out, and a row
+ * belongs to the local day it happened on.
+ */
+export function categoryTotals(txns: Transaction[], month: string, cardIds: ReadonlySet<number> = new Set()): Map<string, number> {
   const m = new Map<string, number>();
   for (const t of txns) {
-    if (t.direction !== "DEBIT" || !isRealFlow(t) || !t.occurredAt.startsWith(month)) continue;
+    if (localDay(t).slice(0, 7) !== month) continue;
+    const v = spendOf(t, cardIds);
+    if (v === 0) continue;
     const k = t.category ?? "Uncategorized";
-    m.set(k, (m.get(k) ?? 0) + t.amount);
+    m.set(k, (m.get(k) ?? 0) + v);
   }
   return m;
 }
 
 /** This month's spend by category, with each category compared to its 6-month average. */
-export function currentMonthBreakdown(txns: Transaction[], today = new Date()): MonthBreakdown {
+export function currentMonthBreakdown(txns: Transaction[], today = new Date(), cardIds: ReadonlySet<number> = new Set()): MonthBreakdown {
   const month = monthKey(today);
   const last = monthKey(new Date(today.getFullYear(), today.getMonth() - 1, 1));
-  const now = categoryTotals(txns, month);
-  const lastMonth = categoryTotals(txns, last);
+  const now = categoryTotals(txns, month, cardIds);
+  const lastMonth = categoryTotals(txns, last, cardIds);
 
   // Previous 6 complete months → per-category average (months with no spend count as 0).
   const history = new Map<string, number>();
   let monthsWithData = 0;
   for (let back = 1; back <= 6; back++) {
     const key = monthKey(new Date(today.getFullYear(), today.getMonth() - back, 1));
-    const totals = categoryTotals(txns, key);
+    const totals = categoryTotals(txns, key, cardIds);
     if (totals.size > 0) monthsWithData++;
     for (const [k, v] of totals) history.set(k, (history.get(k) ?? 0) + v);
   }
@@ -63,8 +70,9 @@ export function currentMonthBreakdown(txns: Transaction[], today = new Date()): 
     })
     .sort((a, b) => b.total - a.total);
 
+  // A fixed payment (the EMI, bills) is not an overspend even when a missed alert drags its average down.
   const movers = rows
-    .filter((r) => r.deltaPct != null && r.deltaPct >= 30 && r.total - r.avg6 >= 2000)
+    .filter((r) => !FIXED.has(r.category) && r.deltaPct != null && r.deltaPct >= 30 && r.total - r.avg6 >= 2000)
     .map((r) => ({ category: r.category, excess: r.total - r.avg6, deltaPct: r.deltaPct as number }))
     .sort((a, b) => b.excess - a.excess)
     .slice(0, 3);

@@ -58,7 +58,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let alive = true;
-    listTransactions(0, 500)
+    listTransactions(0, 5000)
       .then((t) => alive && setTxns(t))
       .catch(() => alive && setTxns([]))
       .finally(() => alive && setLoading(false));
@@ -114,7 +114,9 @@ export default function Dashboard() {
     () => buildForecast({ balance: f.savings, txns, reminders, cards, reserve, paidKeys, earns }),
     [f.savings, txns, reminders, cards, reserve, paidKeys, earns],
   );
-  const breakdown = useMemo(() => currentMonthBreakdown(txns), [txns]);
+  // Every non-savings account is a card for the spend rule (refunds on it net off), as in Analytics.
+  const cardIds = useMemo(() => new Set(f.accounts.filter((a) => a.type !== "SAVINGS").map((a) => a.id)), [f.accounts]);
+  const breakdown = useMemo(() => currentMonthBreakdown(txns, new Date(), cardIds), [txns, cardIds]);
   // What went out today: purchases on cards and savings alike, but not moves between own accounts
   // or card-bill payments — the same rule as the month's spend.
   const todaySpend = useMemo(() => {

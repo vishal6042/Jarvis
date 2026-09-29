@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useWidth } from "@/lib/useWidth";
 import { formatINR } from "@/lib/format";
 import type { Forecast, ForecastEvent } from "@/lib/forecast";
 
@@ -26,20 +26,6 @@ function keyEvents(f: Forecast, n = 3): ForecastEvent[] {
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
     .slice(0, n)
     .sort((a, b) => (a.on < b.on ? -1 : 1));
-}
-
-/** Width of an element in CSS pixels, kept current as the layout changes. */
-function useWidth<T extends HTMLElement>(fallback: number) {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(fallback);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setWidth(Math.max(200, Math.round(entry.contentRect.width))));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width] as const;
 }
 
 /**
@@ -75,7 +61,7 @@ function RunwayChart({ f }: { f: Forecast }) {
 
   return (
     <div className="space-y-3">
-      <div ref={ref} className="w-full">
+      <div ref={ref} className="w-full min-w-0 overflow-hidden">
         <svg
           width={W}
           height={H}
