@@ -65,6 +65,18 @@ object Ink {
 
     /** Reserved for a second series on a chart or a second card's edge — never decoration. */
     val alt = Color(0xFF60A5FA)
+
+    /** Something to watch rather than something wrong: a budget passed, a row to look at. */
+    val warn = Color(0xFFF5C542)
+
+    /** The one tinted panel on a screen: the net-worth hero, the brief. */
+    val hero = Color(0xFF16132A)
+
+    /** A cell sitting inside the hero. */
+    val heroCell = Color(0xFF221E3D)
+
+    /** A card raised inside a sheet, one step lighter than the sheet itself. */
+    val raised = Color(0xFF1C1C28)
 }
 
 /**

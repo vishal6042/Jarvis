@@ -16,8 +16,8 @@ android {
         targetSdk = 35
         // The release workflow stamps the tag onto the APK (-PjarvisVersionName / -PjarvisVersionCode);
         // a plain local or Android Studio build gets the checked-in defaults below.
-        versionCode = (project.findProperty("jarvisVersionCode") as String?)?.toInt() ?: 3
-        versionName = (project.findProperty("jarvisVersionName") as String?) ?: "1.1.0"
+        versionCode = (project.findProperty("jarvisVersionCode") as String?)?.toInt() ?: 4
+        versionName = (project.findProperty("jarvisVersionName") as String?) ?: "1.2.0"
     }
 
     buildTypes {

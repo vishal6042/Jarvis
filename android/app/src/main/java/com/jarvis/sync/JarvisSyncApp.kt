@@ -15,5 +15,7 @@ class JarvisSyncApp : Application() {
         // otherwise sit in for hours.
         SyncScheduler.syncNow(this)
         AlertNotifier.ensureChannel(this)
+        // A brief switched on keeps its next 8 am queued even after an update or a reboot.
+        com.jarvis.sync.work.BriefScheduler.ensure(this)
     }
 }

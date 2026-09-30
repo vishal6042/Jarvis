@@ -11,6 +11,8 @@ public interface RawMessageRepository extends JpaRepository<RawMessage, Long> {
 
     List<RawMessage> findByTransactionRefIn(Collection<Long> transactionRefs);
 
+    List<RawMessage> findByStatusOrderByIdAsc(ParseStatus status);
+
     /** The earliest arrival of this same alert that already counted for something, if any. */
     Optional<RawMessage> findFirstByPayloadHashAndStatusInOrderByIdAsc(
         String payloadHash, Collection<ParseStatus> statuses);

@@ -7,7 +7,10 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import com.jarvis.sync.ui.theme.Ink
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,27 +136,23 @@ private fun LockScreen(onUnlocked: () -> Unit) {
     // Ask straight away, then leave it to the button — nobody wants a prompt they cannot refuse.
     LaunchedEffect(Unit) { ask() }
 
-    Surface(Modifier.fillMaxSize()) {
-        Column(
-            Modifier.fillMaxSize().padding(32.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(
-                Icons.Filled.Lock,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(16.dp))
-            Text("Jarvis is locked", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                refused ?: "Unlock with your fingerprint, face or screen lock.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(24.dp))
-            Button(onClick = ask) { Text("Unlock") }
-        }
+    // The sign-in screen's ground and mark, with one button: it should feel like the same door.
+    Column(
+        Modifier.fillMaxSize().background(GlowGround).padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        JTile()
+        Spacer(Modifier.height(20.dp))
+        Text("Jarvis is locked", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink.text)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            refused ?: "Unlock with your fingerprint or PIN.",
+            color = Ink.muted,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(28.dp))
+        JButton("Unlock", Modifier.fillMaxWidth(), height = 52.dp, fontSize = 16, onClick = ask)
     }
 }

@@ -85,8 +85,91 @@ class ApiClient {
         getJson(baseUrl, token, "/api/transactions", mapOf("page" to "0", "size" to size.toString()))
 
     /** Ask the local agent a question; it can take a while, so this call has its own long timeout. */
-    suspend fun chat(baseUrl: String, token: String, message: String, context: String?): String =
-        postJson<ChatReplyDto>(baseUrl, token, "/api/ai/chat", json.encodeToString(ChatRequestDto(message, context)), longCall = true).answer
+    suspend fun chat(baseUrl: String, token: String, req: ChatRequestDto): ChatReplyDto =
+        postJson(baseUrl, token, "/api/ai/chat", json.encodeToString(req), longCall = true)
+
+    // ---- saved conversations ----
+    suspend fun chats(baseUrl: String, token: String): List<ChatSummaryDto> =
+        getJson(baseUrl, token, "/api/ai/chats", emptyMap())
+
+    suspend fun startChat(baseUrl: String, token: String): ChatSummaryDto =
+        postJson(baseUrl, token, "/api/ai/chats", "{}")
+
+    suspend fun chatTranscript(baseUrl: String, token: String, id: Long): ChatTranscriptDto =
+        getJson(baseUrl, token, "/api/ai/chats/$id", emptyMap())
+
+    suspend fun appendTurn(baseUrl: String, token: String, id: Long, turn: TurnRequestDto) {
+        postJson<Unit>(baseUrl, token, "/api/ai/chats/$id/messages", json.encodeToString(turn), decode = false)
+    }
+
+    // ---- the small AI helpers; all run on the local model, so all get the long timeout ----
+    suspend fun aiFilter(baseUrl: String, token: String, req: FilterRequestDto): AiFilterDto =
+        postJson(baseUrl, token, "/api/ai/filter", json.encodeToString(req), longCall = true)
+
+    suspend fun aiMerchants(baseUrl: String, token: String, req: EnrichRequestDto): List<EnrichedMerchantDto> =
+        postJson(baseUrl, token, "/api/ai/merchants", json.encodeToString(req), longCall = true)
+
+    suspend fun aiReceipt(baseUrl: String, token: String, req: ReceiptRequestDto): ReceiptDto =
+        postJson(baseUrl, token, "/api/ai/receipt", json.encodeToString(req), longCall = true)
+
+    // ---- rules, card bills, goals, reminders, budgets ----
+    suspend fun createRule(baseUrl: String, token: String, req: RuleRequestDto) {
+        postJson<Unit>(baseUrl, token, "/api/rules", json.encodeToString(req), decode = false)
+    }
+
+    /** Mark a card bill paid by hand; the bank's alert later confirms it instead of adding a second. */
+    suspend fun markCardPaid(baseUrl: String, token: String, req: CardPaymentRequestDto): TransactionDto =
+        postJson(baseUrl, token, "/api/transactions/card-payment", json.encodeToString(req))
+
+    suspend fun undoCardPaid(baseUrl: String, token: String, transactionId: Long) =
+        send(baseUrl, token, "/api/transactions/card-payment/$transactionId", "DELETE", null)
+
+    suspend fun goals(baseUrl: String, token: String): List<GoalDto> =
+        getJson(baseUrl, token, "/api/goals", emptyMap())
+
+    suspend fun updateGoal(baseUrl: String, token: String, id: Long, goal: GoalPayloadDto) =
+        send(baseUrl, token, "/api/goals/$id", "PUT", json.encodeToString(goal))
+
+    suspend fun createReminder(baseUrl: String, token: String, req: CreateReminderDto) {
+        postJson<Unit>(baseUrl, token, "/api/reminders", json.encodeToString(req), decode = false)
+    }
+
+    suspend fun thresholds(baseUrl: String, token: String): Map<String, Double> =
+        getJson(baseUrl, token, "/api/thresholds", emptyMap())
+
+    suspend fun recurring(baseUrl: String, token: String): List<RecurringDto> =
+        getJson(baseUrl, token, "/api/recurring", emptyMap())
+
+    /** Re-read alerts the server could not, in place. Returns what each became. */
+    suspend fun retryIngest(baseUrl: String, token: String, ids: List<Long>): List<IngestResponseDto> =
+        postJson(baseUrl, token, "/api/ingest/retry", json.encodeToString(RetryRequestDto(ids)), longCall = true)
+
+    /** Whether a Jarvis gateway answers at this address — for the sign-in screen's "found" line. */
+    suspend fun reachable(baseUrl: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val req = Request.Builder().url(url(baseUrl, "/actuator/health")).get().build()
+            client.newBuilder().connectTimeout(3, TimeUnit.SECONDS).readTimeout(3, TimeUnit.SECONDS).build()
+                .newCall(req).execute().use { it.isSuccessful }
+        }.getOrDefault(false)
+    }
+
+    /** A call whose answer is not needed: PUT or DELETE, success or a typed failure. */
+    private suspend fun send(baseUrl: String, token: String, path: String, method: String, body: String?) {
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(url(baseUrl, path))
+                .header("Authorization", "Bearer $token")
+                .method(method, body?.toRequestBody(jsonMedia))
+                .build()
+            client.newCall(request).execute().use { resp ->
+                when {
+                    resp.isSuccessful -> Unit
+                    resp.code == 401 -> throw ApiException.Unauthorized
+                    else -> throw ApiException.Http(resp.code)
+                }
+            }
+        }
+    }
 
     suspend fun cards(baseUrl: String, token: String): List<CardSummaryDto> =
         getJson(baseUrl, token, "/api/analytics/cards", emptyMap())

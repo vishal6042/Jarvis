@@ -93,9 +93,9 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier, trailing: @Composa
         Text(
             text.uppercase(),
             fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.09.sp * 11,
-            color = Ink.dim,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.12.sp * 11,
+            color = Ink.muted,
             modifier = Modifier.weight(1f),
         )
         trailing?.invoke()

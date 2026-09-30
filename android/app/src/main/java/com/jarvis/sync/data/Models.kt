@@ -85,6 +85,9 @@ data class TransactionDto(
     val note: String? = null,
     val transfer: Boolean = false,
     val settlement: Boolean = false, // one side of a credit-card bill payment
+    /** Set when the merchant charged a foreign currency; [amount] is then the rupee equivalent. */
+    val originalAmount: Double? = null,
+    val originalCurrency: String? = null,
 )
 
 /** Manual entry (quick-add from the phone): mirrors expense-service CreateTransactionRequest. */
@@ -123,6 +126,11 @@ data class InvestmentDto(
     val contributionFrequency: String = "monthly",
     /** True for payslip deductions: the salary already arrives net of them. */
     val salaryDeducted: Boolean = false,
+    /** The deposit's own terms, for what it pays out and when (null where they were never entered). */
+    val rate: Double? = null,
+    val openingDate: String? = null,
+    val commencementDate: String? = null,
+    val maturityDate: String? = null,
 )
 
 /** A person in the household; the phone filters by them the way the web app does. */
@@ -138,11 +146,15 @@ data class MemberDto(
 @Serializable
 data class LoanDto(
     val id: Long,
+    val memberId: Long? = null,
     val kind: String,
     val lender: String,
+    val sanctioned: Double = 0.0,
     val outstanding: Double = 0.0,
     val emi: Double = 0.0,
     val rate: Double? = null,
+    val tenureMonths: Int? = null,
+    val startDate: String? = null,
     val endDate: String? = null,
 )
 
@@ -216,7 +228,130 @@ data class DashboardExtras(
      * on the dashboard, which would otherwise all read zero.
      */
     val earns: Boolean = true,
+    /**
+     * The ledger behind the forecast, the brief and the month view: a few months of transactions,
+     * cached so Home still draws its runway with the PC switched off.
+     */
+    val ledger: List<TransactionDto> = emptyList(),
+    val reminders: List<ReminderDto> = emptyList(),
+    val loans: List<LoanDto> = emptyList(),
+    val goals: List<GoalDto> = emptyList(),
+    /** Monthly budget per category. */
+    val budgets: Map<String, Double> = emptyMap(),
+    val recurring: List<RecurringDto> = emptyList(),
 )
+
+@Serializable
+data class GoalDto(
+    val id: Long,
+    val name: String,
+    val targetAmount: Double = 0.0,
+    val savedAmount: Double = 0.0,
+    val targetDate: String? = null,
+    val color: String? = null,
+    val notes: String? = null,
+)
+
+/** A goal as sent back on update (the server takes everything but the id). */
+@Serializable
+data class GoalPayloadDto(
+    val name: String,
+    val targetAmount: Double,
+    val savedAmount: Double,
+    val targetDate: String? = null,
+    val color: String? = null,
+    val notes: String? = null,
+)
+
+@Serializable
+data class CreateReminderDto(
+    val title: String,
+    val date: String,
+    val type: String,
+    val amount: Double? = null,
+    val notes: String? = null,
+    val repeat: String? = null,
+)
+
+/** A payment the server has seen repeat on a cadence (a subscription, an SIP, rent). */
+@Serializable
+data class RecurringDto(
+    val merchant: String? = null,
+    val category: String? = null,
+    val amount: Double = 0.0,
+    val cadence: String = "Monthly",
+    val lastPaid: String? = null,
+    val nextExpected: String? = null,
+    val occurrences: Int = 0,
+)
+
+// ---- the small AI helpers (ai-orchestrator AssistController / AiController) ----
+
+@Serializable
+data class AccountRefDto(val id: Long, val name: String)
+
+@Serializable
+data class FilterRequestDto(
+    val query: String,
+    val today: String,
+    val categories: List<String>,
+    val accounts: List<AccountRefDto>,
+)
+
+/** "food over ₹500 last week" understood as filters; every field null when the search did not ask. */
+@Serializable
+data class AiFilterDto(
+    val category: String? = null,
+    val direction: String? = null,
+    val minAmount: Double? = null,
+    val maxAmount: Double? = null,
+    val from: String? = null,
+    val to: String? = null,
+    val accountId: Long? = null,
+    val text: String? = null,
+)
+
+@Serializable
+data class EnrichRequestDto(
+    val merchants: List<String>,
+    val categories: List<String>,
+    val examples: List<String>,
+)
+
+/** The model's read of one raw merchant string: a clean name, its category, and why. */
+@Serializable
+data class EnrichedMerchantDto(
+    val raw: String? = null,
+    val merchant: String? = null,
+    val category: String? = null,
+    val confidence: Double? = null,
+    val reason: String? = null,
+)
+
+@Serializable
+data class ReceiptRequestDto(val image: String, val mimeType: String, val categories: List<String>)
+
+/** A transaction read off a payment screenshot or a receipt, for the person to confirm. */
+@Serializable
+data class ReceiptDto(
+    val amount: Double? = null,
+    val merchant: String? = null,
+    val occurredOn: String? = null,
+    val direction: String = "DEBIT",
+    val method: String? = null,
+    val reference: String? = null,
+    val category: String? = null,
+    val confidence: Double = 0.0,
+)
+
+@Serializable
+data class RuleRequestDto(val pattern: String, val category: String)
+
+@Serializable
+data class CardPaymentRequestDto(val accountId: Long, val amount: Double, val paidOn: String? = null)
+
+@Serializable
+data class RetryRequestDto(val ids: List<Long>)
 
 @Serializable
 data class UpcomingItem(
@@ -236,10 +371,70 @@ data class CategorySpendDto(
 
 // ---- Ask Jarvis ----
 @Serializable
-data class ChatRequestDto(val message: String, val context: String? = null)
+data class ChatRequestDto(val message: String, val context: String? = null, val snapshot: SnapshotDto? = null)
+
+/**
+ * The forecast the phone already worked out, sent with a question so "how much can I spend"
+ * gets the figure Home shows rather than one the model made up.
+ */
+@Serializable
+data class SnapshotDto(
+    val safeToSpend: Double,
+    val reserve: Double,
+    val savings: Double,
+    val spentThisMonth: Double,
+    val projected: Double,
+    val projectedOn: String,
+    val minBalance: Double,
+    val minOn: String,
+    val upcoming: List<SnapshotItemDto>,
+)
 
 @Serializable
-data class ChatReplyDto(val answer: String)
+data class SnapshotItemDto(val on: String, val label: String, val amount: Double, val estimate: Boolean)
+
+@Serializable
+data class ChatReplyDto(val answer: String, val visuals: List<VisualDto> = emptyList())
+
+/** The figures behind an answer, as the tools produced them, so it can be drawn rather than read. */
+@Serializable
+data class VisualDto(
+    val kind: String,
+    val title: String,
+    val subtitle: String? = null,
+    val amount: Double? = null,
+    val caption: String? = null,
+    val tone: String? = null,
+    val points: List<VisualPointDto> = emptyList(),
+)
+
+@Serializable
+data class VisualPointDto(
+    val label: String,
+    val value: Double? = null,
+    val of: Double? = null,
+    val note: String? = null,
+)
+
+// ---- saved conversations (ai-orchestrator ChatHistoryController) ----
+
+@Serializable
+data class ChatSummaryDto(val id: Long, val title: String, val updatedAt: String, val messages: Long = 0)
+
+@Serializable
+data class ChatTurnDto(
+    val id: Long,
+    val role: String,
+    val body: String,
+    val visualsJson: String? = null,
+    val at: String? = null,
+)
+
+@Serializable
+data class ChatTranscriptDto(val id: Long, val title: String, val messages: List<ChatTurnDto> = emptyList())
+
+@Serializable
+data class TurnRequestDto(val role: String, val body: String, val visualsJson: String? = null)
 
 /** One credit card's cycle, from expense-service /api/analytics/cards. */
 @Serializable

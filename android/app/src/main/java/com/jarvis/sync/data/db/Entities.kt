@@ -48,6 +48,10 @@ data class SyncLogEntry(
     val detail: String?,
     val at: Long = System.currentTimeMillis(),
     val smsId: Long? = null,
+    /** The server's raw_message id, so a message it could not read can be retried in place. */
+    val rawMessageId: Long? = null,
+    /** The transaction it became, so the Inbox can say "Innovativ → Groceries". */
+    val transactionId: Long? = null,
 )
 
 /** Inbox SMS ids already handed to the queue from the Inbox tab, so the list can show them as sent. */
@@ -55,7 +59,13 @@ data class SyncLogEntry(
 data class ImportedSms(@PrimaryKey val smsId: Long)
 
 /** Projection: the server verdict for an inbox SMS (joins the Inbox list to sync_log). */
-data class SmsVerdict(val smsId: Long, val status: String, val detail: String? = null)
+data class SmsVerdict(
+    val smsId: Long,
+    val status: String,
+    val detail: String? = null,
+    val rawMessageId: Long? = null,
+    val transactionId: Long? = null,
+)
 
 /** Last successfully fetched dashboard numbers, so the dashboard renders offline. Always row id = 1. */
 @Entity(tableName = "dashboard_cache")

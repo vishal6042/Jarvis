@@ -95,6 +95,35 @@ public class IngestionService {
         return process(msg, forwarder).response();
     }
 
+    /** At most this many alerts per retry, so one request cannot hold the model for an hour. */
+    private static final int MAX_RETRY = 100;
+
+    /**
+     * Run failed alerts through the pipeline again, in place. Only FAILED rows are touched: an
+     * alert that was stored, ignored or counted as a duplicate already has its answer.
+     *
+     * @param ids raw message ids to retry; empty retries every failed alert (the controller only
+     *     lets the administrator ask for that)
+     */
+    public List<IngestResponse> retryFailed(List<Long> ids) {
+        Long forwarder = CallerContext.restrictedTo();
+        List<RawMessage> msgs = ids.isEmpty()
+            ? rawMessages.findByStatusOrderByIdAsc(ParseStatus.FAILED)
+            : rawMessages.findAllById(ids).stream()
+                .filter(m -> m.getStatus() == ParseStatus.FAILED)
+                .toList();
+        List<IngestResponse> out = new java.util.ArrayList<>();
+        for (RawMessage msg : msgs.stream().limit(MAX_RETRY).toList()) {
+            msg.setError(null);
+            msg.setStatus(ParseStatus.PENDING);
+            rawMessages.save(msg);
+            out.add(process(msg, forwarder).response());
+        }
+        log.info("Retry: {} failed alert(s) re-read, {} now stored",
+            out.size(), out.stream().filter(r -> r.status() == ParseStatus.PARSED).count());
+        return out;
+    }
+
     /** The pipeline result plus the account it landed on (null when unmatched) — for the relink pass. */
     private record Outcome(IngestResponse response, Long accountId) {}
 

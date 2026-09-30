@@ -26,6 +26,8 @@ import com.jarvis.sync.data.db.PendingMessage
 import com.jarvis.sync.data.db.SessionEntity
 import com.jarvis.sync.data.db.SyncLogEntry
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -42,6 +44,12 @@ import kotlin.math.roundToInt
  */
 /** Re-score at most daily even when the finance-score inputs are unchanged. */
 private const val SCORE_TTL_MS = 24L * 60 * 60 * 1000
+
+/**
+ * Transactions cached for the forecast and the month views. The salary estimate needs three
+ * complete months; at a hundred-odd rows a month this covers four to five.
+ */
+private const val LEDGER_SIZE = 700
 
 class SyncRepository private constructor(context: Context) {
 
@@ -68,6 +76,8 @@ class SyncRepository private constructor(context: Context) {
     fun smsVerdicts(): Flow<List<SmsVerdict>> = logDao.verdicts()
 
     suspend fun session(): SessionEntity? = sessionDao.get()
+
+    suspend fun dashboardNow(): DashboardCache? = dashboardDao.get()
 
     fun parseExtras(cache: DashboardCache): DashboardExtras? =
         cache.extrasJson?.let { runCatching { json.decodeFromString<DashboardExtras>(it) }.getOrNull() }
@@ -102,6 +112,7 @@ class SyncRepository private constructor(context: Context) {
         logDao.clear()
         credentials.clear()
         importedDao.clear()
+        ReviewStore(appContext).clear()
         // Pending queue is intentionally cleared on logout too (no session to deliver under).
         pendingDao.all().forEach { pendingDao.delete(it.id) }
     }
@@ -120,6 +131,10 @@ class SyncRepository private constructor(context: Context) {
 
     // ---- SMS queue ----
     suspend fun enqueue(payload: String, sender: String?, receivedAt: Long) {
+        // The same broadcast can arrive twice (a retransmitted multipart, a second receiver pass);
+        // one queued copy is enough.
+        val window = 2 * 60 * 1000L
+        if (pendingDao.countSimilar(payload, receivedAt - window, receivedAt + window) > 0) return
         pendingDao.insert(PendingMessage(payload = payload, sender = sender, receivedAt = receivedAt))
     }
 
@@ -131,11 +146,24 @@ class SyncRepository private constructor(context: Context) {
     /** Queue inbox messages for delivery (oldest first) and mark them imported. Returns how many were queued. */
     suspend fun syncInbox(messages: List<InboxSms>): Int = withContext(Dispatchers.IO) {
         if (messages.isEmpty()) return@withContext 0
+        // A message captured live and still waiting to go has no inbox id yet, so the Inbox cannot
+        // see that it is already queued -- and tapping Sync used to queue a second copy of it.
+        // Match those to their inbox rows first, and leave them out of this batch.
+        val live = pendingDao.unresolved()
+        val alreadyLive = mutableSetOf<Long>()
+        for (p in live) {
+            val id = runCatching { SmsInboxScanner.findId(appContext, p.sender, p.payload, p.receivedAt) }.getOrNull()
+                ?: messages.firstOrNull { it.body == p.payload && kotlin.math.abs(it.receivedAt - p.receivedAt) < 5 * 60 * 1000L }?.id
+                ?: continue
+            pendingDao.update(p.copy(smsId = id))
+            alreadyLive += id
+        }
         db.withTransaction {
             // Filter against the DB inside the transaction (not the UI's cached set) so two quick
             // taps, or a tap before the observed set has refreshed, can't queue a message twice.
             val done = messages.map { it.id }.chunked(500).flatMap { importedDao.existing(it) }.toHashSet()
-            val fresh = messages.filter { it.id !in done }.sortedBy { it.receivedAt }
+            val queued = pendingDao.all().mapNotNull { it.smsId }.toHashSet()
+            val fresh = messages.filter { it.id !in done && it.id !in queued && it.id !in alreadyLive }.sortedBy { it.receivedAt }
             for (m in fresh) {
                 pendingDao.insert(
                     PendingMessage(payload = m.body, sender = m.sender, receivedAt = m.receivedAt, smsId = m.id)
@@ -153,7 +181,17 @@ class SyncRepository private constructor(context: Context) {
      * non-retryable 4xx (bad payload — logged FAILED so it can't loop forever); it is kept on
      * network errors, 5xx, and unrecoverable 401s.
      */
-    suspend fun flush(): Boolean {
+    suspend fun flush(): Boolean = flushLock.withLock { flushLocked() }
+
+    /**
+     * One flush at a time. The one-off and the periodic jobs are separate unique works, so both
+     * could run at once, read the same queue and send every message twice -- the pairs of
+     * raw_message rows with the same created_at. The server's duplicate check is check-then-insert,
+     * so two copies arriving together could both be counted (the NPS contribution applied twice).
+     */
+    private val flushLock = Mutex()
+
+    private suspend fun flushLocked(): Boolean {
         var session = sessionDao.get() ?: return true // not logged in → nothing to do
         val queue = pendingDao.all()
         var allDelivered = true
@@ -183,7 +221,7 @@ class SyncRepository private constructor(context: Context) {
                     session = refreshed
                     api.ingest(session.baseUrl, session.token, req) // one retry; may throw again
                 }
-                logDelivered(msg, res.status, res.detail)
+                logDelivered(msg, res.status, res.detail, res.rawMessageId, res.transactionId)
                 pendingDao.delete(msg.id)
             } catch (e: ApiException.Unauthorized) {
                 keep(msg, "auth"); allDelivered = false
@@ -211,14 +249,24 @@ class SyncRepository private constructor(context: Context) {
     }
 
     private suspend fun keep(msg: PendingMessage, error: String) {
-        pendingDao.update(msg.copy(attempts = msg.attempts + 1, lastError = error))
+        // Re-read the row: the Inbox may have matched it to its inbox id while this flush ran,
+        // and writing back the copy read at the start would undo that.
+        val current = pendingDao.byId(msg.id) ?: return
+        pendingDao.update(current.copy(attempts = current.attempts + 1, lastError = error, smsId = current.smsId ?: msg.smsId))
     }
 
-    private suspend fun logDelivered(msg: PendingMessage, status: String, detail: String?) {
+    private suspend fun logDelivered(
+        msg: PendingMessage,
+        status: String,
+        detail: String?,
+        rawMessageId: Long? = null,
+        transactionId: Long? = null,
+    ) {
         DeviceInfo.bumpForwarded(appContext)
         logDao.insert(
             SyncLogEntry(
                 snippet = msg.payload.take(140), sender = msg.sender, status = status, detail = detail, smsId = msg.smsId,
+                rawMessageId = rawMessageId, transactionId = transactionId,
             )
         )
         // The server has this message now, whatever it made of it. Recording the inbox id is what
@@ -284,12 +332,86 @@ class SyncRepository private constructor(context: Context) {
     suspend fun createManualTransaction(req: CreateTransactionDto): TransactionDto =
         authed { s -> api.createTransaction(s.baseUrl, s.token, req) }
 
-    suspend fun ask(message: String, context: String?): String = authed { s -> api.chat(s.baseUrl, s.token, message, context) }
+    suspend fun ask(message: String, context: String?, snapshot: SnapshotDto?): ChatReplyDto =
+        authed { s -> api.chat(s.baseUrl, s.token, ChatRequestDto(message, context, snapshot)) }
 
-    suspend fun transactions(size: Int = 300): List<TransactionDto> = authed { s -> api.transactions(s.baseUrl, s.token, size) }
+    suspend fun chats(): List<ChatSummaryDto> = authed { s -> api.chats(s.baseUrl, s.token) }
+    suspend fun startChat(): ChatSummaryDto = authed { s -> api.startChat(s.baseUrl, s.token) }
+    suspend fun chatTranscript(id: Long): ChatTranscriptDto = authed { s -> api.chatTranscript(s.baseUrl, s.token, id) }
+    suspend fun appendTurn(id: Long, role: String, body: String, visuals: List<VisualDto>) = authed { s ->
+        api.appendTurn(
+            s.baseUrl, s.token, id,
+            TurnRequestDto(role, body, if (visuals.isEmpty()) null else json.encodeToString(visuals)),
+        )
+    }
+
+    fun parseVisuals(raw: String?): List<VisualDto> =
+        raw?.let { runCatching { json.decodeFromString<List<VisualDto>>(it) }.getOrNull() } ?: emptyList()
+
+    suspend fun aiFilter(req: FilterRequestDto): AiFilterDto = authed { s -> api.aiFilter(s.baseUrl, s.token, req) }
+    suspend fun aiMerchants(req: EnrichRequestDto): List<EnrichedMerchantDto> = authed { s -> api.aiMerchants(s.baseUrl, s.token, req) }
+    suspend fun aiReceipt(req: ReceiptRequestDto): ReceiptDto = authed { s -> api.aiReceipt(s.baseUrl, s.token, req) }
+    suspend fun createRule(pattern: String, category: String) = authed { s -> api.createRule(s.baseUrl, s.token, RuleRequestDto(pattern, category)) }
+    suspend fun markCardPaid(accountId: Long, amount: Double): TransactionDto = authed { s ->
+        api.markCardPaid(s.baseUrl, s.token, CardPaymentRequestDto(accountId, amount, LocalDate.now().toString()))
+    }
+    suspend fun undoCardPaid(transactionId: Long) = authed { s -> api.undoCardPaid(s.baseUrl, s.token, transactionId) }
+    suspend fun updateGoal(id: Long, goal: GoalPayloadDto) = authed { s -> api.updateGoal(s.baseUrl, s.token, id, goal) }
+    suspend fun createReminder(req: CreateReminderDto) = authed { s -> api.createReminder(s.baseUrl, s.token, req) }
+    suspend fun reachable(baseUrl: String): Boolean = api.reachable(baseUrl.trim().trimEnd('/'))
+
+    /**
+     * Read again the bank SMS the server could not. Messages it gave an id for are retried in
+     * place; older ones, sent before the phone kept those ids, are sent again (the server only
+     * skips a repeat that already counted, so a failed one goes through). Returns how many came
+     * back readable.
+     */
+    suspend fun retryFailed(smsIds: Collection<Long>, inbox: List<InboxSms>): Int = withContext(Dispatchers.IO) {
+        var fixed = 0
+        val byId = mutableListOf<Long>()
+        val resend = mutableListOf<InboxSms>()
+        for (smsId in smsIds) {
+            val last = logDao.forSms(smsId).lastOrNull { it.status != "DUPLICATE" }
+            val raw = last?.rawMessageId
+            if (raw != null) byId += raw else inbox.firstOrNull { it.id == smsId }?.let { resend += it }
+        }
+        if (byId.isNotEmpty()) {
+            val results = authed { s -> api.retryIngest(s.baseUrl, s.token, byId) }
+            for (r in results) {
+                val id = r.rawMessageId ?: continue
+                logDao.settle(id, r.status, r.detail, r.transactionId, System.currentTimeMillis())
+                if (r.status == "PARSED" || r.status == "INVESTMENT") fixed++
+            }
+        }
+        if (resend.isNotEmpty()) {
+            for (m in resend.sortedBy { it.receivedAt }) {
+                pendingDao.insert(PendingMessage(payload = m.body, sender = m.sender, receivedAt = m.receivedAt, smsId = m.id))
+            }
+            flush()
+        }
+        fixed
+    }
+
+    suspend fun transactions(size: Int = LEDGER_SIZE): List<TransactionDto> = authed { s -> api.transactions(s.baseUrl, s.token, size) }
 
     suspend fun setCategory(id: Long, category: String): TransactionDto =
         authed { s -> api.setCategory(s.baseUrl, s.token, id, category) }
+
+    /**
+     * Put edited rows straight into the cached ledger, so a category change shows at once instead
+     * of after the next full refresh.
+     */
+    suspend fun replaceInLedger(saved: List<TransactionDto>) {
+        if (saved.isEmpty()) return
+        val cache = dashboardDao.get() ?: return
+        val x = parseExtras(cache) ?: return
+        val byId = saved.associateBy { it.id }
+        val next = x.copy(
+            ledger = x.ledger.map { byId[it.id] ?: it },
+            recent = x.recent.map { byId[it.id] ?: it },
+        )
+        dashboardDao.upsert(cache.copy(extrasJson = json.encodeToString(next)))
+    }
 
     suspend fun markReminderPaid(reminderId: Long, occurredOn: String, amount: Double?): ReminderPaymentDto =
         authed { s ->
@@ -333,6 +455,14 @@ class SyncRepository private constructor(context: Context) {
         val cards = runCatching { api.cards(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val members = runCatching { api.members(session.baseUrl, session.token) }.getOrDefault(emptyList())
         val paid = runCatching { api.reminderPayments(session.baseUrl, session.token) }.getOrDefault(emptyList())
+        // Keep the previous copy of a section that failed to load rather than blanking it: a slow
+        // service should not wipe Wealth or the forecast until the next refresh.
+        val before = dashboardDao.get()?.let { parseExtras(it) }
+        val ledger = runCatching { api.transactions(session.baseUrl, session.token, LEDGER_SIZE) }
+            .getOrElse { before?.ledger ?: emptyList() }
+        val goals = runCatching { api.goals(session.baseUrl, session.token) }.getOrElse { before?.goals ?: emptyList() }
+        val budgets = runCatching { api.thresholds(session.baseUrl, session.token) }.getOrElse { before?.budgets ?: emptyMap() }
+        val recurring = runCatching { api.recurring(session.baseUrl, session.token) }.getOrElse { before?.recurring ?: emptyList() }
         // Keep a previously computed score while its inputs are unchanged (the AI call is slow).
         val previous = dashboardDao.get()?.let { parseExtras(it) }
         // A member with no income of their own is scored on what they do control. Unknown member, or
@@ -374,6 +504,12 @@ class SyncRepository private constructor(context: Context) {
             members = members,
             paidOccurrences = paidKeys,
             earns = earns,
+            ledger = ledger,
+            reminders = reminders,
+            loans = loans,
+            goals = goals,
+            budgets = budgets,
+            recurring = recurring,
         )
 
         val cache = DashboardCache(

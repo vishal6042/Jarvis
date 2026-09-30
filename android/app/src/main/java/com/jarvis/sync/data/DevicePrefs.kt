@@ -33,9 +33,29 @@ class DevicePrefs(context: Context) {
             prefs.edit().putBoolean(KEY_LOCK, value).apply()
         }
 
+    /**
+     * The cushion the forecast keeps below: the runway line, "safe to spend" and the brief's
+     * warning all measure against it. The web app's default is five lakh.
+     */
+    var reserve: Double
+        get() = prefs.getFloat(KEY_RESERVE, DEFAULT_RESERVE).toDouble()
+        set(value) {
+            prefs.edit().putFloat(KEY_RESERVE, value.toFloat()).apply()
+        }
+
+    /** A notification at 8 am with the day's money. Off until turned on. */
+    var morningBrief: Boolean
+        get() = prefs.getBoolean(KEY_BRIEF, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BRIEF, value).apply()
+        }
+
     private companion object {
         const val KEY_BASE_URL = "baseUrl"
         const val KEY_LOCK = "biometricLock"
+        const val KEY_RESERVE = "reserve"
+        const val KEY_BRIEF = "morningBrief"
         const val DEFAULT_BASE_URL = "http://"
+        const val DEFAULT_RESERVE = 500_000f
     }
 }

@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SessionEntity::class, PendingMessage::class, SyncLogEntry::class, DashboardCache::class, ImportedSms::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,6 +20,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun importedSmsDao(): ImportedSmsDao
 
     companion object {
+        /** v5: the log keeps the server's ids, for retrying a message in place and naming what it became. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sync_log ADD COLUMN rawMessageId INTEGER")
+                db.execSQL("ALTER TABLE sync_log ADD COLUMN transactionId INTEGER")
+            }
+        }
+
         /** v4: the session remembers whether it is the administrator, and whose money it sees. */
         private val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -53,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "jarvis-sync.db",
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).fallbackToDestructiveMigration().build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

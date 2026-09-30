@@ -45,6 +45,16 @@ interface PendingDao {
     @Query("SELECT smsId FROM pending_message WHERE smsId IS NOT NULL")
     fun queuedSmsIds(): Flow<List<Long>>
 
+    /** Live-captured messages not yet matched to their inbox row. */
+    @Query("SELECT * FROM pending_message WHERE smsId IS NULL")
+    suspend fun unresolved(): List<PendingMessage>
+
+    @Query("SELECT COUNT(*) FROM pending_message WHERE payload = :payload AND receivedAt BETWEEN :from AND :to")
+    suspend fun countSimilar(payload: String, from: Long, to: Long): Int
+
+    @Query("SELECT * FROM pending_message WHERE id = :id")
+    suspend fun byId(id: Long): PendingMessage?
+
     @Update
     suspend fun update(msg: PendingMessage)
 
@@ -60,11 +70,19 @@ interface SyncLogDao {
     @Query("SELECT * FROM sync_log ORDER BY at DESC LIMIT 200")
     fun recent(): Flow<List<SyncLogEntry>>
 
-    @Query("SELECT smsId, status, detail FROM sync_log WHERE smsId IS NOT NULL")
+    /** Oldest first, so where a message was answered more than once the latest answer comes last. */
+    @Query("SELECT smsId, status, detail, rawMessageId, transactionId FROM sync_log WHERE smsId IS NOT NULL ORDER BY at ASC, id ASC")
     fun verdicts(): Flow<List<SmsVerdict>>
 
-    // Keep the log bounded — delete everything older than the newest 200 rows.
-    @Query("DELETE FROM sync_log WHERE id NOT IN (SELECT id FROM sync_log ORDER BY at DESC LIMIT 200)")
+    @Query("SELECT * FROM sync_log WHERE smsId = :smsId ORDER BY at ASC, id ASC")
+    suspend fun forSms(smsId: Long): List<SyncLogEntry>
+
+    @Query("UPDATE sync_log SET status = :status, detail = :detail, transactionId = :transactionId, at = :at WHERE rawMessageId = :rawMessageId")
+    suspend fun settle(rawMessageId: Long, status: String, detail: String?, transactionId: Long?, at: Long)
+
+    // Keep the log bounded — delete everything older than the newest 1,000 rows. It was 200, which
+    // is less than one busy month of bank SMS, so the Inbox forgot what became of older messages.
+    @Query("DELETE FROM sync_log WHERE id NOT IN (SELECT id FROM sync_log ORDER BY at DESC LIMIT 1000)")
     suspend fun trim()
 
     @Query("DELETE FROM sync_log")
