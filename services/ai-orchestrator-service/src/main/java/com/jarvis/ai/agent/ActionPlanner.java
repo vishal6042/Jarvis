@@ -33,7 +33,7 @@ public class ActionPlanner {
           amount: number (rupees; "25k" = 25000, "1.5L" = 150000)
           direction: "DEBIT" (money spent) or "CREDIT" (money received) — add_transaction only
           merchant: string — add_transaction / categorise_merchant
-          category: string — one of Food, Shopping, Transport, Bills & Utilities, Entertainment, Health, Travel, Education, Groceries, Rent, Investments, Loan EMI, Miscellaneous, or the user's word
+          category: string — one of Food, Shopping, Transport, Bills & Utilities, Entertainment, Health, Personal care, Travel, Education, Groceries, Rent, Investments, Loan EMI, Miscellaneous, or the user's word
           date: "yyyy-MM-dd" — the transaction date or the reminder's (first) due date; resolve relative dates against today
           title: string — reminder title or goal name
           reminderType: "RENT", "BILL", "EMI", "INVESTMENT", "SIP" or "OTHER"

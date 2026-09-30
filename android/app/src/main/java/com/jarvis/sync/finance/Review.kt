@@ -14,7 +14,7 @@ import java.time.YearMonth
 /** Categories offered on the phone; the ledger's own are folded in where they are used. */
 val CATEGORIES = listOf(
     "Food", "Groceries", "Shopping", "Transport", "Bills & Utilities", "Entertainment",
-    "Health", "Travel", "Education", "Rent", "Family support", "Investments", "Loan EMI",
+    "Health", "Personal care", "Travel", "Education", "Rent", "Family support", "Investments", "Loan EMI",
     "Card Payment", "Transfers", "Income", "Miscellaneous",
 )
 

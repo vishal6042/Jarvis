@@ -44,6 +44,7 @@ const CATEGORY_OPTIONS = [
   "Transport",
   "Entertainment",
   "Health",
+  "Personal care",
   "Transfers",
   "Card Payment",
   "Income",

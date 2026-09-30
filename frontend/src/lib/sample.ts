@@ -85,6 +85,7 @@ export const CATEGORIES = [
   "Transport",
   "Entertainment",
   "Health",
+  "Personal care",
   "Miscellaneous",
 ];
 
@@ -111,6 +112,7 @@ const MERCHANTS: Record<string, string[]> = {
   Transport: ["Uber", "Ola", "IndianOil", "Metro", "Rapido"],
   Entertainment: ["BookMyShow", "Netflix", "Spotify", "PVR", "Steam"],
   Health: ["Apollo Pharmacy", "PharmEasy", "Cult.fit", "1mg"],
+  "Personal care": ["Naturals Salon", "Lakme Salon", "Toni & Guy", "Urban Company"],
   Miscellaneous: ["ATM Cash", "UPI Transfer", "Donation", "Stationery", "Misc"],
 };
 

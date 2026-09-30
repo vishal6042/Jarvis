@@ -121,7 +121,7 @@ public class AiController {
 
     private static final List<String> DEFAULT_CATEGORIES = List.of(
         "Food", "Groceries", "Shopping", "Transport", "Bills & Utilities", "Entertainment",
-        "Health", "Travel", "Education", "Rent", "Investments", "Loan EMI", "Card Payment",
+        "Health", "Personal care", "Travel", "Education", "Rent", "Investments", "Loan EMI", "Card Payment",
         "Transfers", "Income", "Miscellaneous");
 
     public record EnrichRequest(List<String> merchants, List<String> categories, List<String> examples) {}

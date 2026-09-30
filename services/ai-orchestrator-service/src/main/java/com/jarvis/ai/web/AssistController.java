@@ -28,7 +28,7 @@ public class AssistController {
     private static final int MAX_IMAGE_BYTES = 8 * 1024 * 1024;
     private static final List<String> DEFAULT_CATEGORIES = List.of(
         "Food", "Groceries", "Shopping", "Transport", "Bills & Utilities", "Entertainment",
-        "Health", "Travel", "Education", "Rent", "Family support", "Loan EMI", "Transfers", "Income", "Miscellaneous");
+        "Health", "Personal care", "Travel", "Education", "Rent", "Family support", "Loan EMI", "Transfers", "Income", "Miscellaneous");
 
     private final FilterAgent filters;
     private final ReceiptAgent receipts;

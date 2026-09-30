@@ -27,6 +27,7 @@ For each transaction:
 - bank: same as the statement bank, else null.
 - occurredOn: the date as yyyy-MM-dd, else null.
 - category: the single best fit from this list ONLY: {categories}. If unsure, "Uncategorized".
+  Salons, barbers, haircuts, facials, spas and beauty parlours are "Personal care".
 
 Worked example — given these CSV rows (Date, Sr.No., Details, Reward, Intl, Amount, Sign):
   "02/06/2026","13526036732","INFINITY PAYMENT RECEIVED THANK YOU","0","0","48219.26","CR"

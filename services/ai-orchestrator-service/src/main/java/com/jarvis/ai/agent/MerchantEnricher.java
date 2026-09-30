@@ -36,6 +36,7 @@ public class MerchantEnricher {
         - Use title case and the brand's usual spelling. Keep it short: the brand, not the branch or the city.
         - A person's name stays a person's name; category "Transfers".
         - Salary or interest credits: category "Income".
+        - Salons, barbers, spas and beauty parlours: category "Personal care" when it is allowed.
         - Choose a category from the allowed list. If nothing fits, use "Miscellaneous".
         - confidence is how sure you are of BOTH fields: below 0.6 when the string is too cryptic to read.
         - Never invent a brand you cannot see in the string. When unreadable, copy the input as the merchant
