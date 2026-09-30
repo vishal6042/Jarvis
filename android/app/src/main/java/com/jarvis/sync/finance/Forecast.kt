@@ -125,15 +125,22 @@ data class Statement(
     val lastStatementOn: LocalDate? get() = nextStatementOn?.minusMonths(1)
 }
 
+/**
+ * A card's name without the "•••• 4008" its saved name carries: the last four are shown on their
+ * own line where they matter, and in a sentence ("… bill · due 5 Oct") they only crowd it.
+ */
+fun cardName(displayName: String): String =
+    displayName.substringBefore("••").trim().ifEmpty { displayName.trim() }
+
 /** Cards grouped into the statements they are billed on, in the order the cards come. */
 fun statementsOf(cards: List<CardSummaryDto>): List<Statement> {
     val seen = mutableSetOf<String>()
     return cards.mapNotNull { c ->
         val group = c.billingGroup
-        if (group == null) return@mapNotNull Statement(c, listOf(c), c.displayName)
+        if (group == null) return@mapNotNull Statement(c, listOf(c), cardName(c.displayName))
         if (!seen.add(group)) return@mapNotNull null
         val members = cards.filter { it.billingGroup == group }
-        if (members.size < 2) return@mapNotNull Statement(c, members, c.displayName)
+        if (members.size < 2) return@mapNotNull Statement(c, members, cardName(c.displayName))
         Statement(
             summary = c.copy(unbilled = members.sumOf { it.unbilled }),
             members = members,

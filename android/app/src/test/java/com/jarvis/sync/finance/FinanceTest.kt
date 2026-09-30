@@ -111,10 +111,11 @@ class FinanceTest {
     fun cards_on_one_statement_are_one_bill_with_their_unbilled_summed() {
         val a = CardSummaryDto(accountId = 3, displayName = "Amex", bank = "ICICI", billingGroup = "icici", billDue = 49_675.0, unbilled = 1_486.0)
         val b = CardSummaryDto(accountId = 4, displayName = "MC", bank = "ICICI", billingGroup = "icici", billDue = 49_675.0, unbilled = 16_090.0)
-        val c = CardSummaryDto(accountId = 5, displayName = "Amazon Pay ICICI", billDue = 191_607.0)
+        val c = CardSummaryDto(accountId = 5, displayName = "Amazon Pay ICICI •••• 4008", billDue = 191_607.0)
         val s = statementsOf(listOf(a, b, c))
         assertEquals(2, s.size)
         assertEquals("ICICI · one statement", s[0].name)
+        assertEquals("the last four stay off the name", "Amazon Pay ICICI", s[1].name)
         assertEquals(17_576.0, s[0].summary.unbilled, 0.0)
         assertEquals(listOf(3L, 4L), s[0].accountIds)
     }
