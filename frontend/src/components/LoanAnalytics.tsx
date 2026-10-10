@@ -37,7 +37,9 @@ export default function LoanAnalytics({ loan }: { loan: Loan }) {
         <CardHeader>
           <CardTitle>{loan.lender} · payoff plan</CardTitle>
           <CardDescription>
-            The EMI ({formatINR(loan.emi)}) does not cover the monthly interest on {formatINR(loan.outstanding)} at {loan.rate}%. Check the loan details.
+            {loan.emi <= 0
+              ? `No EMI is running on this loan. ${formatINR(loan.outstanding)} is left to pay to close it.`
+              : `The EMI (${formatINR(loan.emi)}) does not cover the monthly interest on ${formatINR(loan.outstanding)} at ${loan.rate}%. Check the loan details.`}
           </CardDescription>
         </CardHeader>
       </Card>
