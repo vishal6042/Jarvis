@@ -52,7 +52,8 @@ public final class AlertHints {
     private static final Pattern PAYMENT_REF = Pattern.compile(
         "(?i)\\b(?:UPI|IMPS|NEFT|RTGS)(?:\\s*Ref(?:erence)?)?(?:\\s*No\\.?)?\\s*[:#-]?\\s*(\\d{9,})\\b");
 
-    private static final Pattern REVERSAL = Pattern.compile("(?i)\\brevers(?:al|ed)\\b");
+    /** Cards word it differently: "UPI-627708059757-Rentomoj refund of Rs 504.00 credited to ... Card XX3007". */
+    private static final Pattern REVERSAL = Pattern.compile("(?i)\\b(?:revers(?:al|ed)|refund(?:ed)?)\\b");
 
     /** The UPI / IMPS / NEFT reference quoted in the text, or null. */
     public static String paymentRef(String text) {

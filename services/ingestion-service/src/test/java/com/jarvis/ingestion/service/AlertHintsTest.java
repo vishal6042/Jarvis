@@ -70,6 +70,14 @@ class AlertHintsTest {
         assertNull(AlertHints.paymentRef("INR 2,072.00 spent using ICICI Bank Card XX4008 on 01-Sep-26 on AMAZON PAY IN G."));
         assertTrue(AlertHints.isReversal("credited with Rs 1119.69 as reversal of transaction with UPI: 664507457069."));
         assertFalse(AlertHints.isReversal("ICICI Bank Acct XX380 debited for Rs 1119.69; Mr PRANAV PRASA credited."));
+
+        // A failed autopay on a card: the debit and its refund quote the same reference.
+        String cardDebit = "ICICI Bank Credit Card XX3007 debited for INR 504.00 on 04-Oct-26 for UPI-627708059757-Rentomoj.";
+        String cardRefund = "UPI-627708059757-Rentomoj refund of Rs 504.00 credited to ICICI Bank Credit Card XX3007 on 04-OCT-26.";
+        assertEquals("627708059757", AlertHints.paymentRef(cardDebit));
+        assertEquals("627708059757", AlertHints.paymentRef(cardRefund));
+        assertFalse(AlertHints.isReversal(cardDebit));
+        assertTrue(AlertHints.isReversal(cardRefund));
     }
 
     @Test
