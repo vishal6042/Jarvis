@@ -304,6 +304,14 @@ public class IngestionService {
                 }
             }
 
+            // An IMPS to someone's account names only the account ("& Acct XX832 credited"), so the
+            // parser has no payee to give. The account is the payee: named this way, a merchant
+            // alias can call it "Rent" every month instead of leaving the row blank.
+            String counterparty = AlertHints.counterpartyLast4(msg.getPayload(), last4);
+            if ((merchant == null || merchant.isBlank()) && counterparty != null) {
+                merchant = "Acct XX" + counterparty;
+            }
+
             var createReq = new ExpenseClient.CreateTransactionRequest(
                 forwarder,
                 null, // SMS path matches the account by last-4, not an explicit id
@@ -320,7 +328,7 @@ public class IngestionService {
                 balanceAfter,
                 // The account on the other side, when the alert named it. expense-service decides
                 // whether it is one of the household's own — it owns the account list.
-                AlertHints.counterpartyLast4(msg.getPayload(), last4),
+                counterparty,
                 // Lets expense-service tell two same-amount payments to one payee apart.
                 reference);
             ExpenseClient.CreateResult result = expense.create(createReq);

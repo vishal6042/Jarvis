@@ -135,7 +135,11 @@ class IngestionServiceLoanEmiTest {
                 + " IMPS:624917380061. Call 18002662 for dispute or SMS BLOCK 380 to 9215676766",
             null, "Transfers", "70000.00", "380", "2026-09-06");
 
-        assertEquals("971", sent(1).get(0).counterpartyLast4(),
+        var req = sent(1).get(0);
+        assertEquals("971", req.counterpartyLast4(),
             "expense-service decides whether XX971 is one of the household's own");
+        // No payee name in the alert: the credited account stands in, so an alias can name it
+        // (the monthly rent goes out as "& Acct XX832 credited").
+        assertEquals("Acct XX971", req.merchant());
     }
 }
