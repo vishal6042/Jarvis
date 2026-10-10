@@ -54,6 +54,25 @@ class AlertHintsTest {
     }
 
     @Test
+    void aBillersOwnReceiptIsRejected() {
+        assertTrue(AlertHints.isNotATransaction(
+            "This is a confirmation for receipt of Rs.1414.82 towards ACT Fibernet A/c No 102013446616."));
+    }
+
+    @Test
+    void paymentReferenceIsReadFromEachBanksWording() {
+        assertEquals("627465992673", AlertHints.paymentRef(
+            "ICICI Bank Acct XX380 debited for Rs 1417.72 on 01-Oct-26; Google India Di credited. UPI:627465992673."));
+        assertEquals("664507457069", AlertHints.paymentRef(
+            "credited with Rs 1119.69 on 06-Oct-26 as reversal of transaction with UPI: 664507457069."));
+        assertEquals("628100238184", AlertHints.paymentRef(
+            "is credited by Rs.500000.00 on 08-10-26 by a/c linked to mobile 9XXXXXX900-VISHAL BHA (IMPS Ref# 628100238184)-SBI"));
+        assertNull(AlertHints.paymentRef("INR 2,072.00 spent using ICICI Bank Card XX4008 on 01-Sep-26 on AMAZON PAY IN G."));
+        assertTrue(AlertHints.isReversal("credited with Rs 1119.69 as reversal of transaction with UPI: 664507457069."));
+        assertFalse(AlertHints.isReversal("ICICI Bank Acct XX380 debited for Rs 1119.69; Mr PRANAV PRASA credited."));
+    }
+
+    @Test
     void balanceIsReadFromTextWhenModelGivesNone() {
         assertEquals(new java.math.BigDecimal("90000.00"), AlertHints.balanceHint(null,
             "Account  No. XXXXXXXX1507 CREDIT with amount Rs. 5000.00 on 27-08-2026. Balance: Rs.90000.00. [IN2792298]"));

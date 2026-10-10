@@ -36,4 +36,6 @@ public record InternalTransactionRequest(
      * ... & Acct XX971 credited"). Resolved here, against the household's accounts: money landing
      * in one of them is a transfer, not spending, and saying so needs only this one alert.
      */
-    String counterpartyLast4) {}
+    String counterpartyLast4,
+    /** The bank's reference for this payment (UPI / IMPS number), when the alert quoted one. */
+    String reference) {}

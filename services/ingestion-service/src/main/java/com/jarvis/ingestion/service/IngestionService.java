@@ -215,6 +215,40 @@ public class IngestionService {
                     finish(msg, ParseStatus.IGNORED, null, "Not a bank transaction alert (wallet / statement / notice)."),
                     null);
             }
+
+            // A payment that failed is alerted twice — the debit, then a credit "as reversal of
+            // transaction with UPI: <ref>" — and the two can arrive in either order. Neither is
+            // real: the debit was not spent and the credit is not income. Whichever comes second
+            // finds the other by the reference they share.
+            String reference = AlertHints.paymentRef(msg.getPayload());
+            if (reference != null) {
+                List<RawMessage> sameRef = rawMessages.findByPayloadContaining(reference).stream()
+                    .filter(m -> !java.util.Objects.equals(m.getId(), msg.getId()))
+                    .filter(m -> reference.equals(AlertHints.paymentRef(m.getPayload())))
+                    .toList();
+                if (AlertHints.isReversal(msg.getPayload())) {
+                    for (RawMessage debit : sameRef) {
+                        if (debit.getStatus() == ParseStatus.PARSED && debit.getTransactionRef() != null
+                            && !AlertHints.isReversal(debit.getPayload())) {
+                            expense.delete(debit.getTransactionRef());
+                            debit.setTransactionRef(null);
+                            debit.setStatus(ParseStatus.IGNORED);
+                            rawMessages.save(debit);
+                        }
+                    }
+                    return new Outcome(
+                        finish(msg, ParseStatus.IGNORED, null,
+                            "Reversal of failed payment " + reference + " — the debit it undoes is not counted."),
+                        null);
+                }
+                if (sameRef.stream().anyMatch(m -> AlertHints.isReversal(m.getPayload()))) {
+                    return new Outcome(
+                        finish(msg, ParseStatus.IGNORED, null,
+                            "Payment " + reference + " failed and was reversed — not counted."),
+                        null);
+                }
+            }
+
             AiClient.ParsedTransaction parsed = ai.parse(msg.getPayload());
 
             if (parsed == null || !parsed.isTransaction()) {
@@ -286,7 +320,9 @@ public class IngestionService {
                 balanceAfter,
                 // The account on the other side, when the alert named it. expense-service decides
                 // whether it is one of the household's own — it owns the account list.
-                AlertHints.counterpartyLast4(msg.getPayload(), last4));
+                AlertHints.counterpartyLast4(msg.getPayload(), last4),
+                // Lets expense-service tell two same-amount payments to one payee apart.
+                reference);
             ExpenseClient.CreateResult result = expense.create(createReq);
             if (!result.created()) {
                 return new Outcome(finish(msg, ParseStatus.DUPLICATE, null, "Duplicate of an existing transaction."), null);

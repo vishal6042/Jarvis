@@ -73,6 +73,21 @@ class TransactionServiceMatchAccountTest {
         assertTrue(service.matchAccount("X80", null).isEmpty());
     }
 
+    @Test
+    void aCardNamedWithoutDigitsMatchesWhenTheNameSinglesItOut() {
+        Account scapia = account(13L, "Federal Bank", AccountType.CREDIT_CARD, "4797");
+        scapia.setDisplayName("Scapia Federal •••• 4797");
+        when(accounts.findAll()).thenReturn(List.of(savings, card3007, hdfc2380, scapia));
+
+        assertEquals(Optional.of(scapia), service.matchAccountByName("Federal Bank", null));
+        assertEquals(Optional.of(scapia), service.matchAccountByName("Scapia Federal Visa", null));
+        assertEquals(Optional.of(scapia), service.matchAccountByName("Scapia", null));
+        // Two ICICI accounts: the name alone cannot say which.
+        assertTrue(service.matchAccountByName("ICICI Bank", null).isEmpty());
+        assertTrue(service.matchAccountByName(null, null).isEmpty());
+        assertTrue(service.matchAccountByName("Axis Bank", null).isEmpty());
+    }
+
     private static Account account(Long id, String bank, AccountType type, String last4) {
         Account a = new Account();
         a.setId(id);

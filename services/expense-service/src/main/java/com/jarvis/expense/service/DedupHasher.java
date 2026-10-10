@@ -27,6 +27,26 @@ public class DedupHasher {
         return sha256(key);
     }
 
+    /**
+     * As above, but keyed on the bank's own reference (UPI / IMPS number) when the alert carried
+     * one. Two payments of the same amount to the same person on the same day are two payments —
+     * a retry after a failed attempt looks exactly like this — and only the reference tells them
+     * apart. The direction is part of the key because a reversal quotes the reference it undoes.
+     */
+    public String hash(
+        String last4, BigDecimal amount, Instant occurredAt, String merchant, String reference, String direction) {
+        if (reference == null || reference.isBlank()) {
+            return hash(last4, amount, occurredAt, merchant);
+        }
+        String key = String.join(
+            "|",
+            last4 == null ? "?" : last4,
+            amount == null ? "?" : amount.stripTrailingZeros().toPlainString(),
+            direction == null ? "?" : direction,
+            "ref:" + reference.trim());
+        return sha256(key);
+    }
+
     private String sha256(String input) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")

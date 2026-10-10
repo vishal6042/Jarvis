@@ -286,6 +286,8 @@ public class TransactionService {
                 .ifPresent(t::setAccount);
         } else if (req.last4() != null && !req.last4().isBlank()) {
             matchAccount(req.last4().trim(), req.bank(), req.memberId()).ifPresent(t::setAccount);
+        } else {
+            matchAccountByName(req.bank(), req.memberId()).ifPresent(t::setAccount);
         }
         // A user rule beats an accepted alias, which beats the parser's guess.
         MerchantAlias alias = req.merchant() == null ? null : aliases.findByRaw(req.merchant()).orElse(null);
@@ -300,7 +302,9 @@ public class TransactionService {
         }
 
         String last4 = t.getAccount() != null ? t.getAccount().getLast4() : req.last4();
-        t.setDedupHash(dedupHasher.hash(last4, t.getAmount(), t.getOccurredAt(), t.getMerchant()));
+        t.setDedupHash(dedupHasher.hash(
+            last4, t.getAmount(), t.getOccurredAt(), t.getMerchant(), req.reference(),
+            t.getDirection() == null ? null : t.getDirection().name()));
         // Hashed on the alert's own figure, so the SMS and the email of one charge still collide.
         fx.toInr(t);
 
@@ -375,6 +379,44 @@ public class TransactionService {
             }
         }
         return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+    }
+
+    /** Words that say nothing about which bank or card an alert means. */
+    private static final java.util.Set<String> GENERIC_NAME_WORDS =
+        java.util.Set.of("bank", "ltd", "limited", "card", "credit", "debit", "visa", "mastercard", "rupay", "amex", "the");
+
+    /**
+     * Match an alert that names its card but shows no digits at all — Scapia writes "on your Scapia
+     * Federal Visa credit card". The name has to single out one account: "Federal" finds the only
+     * Federal Bank card, while "ICICI" fits several accounts and so matches nothing.
+     */
+    Optional<Account> matchAccountByName(String bank, Long memberId) {
+        java.util.Set<String> hint = nameWords(bank);
+        if (hint.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Account> matches = accounts.findAll().stream()
+            .filter(a -> memberId == null || memberId.equals(a.getMemberId()))
+            .filter(a -> {
+                java.util.Set<String> bankWords = nameWords(a.getBank());
+                java.util.Set<String> all = new java.util.HashSet<>(bankWords);
+                all.addAll(nameWords(a.getDisplayName()));
+                return all.containsAll(hint) || (!bankWords.isEmpty() && hint.containsAll(bankWords));
+            })
+            .toList();
+        return matches.size() == 1 ? Optional.of(matches.get(0)) : Optional.empty();
+    }
+
+    private static java.util.Set<String> nameWords(String name) {
+        java.util.Set<String> words = new java.util.HashSet<>();
+        if (name != null) {
+            for (String w : name.toLowerCase().split("[^a-z]+")) {
+                if (w.length() > 1 && !GENERIC_NAME_WORDS.contains(w)) {
+                    words.add(w);
+                }
+            }
+        }
+        return words;
     }
 
     /**

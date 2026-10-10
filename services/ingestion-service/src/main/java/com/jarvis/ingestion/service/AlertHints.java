@@ -30,6 +30,9 @@ public final class AlertHints {
         Pattern.compile("will be debited", Pattern.CASE_INSENSITIVE),
         Pattern.compile("we have (successfully )?(received|processed) (a |your )?payment", Pattern.CASE_INSENSITIVE),
         Pattern.compile("thank you for (renting|your payment)", Pattern.CASE_INSENSITIVE),
+        // A biller's own receipt ("This is a confirmation for receipt of Rs.1414.82 towards ACT
+        // Fibernet A/c No ..."): the bank's debit alert already recorded this money.
+        Pattern.compile("confirmation (for|of) (the )?receipt of", Pattern.CASE_INSENSITIVE),
         Pattern.compile("statement .{0,30}(generated|is ready)", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\bOTP\\b", Pattern.CASE_INSENSITIVE));
 
@@ -41,6 +44,33 @@ public final class AlertHints {
     private static final Pattern MASKED_REF = Pattern.compile(
         "(?i)(?:a/?c|acct|account|card)(?:\\s*(?:no\\.?|number|ending(?:\\s+in|\\s+with)?))?\\s*:?\\s*"
             + "(?:\\d{0,2}[xX*]{1,12}|[xX*]{2,12}|ending\\s+)(\\d{2,})\\b");
+
+    /**
+     * The bank's reference for a payment: "UPI:627465992673", "UPI: 664507457069", "(IMPS Ref#
+     * 628100238184)", "IMPS:624917380061". Group 1 is the number.
+     */
+    private static final Pattern PAYMENT_REF = Pattern.compile(
+        "(?i)\\b(?:UPI|IMPS|NEFT|RTGS)(?:\\s*Ref(?:erence)?)?(?:\\s*No\\.?)?\\s*[:#-]?\\s*(\\d{9,})\\b");
+
+    private static final Pattern REVERSAL = Pattern.compile("(?i)\\brevers(?:al|ed)\\b");
+
+    /** The UPI / IMPS / NEFT reference quoted in the text, or null. */
+    public static String paymentRef(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher m = PAYMENT_REF.matcher(text);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /**
+     * True for the credit that hands back a failed payment: "credited with Rs 1119.69 on 06-Oct-26
+     * as reversal of transaction with UPI: 664507457069". It is not income, and the debit it undoes
+     * was never spent.
+     */
+    public static boolean isReversal(String text) {
+        return text != null && REVERSAL.matcher(text).find();
+    }
 
     /** The loan account an EMI went to: "to Loan A/c No.XXXXX432573" → "2573". */
     private static final Pattern LOAN_REF = Pattern.compile(

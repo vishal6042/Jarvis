@@ -127,13 +127,15 @@ public class ExpenseClient {
         String sourceRef,
         BigDecimal balanceAfter,
         /** Digits of the account credited by this transfer, when the alert named one. */
-        String counterpartyLast4) {
+        String counterpartyLast4,
+        /** The bank's reference for this payment (UPI / IMPS number), when the alert quoted one. */
+        String reference) {
 
-        /** Statement-import shape: explicit account, no bank hint, balance or counterparty. */
+        /** Statement-import shape: explicit account, no bank hint, balance, counterparty or reference. */
         public CreateTransactionRequest(
             Long memberId, Long accountId, String last4, BigDecimal amount, String currency, String direction,
             String merchant, String category, Instant occurredAt, String source, String sourceRef) {
-            this(memberId, accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null, null);
+            this(memberId, accountId, last4, null, amount, currency, direction, merchant, category, occurredAt, source, sourceRef, null, null, null);
         }
     }
 
