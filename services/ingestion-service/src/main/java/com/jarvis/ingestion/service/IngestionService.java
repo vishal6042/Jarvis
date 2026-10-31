@@ -169,8 +169,11 @@ public class IngestionService {
      */
     private Outcome process(RawMessage msg, Long forwarder) {
         try {
-            // EPFO passbook alerts state the balance outright, so they update the PF investment
-            // directly. They are caught before the noise gate, which rejects "passbook balance".
+            // EPFO passbook alerts carry the month's contribution, which is added to the PF investment.
+            // Their stated balance is not used: it leaves out the yearly interest credit (Jul-26's SMS
+            // read ₹36.5L while the passbook stood at ₹39.1L), so it would knock the value back down.
+            // The value only grows by contributions here and is corrected by hand from the passbook.
+            // Caught before the noise gate, which rejects "passbook balance".
             AlertHints.EpfAlert epf = AlertHints.epfAlert(msg.getPayload());
             if (epf != null) {
                 var pf = finance.findByLast4(epf.last4(), forwarder);
@@ -183,11 +186,11 @@ public class IngestionService {
                 var res = finance.contribute(
                     pf.get().accountLast4(),
                     epf.contribution(),
-                    epf.balance(),
+                    null,
                     epf.dueMonth() != null ? epf.dueMonth() : msg.getReceivedAt().atZone(ZoneOffset.UTC).toLocalDate(),
                     forwarder);
                 String detail = "EPF update for " + res.name()
-                    + (res.applied() ? "" : " (already counted)") + " · balance ₹" + res.current().toPlainString();
+                    + (res.applied() ? "" : " (already counted)") + " · value ₹" + res.current().toPlainString();
                 return new Outcome(finish(msg, ParseStatus.INVESTMENT, null, detail), null);
             }
 
