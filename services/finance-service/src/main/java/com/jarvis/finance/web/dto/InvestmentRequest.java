@@ -24,4 +24,6 @@ public record InvestmentRequest(
     /** True for payslip deductions (EPF, corporate NPS): never money still to pay. */
     Boolean salaryDeducted,
     /** "monthly" (default) or "yearly" — how often the instalment falls due. */
-    String contributionFrequency) {}
+    String contributionFrequency,
+    /** Gratuity only: monthly basic + DA; with the opening (joining) date, the value is calculated. */
+    BigDecimal monthlyWage) {}

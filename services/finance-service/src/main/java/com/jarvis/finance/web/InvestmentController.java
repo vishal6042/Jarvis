@@ -1,5 +1,6 @@
 package com.jarvis.finance.web;
 
+import com.jarvis.finance.domain.GratuityMath;
 import com.jarvis.finance.domain.Investment;
 import com.jarvis.finance.domain.RdMath;
 import com.jarvis.finance.repo.InvestmentRepository;
@@ -118,6 +119,10 @@ public class InvestmentController {
         if (req.lastContributionOn() != null) {
             i.setLastContributionOn(req.lastContributionOn());
         }
+        if (req.monthlyWage() != null) {
+            i.setMonthlyWage(req.monthlyWage().signum() > 0 ? req.monthlyWage() : null);
+        }
+        GratuityMath.refresh(i, LocalDate.now());
     }
 
     private ResponseStatusException notFound() {

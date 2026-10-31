@@ -11,6 +11,7 @@ import { useFamily, useInvestments } from "@/lib/store";
 import { EPF_YEARLY_RAISE, maturityProjection } from "@/lib/rdMath";
 import { monthlyEquivalent, portfolioReturn, valueToday } from "@/lib/portfolio";
 import { formatINR, formatDate } from "@/lib/format";
+import { gratuityStatus } from "@/lib/gratuity";
 import PageHeader from "@/components/page/PageHeader";
 import HeadlineStrip, { type HeadlineCell } from "@/components/page/HeadlineStrip";
 import Panel from "@/components/page/Panel";
@@ -77,6 +78,7 @@ type FormState = {
   commencementDate: string;
   maturityDate: string;
   notes: string;
+  monthlyWage: string;
 };
 const EMPTY: FormState = {
   kind: "FD",
@@ -89,6 +91,7 @@ const EMPTY: FormState = {
   commencementDate: "",
   maturityDate: "",
   notes: "",
+  monthlyWage: "",
 };
 
 function num(v: string): number | undefined {
@@ -109,6 +112,7 @@ function toForm(i: Investment): FormState {
     commencementDate: i.commencementDate ?? "",
     maturityDate: i.maturityDate ?? "",
     notes: i.notes ?? "",
+    monthlyWage: i.monthlyWage != null ? String(i.monthlyWage) : "",
   };
 }
 
@@ -169,6 +173,10 @@ function InvestmentCard({
         </Badge>
       </CardHeader>
       <CardContent className="relative z-10 space-y-1.5 text-sm">
+        {inv.kind === "GRATUITY" ? (
+          <GratuityRows inv={inv} />
+        ) : (
+        <>
         <Row label="Invested" value={formatINR(inv.principal)} />
         <Row label="Current" value={`${now.accrued ? "≈ " : ""}${formatINR(now.value)}`} />
         {now.accrued && now.since && (
@@ -193,6 +201,8 @@ function InvestmentCard({
             {formatINR(gain)} ({pct}%)
           </span>
         </div>
+        </>
+        )}
         {/* Always there, so the hover-only Edit pill has a row of its own instead of covering "Gain". */}
         <div className="flex h-9 items-center justify-end pt-1">
           {canDelete && (
@@ -211,6 +221,74 @@ function InvestmentCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/** A gratuity card: what it is worth by the formula, what that rests on, and where the ₹20 lakh cap stands. */
+function GratuityRows({ inv }: { inv: Investment }) {
+  const g = gratuityStatus(inv);
+  if (!g) {
+    return (
+      <>
+        <Row label="Value" value={formatINR(inv.current)} />
+        <p className="pt-1 text-[11px] text-muted-foreground">
+          Add basic + DA and date of joining to have Jarvis calculate it.
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      <Row label="Value" value={formatINR(g.value)} />
+      <Row label="Basic + DA" value={`${formatINR(g.wage)} / mo`} />
+      <Row label="Service" value={`${g.service} · ${g.years} counted`} />
+      <Row label="Each year adds" value={formatINR(Math.round(g.perYear))} />
+      <p className="pt-1 text-[11px] text-muted-foreground">
+        {!g.eligible
+          ? `Payable after 5 years of service — from ${monthYear(g.eligibleOn)}.`
+          : g.capped
+            ? `At the ₹20L legal cap (formula gives ${lakh(g.formula)}). Further years add nothing.`
+            : g.capOn
+              ? `Reaches the ₹20L cap around ${monthYear(g.capOn)} at this wage.`
+              : null}
+      </p>
+    </>
+  );
+}
+
+/** The details view for gratuity: the working, then the rules it follows. */
+function GratuityDetails({ inv }: { inv: Investment }) {
+  const g = gratuityStatus(inv);
+  return (
+    <div className="space-y-3 text-sm">
+      {g ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Detail label="Value today" value={formatINR(g.value)} />
+          <Detail label="Basic + DA / month" value={formatINR(g.wage)} />
+          <Detail label="Date of joining" value={formatDate(g.joined)} />
+          <Detail label="Service" value={`${g.service} (${g.years} counted)`} />
+          <Detail label="Formula" value={`${formatINR(g.wage)} × 15/26 × ${g.years} = ${formatINR(g.formula)}`} />
+          <Detail
+            label="₹20L cap"
+            value={g.capped ? "Reached" : g.capOn ? `Around ${monthYear(g.capOn)}` : "—"}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Detail label="Value" value={formatINR(inv.current)} />
+          <Detail label="Calculated" value="No — add basic + DA and date of joining" />
+        </div>
+      )}
+      <ul className="list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+        <li>Paid by your employer when you leave, retire or resign, after 5 years of continuous service.</li>
+        <li>15 days' wages for every year worked; a final part-year of more than 6 months counts as a full year.</li>
+        <li>Capped at ₹20 lakh, which is also the most a private-sector employee gets tax-free.</li>
+        <li>
+          Since the labour codes (21 Nov 2025), allowances above half your pay count as wages — if basic + DA is under
+          50% of your total pay, the real figure can be higher than this.
+        </li>
+      </ul>
+    </div>
   );
 }
 
@@ -254,6 +332,9 @@ function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClo
           <DialogDescription>{KIND_META[inv.kind].label}</DialogDescription>
         </DialogHeader>
 
+        {inv.kind === "GRATUITY" ? (
+          <GratuityDetails inv={inv} />
+        ) : (
         <div className="grid grid-cols-2 gap-3 text-sm">
           <Detail label="Invested" value={formatINR(inv.principal)} />
           <Detail label="Current value" value={`${approx}${formatINR(now.value)}`} />
@@ -269,6 +350,7 @@ function DetailsDialog({ inv, onClose, onEdit }: { inv: Investment | null; onClo
           )}
           {inv.maturityDate && <Detail label="Maturity" value={formatDate(inv.maturityDate)} />}
         </div>
+        )}
         {now.accrued && now.since && (
           <p className="text-xs text-muted-foreground">
             Current value is interest accrued at {now.rate}% since {longDate(now.since)}, compounded quarterly. Enter the bank's figure to replace it.
@@ -432,6 +514,7 @@ export default function Investments() {
       commencementDate: form.commencementDate || undefined,
       maturityDate: form.maturityDate || undefined,
       notes: form.notes || undefined,
+      monthlyWage: form.kind === "GRATUITY" ? num(form.monthlyWage) : undefined,
     };
     if (editing) update(editing.id, payload);
     else adder.add(payload);
@@ -662,27 +745,52 @@ export default function Investments() {
             <Field label="Name / institution">
               <Input value={form.name} onChange={(e) => set("name")(e.target.value)} required />
             </Field>
-            <Field label="Invested (₹)">
-              <Input value={form.principal} onChange={(e) => set("principal")(e.target.value)} inputMode="numeric" required />
-            </Field>
-            <Field label="Current value (₹)">
-              <Input value={form.current} onChange={(e) => set("current")(e.target.value)} inputMode="numeric" />
-            </Field>
-            <Field label="Interest rate (%)">
-              <Input value={form.rate} onChange={(e) => set("rate")(e.target.value)} inputMode="decimal" />
-            </Field>
-            <Field label="SIP / month (₹)">
-              <Input value={form.sip} onChange={(e) => set("sip")(e.target.value)} inputMode="numeric" />
-            </Field>
-            <Field label="Opening date">
-              <DatePicker value={form.openingDate} onChange={set("openingDate")} />
-            </Field>
-            <Field label="Commencement date">
-              <DatePicker value={form.commencementDate} onChange={set("commencementDate")} />
-            </Field>
-            <Field label="Maturity date">
-              <DatePicker value={form.maturityDate} onChange={set("maturityDate")} />
-            </Field>
+            {form.kind === "GRATUITY" ? (
+              <>
+                {/* Gratuity is worked out, not saved up: basic + DA × 15/26 × years, capped at ₹20 lakh. */}
+                <Field label="Basic + DA / month (₹)">
+                  <Input value={form.monthlyWage} onChange={(e) => set("monthlyWage")(e.target.value)} inputMode="numeric" />
+                </Field>
+                <Field label="Date of joining">
+                  <DatePicker value={form.openingDate} onChange={set("openingDate")} />
+                </Field>
+                <Field label="Current value (₹)">
+                  <Input
+                    value={form.current}
+                    onChange={(e) => {
+                      set("current")(e.target.value);
+                      set("principal")(e.target.value);
+                    }}
+                    inputMode="numeric"
+                    placeholder="Calculated when both above are set"
+                  />
+                </Field>
+              </>
+            ) : (
+              <>
+                <Field label="Invested (₹)">
+                  <Input value={form.principal} onChange={(e) => set("principal")(e.target.value)} inputMode="numeric" required />
+                </Field>
+                <Field label="Current value (₹)">
+                  <Input value={form.current} onChange={(e) => set("current")(e.target.value)} inputMode="numeric" />
+                </Field>
+                <Field label="Interest rate (%)">
+                  <Input value={form.rate} onChange={(e) => set("rate")(e.target.value)} inputMode="decimal" />
+                </Field>
+                <Field label="SIP / month (₹)">
+                  <Input value={form.sip} onChange={(e) => set("sip")(e.target.value)} inputMode="numeric" />
+                </Field>
+                <Field label="Opening date">
+                  <DatePicker value={form.openingDate} onChange={set("openingDate")} />
+                </Field>
+                <Field label="Commencement date">
+                  <DatePicker value={form.commencementDate} onChange={set("commencementDate")} />
+                </Field>
+                <Field label="Maturity date">
+                  <DatePicker value={form.maturityDate} onChange={set("maturityDate")} />
+                </Field>
+              </>
+            )}
             <div className="col-span-2">
               <Field label="Notes">
                 <Input value={form.notes} onChange={(e) => set("notes")(e.target.value)} />

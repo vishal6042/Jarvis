@@ -28,6 +28,8 @@ export interface ApiInvestment {
   contributionFrequency?: "monthly" | "yearly";
   /** Date of the last instalment counted in — from an alert, or marked paid by hand. */
   lastContributionOn?: string | null;
+  /** Gratuity only: monthly basic + DA; the server works the value out from it. */
+  monthlyWage?: number | null;
 }
 export interface ApiLoan {
   id: number;

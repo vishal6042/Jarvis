@@ -204,6 +204,8 @@ export interface Investment {
   contributionFrequency?: "monthly" | "yearly";
   /** Last instalment counted in (yyyy-MM-dd) — an alert or a manual "mark paid". */
   lastContributionOn?: string;
+  /** Gratuity only: monthly basic + DA. With {@link openingDate} as the joining date, the value is calculated. */
+  monthlyWage?: number;
 }
 
 export function seedInvestments(): Investment[] {

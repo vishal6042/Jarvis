@@ -88,6 +88,7 @@ const toInv = (a: ApiInvestment): Investment => ({
   salaryDeducted: a.salaryDeducted ?? false,
   contributionFrequency: a.contributionFrequency === "yearly" ? "yearly" : "monthly",
   lastContributionOn: a.lastContributionOn ?? undefined,
+  monthlyWage: a.monthlyWage ?? undefined,
 });
 const toLoan = (a: ApiLoan): Loan => ({
   id: String(a.id),
@@ -237,6 +238,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       commencementDate: inv.commencementDate ?? null,
       maturityDate: inv.maturityDate ?? null,
       notes: inv.notes ?? null,
+      monthlyWage: inv.monthlyWage ?? null,
     });
     setRawInvestments((prev) => [saved, ...prev]);
   };
@@ -255,6 +257,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       commencementDate: patch.commencementDate ?? raw.commencementDate ?? null,
       maturityDate: patch.maturityDate ?? raw.maturityDate ?? null,
       notes: patch.notes ?? raw.notes ?? null,
+      monthlyWage: patch.monthlyWage ?? raw.monthlyWage ?? null,
     });
     setRawInvestments((prev) => prev.map((x) => (x.id === raw.id ? saved : x)));
   };

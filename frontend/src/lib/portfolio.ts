@@ -43,6 +43,9 @@ export function valueToday(inv: Investment, today = new Date()): ValueToday {
   return value > inv.principal ? { value, accrued: true, rate: inv.rate, since } : { value: inv.current, accrued: false };
 }
 
+/** False for gratuity: the employer pays it, so it has a value but no money put in and no return. */
+export const earnsReturn = (inv: Investment) => inv.kind !== "GRATUITY";
+
 /** The value today of each holding, summed. */
 export const totalValue = (investments: Investment[], today = new Date()) =>
   investments.reduce((s, i) => s + valueToday(i, today).value, 0);
@@ -194,6 +197,8 @@ export function sipSchedule(inv: Investment, today = new Date()): SipSchedule | 
 /** Cash flows implied by one holding: its instalments for a SIP/RD, else one lump sum; then today's value. */
 export function flowsFor(inv: Investment, today = new Date()): CashFlow[] {
   const flows: CashFlow[] = [];
+  // Employer-funded: nothing was paid in, so it has no return of its own to measure.
+  if (!earnsReturn(inv)) return flows;
   if ((inv.sip ?? 0) > 0) {
     const schedule = sipSchedule(inv, today);
     if (!schedule) return [];
@@ -250,11 +255,13 @@ export function portfolioReturn(investments: Investment[], today = new Date()): 
   const all: CashFlow[] = [];
   for (const inv of investments) all.push(...flowsFor(inv, today));
   const rate = all.length ? xirr(all) : null;
+  // Gratuity is stored with invested == value, so it adds no gain; leave it out of the % too.
+  const base = investments.filter(earnsReturn).reduce((s, i) => s + i.principal, 0);
   return {
     invested,
     current,
     gain: current - invested,
-    gainPct: invested > 0 ? ((current - invested) / invested) * 100 : 0,
+    gainPct: base > 0 ? ((current - invested) / base) * 100 : 0,
     annualised: rate != null ? rate * 100 : null,
     // A yearly premium is shown as its monthly equivalent so the total means one month of money.
     monthlyCommitment: investments.reduce((s, i) => s + monthlyEquivalent(i), 0),

@@ -70,6 +70,10 @@ public class Investment {
     @Column(name = "contribution_frequency", nullable = false, length = 10)
     private String contributionFrequency = "monthly";
 
+    /** Gratuity only: the monthly basic + DA its value is worked out from (see {@link GratuityMath}). */
+    @Column(name = "monthly_wage", precision = 16, scale = 2)
+    private BigDecimal monthlyWage;
+
     /** Date of the alert that last set {@link #current}, so an older alert never overwrites a newer value. */
     @Column(name = "value_as_of")
     private LocalDate valueAsOf;
