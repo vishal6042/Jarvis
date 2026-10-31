@@ -166,6 +166,7 @@ export type InvestmentKind =
   | "SSY"
   | "NPS"
   | "LIC"
+  | "GRATUITY"
   | "MF";
 
 export const KIND_META: Record<
@@ -181,6 +182,7 @@ export const KIND_META: Record<
   SSY: { label: "Sukanya Samriddhi", color: "#ec4899" },
   NPS: { label: "National Pension System", color: "#0ea5e9" },
   LIC: { label: "LIC Policy", color: "#d946ef" },
+  GRATUITY: { label: "Gratuity", color: "#84cc16" },
   MF: { label: "Mutual Fund / SIP", color: "#6366f1" },
 };
 

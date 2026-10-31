@@ -26,6 +26,7 @@ export const SHORT: Record<InvestmentKind, string> = {
   SSY: "SSY",
   NPS: "NPS",
   LIC: "LIC",
+  GRATUITY: "Gratuity",
   MF: "Funds",
 };
 
@@ -71,6 +72,7 @@ export function accountNumber(inv: Investment): string {
 const CLASS_WORD: Record<InvestmentKind, string> = {
   PF: "retirement",
   NPS: "retirement",
+  GRATUITY: "retirement",
   LIC: "insurance",
   MF: "market-linked",
   FD: "fixed income",
@@ -103,6 +105,8 @@ function freesUp(items: Investment[], today: Date): string {
   if (dated.length === 0) {
     // NPS Tier I is locked until 60 by the scheme's rules; a Tier II account can be withdrawn any time.
     if (items.every((i) => i.kind === "NPS" && !/tier\s*(2|ii)\b/i.test(i.name))) return "at 60";
+    // Gratuity is paid by the employer when you leave (after 5 years' service), not on a set date.
+    if (items.every((i) => i.kind === "GRATUITY")) return "on leaving";
     return "—";
   }
   const values = items.map((i) => (i.kind === "PF" ? null : maturityValue(i, today)));

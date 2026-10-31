@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** A savings/investment instrument owned by a member (FD/RD/PPF/PF/NSC/KVP/SSY/MF). */
+/** A savings/investment instrument owned by a member (FD/RD/PPF/PF/NSC/KVP/SSY/NPS/LIC/GRATUITY/MF). */
 @Entity
 @Table(name = "investment")
 @Getter

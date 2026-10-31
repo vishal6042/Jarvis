@@ -51,7 +51,7 @@ export const totalValue = (investments: Investment[], today = new Date()) =>
 export const monthlyEquivalent = (inv: Investment) => (inv.sip ?? 0) / (inv.contributionFrequency === "yearly" ? 12 : 1);
 
 /** Products with a fixed or declared return, against those whose value moves with the market. */
-export const FIXED_RETURN_KINDS: InvestmentKind[] = ["PF", "PPF", "FD", "RD", "LIC", "NSC", "KVP", "SSY"];
+export const FIXED_RETURN_KINDS: InvestmentKind[] = ["PF", "PPF", "FD", "RD", "LIC", "NSC", "KVP", "SSY", "GRATUITY"];
 export const MARKET_LINKED_KINDS: InvestmentKind[] = ["NPS", "MF"];
 
 // ---------------------------------------------------------------------------------------------
